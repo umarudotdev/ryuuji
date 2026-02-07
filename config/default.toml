@@ -1,0 +1,29 @@
+[general]
+# How often to check for media playback (in seconds).
+detection_interval = 5
+# Close to tray instead of quitting.
+close_to_tray = false
+
+[library]
+# Automatically update progress when episode changes.
+auto_update = true
+# Ask for confirmation before updating progress.
+confirm_update = false
+
+[services]
+# Primary service for syncing. One of: "anilist", "kitsu", "mal"
+primary = "anilist"
+
+[services.anilist]
+enabled = true
+
+[services.kitsu]
+enabled = false
+
+[services.mal]
+enabled = false
+client_id = ""
+
+[discord]
+# Enable Discord Rich Presence.
+enabled = false

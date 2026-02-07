@@ -1,0 +1,11 @@
+[package]
+name = "kurozumi-parse"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+phf = { version = "0.11", features = ["macros"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }
