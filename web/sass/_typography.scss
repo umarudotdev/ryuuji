@@ -1,0 +1,50 @@
+// Text styles
+// @font-face declarations are inlined in base.html <head> for earlier discovery
+
+body {
+  font-family: $font-sans;
+  font-size: $text-base;
+  color: $text-primary;
+}
+
+h1, h2, h3 {
+  line-height: $lh-tight;
+  color: $text-primary;
+}
+
+h1 {
+  font-size: $text-hero;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: $text-3xl;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+h3 {
+  font-size: $text-xl;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+p {
+  line-height: $lh-normal;
+  color: $text-secondary;
+}
+
+code {
+  font-family: $font-mono;
+}
+
+strong {
+  color: $text-primary;
+  font-weight: 600;
+}
+
+@media (max-width: $bp-mobile) {
+  h1 { font-size: $text-2xl; }
+  h2 { font-size: $text-xl;  }
+}

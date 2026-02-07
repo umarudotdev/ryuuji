@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Ryuuji
+GenericName=Anime Tracker
+Comment=Desktop anime tracker with automatic player detection
+Exec=ryuuji
+Icon=ryuuji
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Network;
+Keywords=anime;tracker;myanimelist;anilist;kitsu;
+StartupWMClass=ryuuji

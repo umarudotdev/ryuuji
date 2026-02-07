@@ -1,0 +1,88 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ryuuji-core",
+    "crates/ryuuji-detect",
+    "crates/ryuuji-parse",
+    "crates/ryuuji-api",
+    "crates/ryuuji-gui",
+    "crates/ryuuji-wasm",
+]
+default-members = [
+    "crates/ryuuji-core",
+    "crates/ryuuji-detect",
+    "crates/ryuuji-parse",
+    "crates/ryuuji-api",
+    "crates/ryuuji-gui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/umarudotdev/ryuuji"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+# Error handling
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Config
+toml = "0.8"
+directories = "5"
+
+# OS integration
+dark-light = "2"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Async utilities
+futures = "0.3"
+
+# RSS & URL
+rss = "2"
+url = "2"
+
+# Unicode
+unicode-normalization = "0.1"
+
+# Directory traversal
+walkdir = "2"
+
+# Clipboard
+arboard = "3"
+
+# Discord Rich Presence
+discord-rich-presence = "1"
+
+# WASM
+wasm-bindgen = "0.2"
+
+# Internal crates
+ryuuji-core = { path = "crates/ryuuji-core" }
+ryuuji-detect = { path = "crates/ryuuji-detect" }
+ryuuji-parse = { path = "crates/ryuuji-parse" }
+ryuuji-api = { path = "crates/ryuuji-api" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

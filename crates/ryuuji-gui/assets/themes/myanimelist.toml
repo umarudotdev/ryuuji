@@ -1,0 +1,107 @@
+[meta]
+name = "MyAnimeList"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Based on MAL's actual dark mode color scheme.
+
+[dark.surface]
+container_lowest = "#0E0E0E"   # slightly below page bg
+base = "#121212"               # page background
+container_low = "#181818"      # content cards
+container = "#1E1E1E"          # between cards and elevated
+container_high = "#222222"     # secondary surface
+container_highest = "#333333"  # dropdown menus
+bright = "#353535"             # elevated surfaces / buttons
+
+[dark.text]
+on_surface = "#E0E0E0"        # primary text
+on_surface_variant = "#A3A3A3" # secondary/muted text
+outline = "#787878"            # dimmed text
+outline_variant = "#3A3A3A"   # subtle borders
+
+[dark.primary]
+base = "#2E51A2"              # MAL blue (navigation bar)
+hover = "#3A62B8"             # lighter blue on hover
+dim = "#2D4276"               # edit/action button blue
+on_primary = "#FFFFFF"        # white text on blue
+container = "#2D4276"         # tonal container
+on_container = "#ABC4ED"      # light blue link color
+
+[dark.secondary]
+container = "#333333"         # dropdown menus
+on_container = "#A3A3A3"      # muted text
+
+[dark.tertiary]
+base = "#FF8F81"              # salmon/coral accent
+on_tertiary = "#121212"       # dark text on accent
+
+[dark.error]
+base = "#C81A42"              # MAL red (event/announcement bar)
+hover = "#A81538"
+pressed = "#8D1030"
+on_error = "#FFFFFF"
+
+[dark.status]
+watching = "#2DB039"
+completed = "#5181D5"
+on_hold = "#F9D457"
+dropped = "#F44E5A"
+plan = "#9CA0B8"
+
+[dark.inverse]
+surface = "#E0E0E0"
+on_surface = "#121212"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#F5F5F5"
+container_low = "#EEEEEE"
+container = "#E8E8E8"
+container_high = "#E0E0E0"
+container_highest = "#D6D6D6"
+bright = "#CCCCCC"
+
+[light.text]
+on_surface = "#1C1C1C"
+on_surface_variant = "#5C5C5C"
+outline = "#878787"
+outline_variant = "#D0D0D0"
+
+[light.primary]
+base = "#2E51A2"
+hover = "#243F82"
+dim = "#4267B5"
+on_primary = "#FFFFFF"
+container = "#CFD9F4"
+on_container = "#1A2E5C"
+
+[light.secondary]
+container = "#E0E4EF"
+on_container = "#1C1C1C"
+
+[light.tertiary]
+base = "#C04030"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#C81A42"
+hover = "#A81538"
+pressed = "#8D1030"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#1F8A2C"
+completed = "#2E51A2"
+on_hold = "#9C7400"
+dropped = "#A12F31"
+plan = "#484C66"
+
+[light.inverse]
+surface = "#1C1C1C"
+on_surface = "#F5F5F5"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

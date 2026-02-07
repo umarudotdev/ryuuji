@@ -1,0 +1,39 @@
+// Grid, containers, breakpoints
+
+.container {
+  max-width: $container-max;
+  margin-inline: auto;
+  padding-inline: $container-padding;
+
+  @media (max-width: $bp-mobile) {
+    padding-inline: $space-lg;
+  }
+}
+
+.section {
+  padding-block: $section-spacing;
+
+  @media (max-width: $bp-mobile) {
+    padding-block: $section-spacing-mobile;
+  }
+}
+
+// ── Grid utilities ─────────────────────────────────────────
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $space-xl;
+
+  @media (max-width: $bp-tablet) {
+    gap: $space-lg;
+  }
+
+  @media (max-width: $bp-mobile) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ── Responsive visibility ────────────────────────────────────
+@media (max-width: $bp-tablet) {
+  .desktop-only { display: none !important; }
+}

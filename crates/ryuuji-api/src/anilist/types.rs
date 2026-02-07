@@ -1,0 +1,490 @@
+use serde::Deserialize;
+
+use crate::traits::{AnimeSearchResult, UserListEntry};
+
+// ── GraphQL response wrappers ────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct GraphQLResponse<T> {
+    pub data: T,
+}
+
+// ── Search / media queries ───────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct PageResponse {
+    #[serde(rename = "Page")]
+    pub page: PageData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PageData {
+    pub media: Vec<AniListMedia>,
+}
+
+/// Response for paginated season browse queries.
+#[derive(Debug, Deserialize)]
+pub struct SeasonBrowseResponse {
+    #[serde(rename = "Page")]
+    pub page: SeasonPageData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SeasonPageData {
+    #[serde(rename = "pageInfo")]
+    pub page_info: PageInfo,
+    pub media: Vec<AniListMedia>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PageInfo {
+    #[serde(rename = "hasNextPage")]
+    pub has_next_page: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AniListMedia {
+    pub id: u64,
+    pub title: Option<AniListTitle>,
+    pub episodes: Option<u32>,
+    #[serde(rename = "coverImage")]
+    pub cover_image: Option<CoverImage>,
+    #[serde(rename = "meanScore")]
+    pub mean_score: Option<u32>,
+    pub season: Option<String>,
+    #[serde(rename = "seasonYear")]
+    pub season_year: Option<u32>,
+    pub genres: Option<Vec<String>>,
+    pub studios: Option<StudioConnection>,
+    pub format: Option<String>,
+    pub status: Option<String>,
+    pub description: Option<String>,
+    pub source: Option<String>,
+    pub synonyms: Option<Vec<String>>,
+    #[serde(rename = "startDate")]
+    pub start_date: Option<FuzzyDate>,
+    #[serde(rename = "endDate")]
+    pub end_date: Option<FuzzyDate>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AniListTitle {
+    pub romaji: Option<String>,
+    pub english: Option<String>,
+    pub native: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CoverImage {
+    pub large: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StudioConnection {
+    pub nodes: Option<Vec<StudioNode>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StudioNode {
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FuzzyDate {
+    pub year: Option<u32>,
+    pub month: Option<u32>,
+    pub day: Option<u32>,
+}
+
+// ── Single media response (for get_anime) ───────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct MediaResponse {
+    #[serde(rename = "Media")]
+    pub media: AniListMedia,
+}
+
+// ── Media list lookup (for delete) ──────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListLookupResponse {
+    #[serde(rename = "MediaList")]
+    pub media_list: Option<MediaListId>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListId {
+    pub id: u64,
+}
+
+// ── Status mapping ──────────────────────────────────────────────
+
+/// Map internal status strings to AniList API status values.
+pub fn map_status_to_anilist(status: &str) -> &'static str {
+    match status {
+        "watching" => "CURRENT",
+        "completed" => "COMPLETED",
+        "on_hold" => "PAUSED",
+        "dropped" => "DROPPED",
+        "plan_to_watch" => "PLANNING",
+        _ => "PLANNING",
+    }
+}
+
+// ── User list queries ────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListCollectionResponse {
+    #[serde(rename = "MediaListCollection")]
+    pub media_list_collection: MediaListCollection,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListCollection {
+    pub lists: Vec<MediaListGroup>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListGroup {
+    pub entries: Vec<MediaListEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListEntry {
+    #[serde(rename = "mediaId")]
+    pub media_id: u64,
+    pub progress: u32,
+    pub score: Option<f32>,
+    pub status: Option<String>,
+    #[serde(rename = "startedAt")]
+    pub started_at: Option<FuzzyDate>,
+    #[serde(rename = "completedAt")]
+    pub completed_at: Option<FuzzyDate>,
+    pub notes: Option<String>,
+    pub repeat: Option<u32>,
+    pub media: AniListMedia,
+}
+
+// ── Viewer query ─────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct ViewerResponse {
+    #[serde(rename = "Viewer")]
+    pub viewer: Viewer,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Viewer {
+    pub id: u64,
+    pub name: String,
+}
+
+// ── Conversions ──────────────────────────────────────────────────
+
+impl FuzzyDate {
+    pub fn to_string_opt(&self) -> Option<String> {
+        let y = self.year?;
+        let m = self.month.unwrap_or(1);
+        let d = self.day.unwrap_or(1);
+        Some(format!("{y:04}-{m:02}-{d:02}"))
+    }
+
+    /// Parse a `"YYYY-MM-DD"` string into a `FuzzyDate`.
+    pub fn from_date_string(s: &str) -> Option<Self> {
+        let mut parts = s.splitn(3, '-');
+        let year = parts.next()?.parse().ok()?;
+        let month = parts.next().and_then(|p| p.parse().ok());
+        let day = parts.next().and_then(|p| p.parse().ok());
+        Some(Self {
+            year: Some(year),
+            month,
+            day,
+        })
+    }
+
+    /// Convert to the `FuzzyDateInput` JSON shape AniList mutations expect.
+    pub fn to_input_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "year": self.year,
+            "month": self.month,
+            "day": self.day,
+        })
+    }
+}
+
+fn capitalize_season(s: &str) -> String {
+    match s {
+        "WINTER" => "Winter".into(),
+        "SPRING" => "Spring".into(),
+        "SUMMER" => "Summer".into(),
+        "FALL" => "Fall".into(),
+        other => {
+            let mut c = other.chars();
+            match c.next() {
+                Some(first) => first.to_uppercase().to_string() + &c.as_str().to_lowercase(),
+                None => String::new(),
+            }
+        }
+    }
+}
+
+fn map_anilist_status(s: &str) -> &'static str {
+    match s {
+        "CURRENT" => "watching",
+        "COMPLETED" => "completed",
+        "PAUSED" => "on_hold",
+        "DROPPED" => "dropped",
+        "PLANNING" => "plan_to_watch",
+        "REPEATING" => "watching",
+        _ => "watching",
+    }
+}
+
+fn map_anilist_format(s: &str) -> String {
+    s.to_lowercase()
+}
+
+impl AniListMedia {
+    pub fn into_search_result(self) -> AnimeSearchResult {
+        let title = self
+            .title
+            .as_ref()
+            .and_then(|t| t.romaji.clone())
+            .unwrap_or_default();
+        let title_english = self.title.as_ref().and_then(|t| t.english.clone());
+
+        AnimeSearchResult {
+            service_id: self.id,
+            title,
+            title_english,
+            episodes: self.episodes,
+            cover_url: self.cover_image.and_then(|c| c.large),
+            media_type: self.format.map(|f| map_anilist_format(&f)),
+            status: self.status.as_deref().map(|s| s.to_lowercase()),
+            synopsis: self.description,
+            genres: self.genres.unwrap_or_default(),
+            mean_score: self.mean_score.map(|s| s as f32 / 10.0),
+            season: self.season.as_deref().map(capitalize_season),
+            year: self.season_year,
+        }
+    }
+}
+
+impl MediaListEntry {
+    pub fn into_user_list_entry(self) -> UserListEntry {
+        let title = self
+            .media
+            .title
+            .as_ref()
+            .and_then(|t| t.romaji.clone())
+            .unwrap_or_default();
+
+        let is_repeating = self.status.as_deref() == Some("REPEATING");
+
+        UserListEntry {
+            service_id: self.media_id,
+            title,
+            watched_episodes: self.progress,
+            total_episodes: self.media.episodes,
+            status: self
+                .status
+                .as_deref()
+                .map(map_anilist_status)
+                .unwrap_or("watching")
+                .to_string(),
+            score: self.score.map(|s| s / 10.0),
+            start_date: self.started_at.and_then(|d| d.to_string_opt()),
+            finish_date: self.completed_at.and_then(|d| d.to_string_opt()),
+            notes: self.notes,
+            rewatching: is_repeating,
+            rewatch_count: self.repeat.unwrap_or(0),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_search_response() {
+        let json = r#"{
+            "data": {
+                "Page": {
+                    "media": [
+                        {
+                            "id": 154587,
+                            "title": {
+                                "romaji": "Sousou no Frieren",
+                                "english": "Frieren: Beyond Journey's End",
+                                "native": "葬送のフリーレン"
+                            },
+                            "episodes": 28,
+                            "coverImage": { "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/154587.jpg" },
+                            "meanScore": 90,
+                            "season": "FALL",
+                            "seasonYear": 2023,
+                            "genres": ["Adventure", "Drama", "Fantasy"],
+                            "format": "TV",
+                            "status": "FINISHED",
+                            "description": "After the party defeats the Demon King...",
+                            "source": "MANGA",
+                            "synonyms": ["Frieren at the Funeral"]
+                        }
+                    ]
+                }
+            }
+        }"#;
+
+        let resp: GraphQLResponse<PageResponse> = serde_json::from_str(json).unwrap();
+        let media = resp.data.page.media;
+        assert_eq!(media.len(), 1);
+
+        let result = media.into_iter().next().unwrap().into_search_result();
+        assert_eq!(result.service_id, 154587);
+        assert_eq!(result.title, "Sousou no Frieren");
+        assert_eq!(
+            result.title_english.as_deref(),
+            Some("Frieren: Beyond Journey's End")
+        );
+        assert_eq!(result.episodes, Some(28));
+        assert_eq!(result.mean_score, Some(9.0));
+        assert_eq!(result.season.as_deref(), Some("Fall"));
+        assert_eq!(result.year, Some(2023));
+    }
+
+    #[test]
+    fn test_deserialize_user_list_response() {
+        let json = r#"{
+            "data": {
+                "MediaListCollection": {
+                    "lists": [
+                        {
+                            "entries": [
+                                {
+                                    "mediaId": 154587,
+                                    "progress": 14,
+                                    "score": 9.0,
+                                    "status": "CURRENT",
+                                    "media": {
+                                        "id": 154587,
+                                        "title": { "romaji": "Sousou no Frieren" },
+                                        "episodes": 28
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#;
+
+        let resp: GraphQLResponse<MediaListCollectionResponse> =
+            serde_json::from_str(json).unwrap();
+        let lists = resp.data.media_list_collection.lists;
+        assert_eq!(lists.len(), 1);
+
+        let entry = lists
+            .into_iter()
+            .next()
+            .unwrap()
+            .entries
+            .into_iter()
+            .next()
+            .unwrap()
+            .into_user_list_entry();
+        assert_eq!(entry.service_id, 154587);
+        assert_eq!(entry.title, "Sousou no Frieren");
+        assert_eq!(entry.watched_episodes, 14);
+        assert_eq!(entry.total_episodes, Some(28));
+        assert_eq!(entry.status, "watching");
+        // AniList score is on 0-100 scale, we divide by 10
+        assert_eq!(entry.score, Some(0.9));
+    }
+
+    #[test]
+    fn test_deserialize_minimal_media() {
+        let json = r#"{ "id": 1, "title": { "romaji": "Test" } }"#;
+        let media: AniListMedia = serde_json::from_str(json).unwrap();
+        let result = media.into_search_result();
+        assert_eq!(result.service_id, 1);
+        assert_eq!(result.title, "Test");
+        assert!(result.cover_url.is_none());
+        assert!(result.title_english.is_none());
+    }
+
+    #[test]
+    fn test_status_mapping() {
+        assert_eq!(map_anilist_status("CURRENT"), "watching");
+        assert_eq!(map_anilist_status("COMPLETED"), "completed");
+        assert_eq!(map_anilist_status("PAUSED"), "on_hold");
+        assert_eq!(map_anilist_status("DROPPED"), "dropped");
+        assert_eq!(map_anilist_status("PLANNING"), "plan_to_watch");
+    }
+
+    #[test]
+    fn test_deserialize_media_response() {
+        let json = r#"{
+            "data": {
+                "Media": {
+                    "id": 154587,
+                    "title": {
+                        "romaji": "Sousou no Frieren",
+                        "english": "Frieren: Beyond Journey's End",
+                        "native": "葬送のフリーレン"
+                    },
+                    "episodes": 28,
+                    "coverImage": { "large": "https://example.com/img.jpg" },
+                    "meanScore": 90,
+                    "season": "FALL",
+                    "seasonYear": 2023,
+                    "genres": ["Adventure"],
+                    "format": "TV",
+                    "status": "FINISHED"
+                }
+            }
+        }"#;
+
+        let resp: GraphQLResponse<MediaResponse> = serde_json::from_str(json).unwrap();
+        let result = resp.data.media.into_search_result();
+        assert_eq!(result.service_id, 154587);
+        assert_eq!(result.title, "Sousou no Frieren");
+        assert_eq!(result.episodes, Some(28));
+    }
+
+    #[test]
+    fn test_deserialize_media_list_lookup() {
+        let json = r#"{
+            "data": {
+                "MediaList": {
+                    "id": 42
+                }
+            }
+        }"#;
+
+        let resp: GraphQLResponse<MediaListLookupResponse> = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.data.media_list.unwrap().id, 42);
+    }
+
+    #[test]
+    fn test_deserialize_media_list_lookup_null() {
+        let json = r#"{
+            "data": {
+                "MediaList": null
+            }
+        }"#;
+
+        let resp: GraphQLResponse<MediaListLookupResponse> = serde_json::from_str(json).unwrap();
+        assert!(resp.data.media_list.is_none());
+    }
+
+    #[test]
+    fn test_status_to_anilist_mapping() {
+        assert_eq!(map_status_to_anilist("watching"), "CURRENT");
+        assert_eq!(map_status_to_anilist("completed"), "COMPLETED");
+        assert_eq!(map_status_to_anilist("on_hold"), "PAUSED");
+        assert_eq!(map_status_to_anilist("dropped"), "DROPPED");
+        assert_eq!(map_status_to_anilist("plan_to_watch"), "PLANNING");
+        assert_eq!(map_status_to_anilist("unknown"), "PLANNING");
+    }
+}

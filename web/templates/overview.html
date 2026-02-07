@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+
+{% block content %}
+
+{# ── Page Header ──────────────────────────────────────── #}
+<div class="overview-spacer"></div>
+
+{# ── Features ─────────────────────────────────────────── #}
+<section id="features" class="features section">
+  <div class="container">
+    <div class="section-header" data-animate>
+      <h1><a href="#features" class="anchor-link">{{ trans(key="features_header", lang=lang) }}</a></h1>
+      <p>{{ trans(key="features_subheader", lang=lang) | safe }}</p>
+    </div>
+
+    <div class="grid-2" data-stagger>
+      {{ m::feature_card(
+        title=trans(key="feature_detect_title", lang=lang),
+        description=trans(key="feature_detect_desc", lang=lang),
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+      ) }}
+
+      {{ m::feature_card(
+        title=trans(key="feature_parse_title", lang=lang),
+        description=trans(key="feature_parse_desc", lang=lang),
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>'
+      ) }}
+
+      {{ m::feature_card(
+        title=trans(key="feature_sync_title", lang=lang),
+        description=trans(key="feature_sync_desc", lang=lang),
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>'
+      ) }}
+
+      {{ m::feature_card(
+        title=trans(key="feature_local_title", lang=lang),
+        description=trans(key="feature_local_desc", lang=lang),
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>'
+      ) }}
+    </div>
+  </div>
+</section>
+
+{# ── How It Works ─────────────────────────────────────── #}
+<section id="how-it-works" class="how-it-works section">
+  <div class="container">
+    <div class="section-header" data-animate>
+      <h2><a href="#how-it-works" class="anchor-link">{{ trans(key="how_header", lang=lang) }}</a></h2>
+      <p>{{ trans(key="how_subheader", lang=lang) }}</p>
+    </div>
+
+    <div class="pipeline" data-stagger>
+      {{ m::pipeline_step(
+        number="1",
+        icon=m::icon_eye(),
+        title=trans(key="how_detect_title", lang=lang),
+        subtitle=trans(key="how_detect_subtitle", lang=lang),
+        description=trans(key="how_detect_desc", lang=lang)
+      ) }}
+
+      <div class="pipeline-arrow" data-animate aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div>
+
+      {{ m::pipeline_step(
+        number="2",
+        icon=m::icon_sparkles(),
+        title=trans(key="how_recognize_title", lang=lang),
+        subtitle=trans(key="how_recognize_subtitle", lang=lang),
+        description=trans(key="how_recognize_desc", lang=lang)
+      ) }}
+
+      <div class="pipeline-arrow" data-animate aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </div>
+
+      {{ m::pipeline_step(
+        number="3",
+        icon=m::icon_cloud_upload(),
+        title=trans(key="how_sync_title", lang=lang),
+        subtitle=trans(key="how_sync_subtitle", lang=lang),
+        description=trans(key="how_sync_desc", lang=lang)
+      ) }}
+    </div>
+  </div>
+</section>
+
+{# ── Parser Demo ──────────────────────────────────────── #}
+<section id="parser-demo" class="parser-demo section">
+  <div class="container">
+    <div class="section-header" data-animate>
+      <h2><a href="#parser-demo" class="anchor-link">{{ trans(key="demo_header", lang=lang) }}</a></h2>
+      <p>{{ trans(key="demo_subheader", lang=lang) }}</p>
+    </div>
+
+    <div class="demo-widget" data-animate>
+      <div class="demo-input-area">
+        <label for="demo-input" class="sr-only">{{ trans(key="demo_placeholder", lang=lang) }}</label>
+        <div class="demo-input-wrapper">
+          <div id="demo-highlight" class="demo-input-highlight" aria-hidden="true"></div>
+          <input
+            type="text"
+            id="demo-input"
+            class="demo-input"
+            placeholder="{{ trans(key='demo_placeholder', lang=lang) }}"
+            value="[SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <span class="demo-input-editable" aria-hidden="true">
+            {{ m::icon_pencil() }}
+          </span>
+        </div>
+      </div>
+
+      <div class="demo-examples">
+        <span class="demo-examples-label">{{ trans(key="demo_examples_label", lang=lang) }}</span>
+        <button class="demo-example-btn" type="button" data-filename="[SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv">Fansub classic</button>
+        <button class="demo-example-btn" type="button" data-filename="[Judas] Chainsaw Man - S01E08 [1080p][HEVC x265 10bit][Multi-Subs].mkv">Complex season</button>
+        <button class="demo-example-btn" type="button" data-filename="Steins;Gate - 01 [1080p][HEVC].mkv">Minimal</button>
+        <button class="demo-example-btn" type="button" data-filename="[Group] Title (2023) OVA - 01 [1080p][HEVC][FLAC].mkv">Year + type</button>
+      </div>
+
+      <div id="demo-output" class="demo-output">
+        <p class="demo-empty">{{ trans(key="demo_empty", lang=lang) }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script type="module">
+(function() {
+  const input = document.getElementById('demo-input');
+  const highlight = document.getElementById('demo-highlight');
+  const output = document.getElementById('demo-output');
+  const examples = document.querySelectorAll('.demo-example-btn');
+  const loadingText = '{{ trans(key="demo_loading", lang=lang) }}';
+  const emptyText = '{{ trans(key="demo_empty", lang=lang) }}';
+
+  let wasm = null;
+  let loading = false;
+  let debounceTimer = null;
+
+  function clearEl(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function showMessage(text, className) {
+    clearEl(output);
+    const p = document.createElement('p');
+    p.className = className;
+    p.textContent = text;
+    output.appendChild(p);
+  }
+
+  async function loadWasm() {
+    if (wasm || loading) return wasm;
+    loading = true;
+    showMessage(loadingText, 'demo-loading');
+    try {
+      const mod = await import('/wasm/ryuuji_wasm.js');
+      await mod.default();
+      wasm = mod;
+    } catch (e) {
+      showMessage('Failed to load parser.', 'demo-empty');
+      loading = false;
+      return null;
+    }
+    loading = false;
+    return wasm;
+  }
+
+  var categories = {
+    title: 'title', anime_type: 'title', year: 'title',
+    episode: 'episode', episode_number: 'episode', episode_title: 'episode',
+    season: 'episode', season_number: 'episode',
+    part: 'episode', part_number: 'episode',
+    volume: 'episode', volume_number: 'episode',
+    release_group: 'release', source: 'release', streaming_source: 'release',
+    release_version: 'release', release_info: 'release',
+    resolution: 'video', video_codec: 'video', video_term: 'video',
+    audio_codec: 'audio', audio_term: 'audio',
+    checksum: 'file', file_extension: 'file', language: 'file', subtitles: 'file'
+  };
+
+  // Skip numeric-only fields to avoid noisy single-character matches.
+  var skipFields = {
+    episode_number: true, season_number: true, part_number: true,
+    volume_number: true, year: true
+  };
+
+  function formatKey(key) {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function buildHighlight(str, data) {
+    var charCats = new Array(str.length);
+    var entries = [];
+    for (var k in data) {
+      if (skipFields[k]) continue;
+      var cat = categories[k] || 'file';
+      var val = data[k];
+      var values = Array.isArray(val) ? val : [String(val)];
+      values.forEach(function(v) {
+        entries.push({ val: String(v), cat: cat });
+      });
+    }
+    entries.sort(function(a, b) { return b.val.length - a.val.length; });
+
+    var lower = str.toLowerCase();
+    entries.forEach(function(e) {
+      var needle = e.val.toLowerCase();
+      var idx = lower.indexOf(needle);
+      while (idx !== -1) {
+        var taken = false;
+        for (var i = idx; i < idx + e.val.length; i++) {
+          if (charCats[i]) {
+            taken = true;
+            break;
+          }
+        }
+        if (!taken) {
+          for (var i = idx; i < idx + e.val.length; i++) {
+            charCats[i] = e.cat;
+          }
+          break;
+        }
+        idx = lower.indexOf(needle, idx + 1);
+      }
+    });
+
+    clearEl(highlight);
+    var i = 0;
+    while (i < str.length) {
+      var cat = charCats[i] || null;
+      var j = i + 1;
+      while (j < str.length && (charCats[j] || null) === cat) j++;
+      var span = document.createElement('span');
+      span.textContent = str.substring(i, j);
+      if (cat) span.className = 'demo-hl-' + cat;
+      highlight.appendChild(span);
+      i = j;
+    }
+  }
+
+  function clearHighlight() {
+    clearEl(highlight);
+    input.classList.remove('highlighted');
+  }
+
+  function syncScroll() {
+    highlight.scrollLeft = input.scrollLeft;
+  }
+
+  async function parse() {
+    const value = input.value.trim();
+    if (!value) {
+      showMessage(emptyText, 'demo-empty');
+      clearHighlight();
+      return;
+    }
+    const mod = await loadWasm();
+    if (!mod) return;
+    try {
+      const json = mod.parse_filename(value);
+      const data = JSON.parse(json);
+      const keys = Object.keys(data);
+      if (keys.length === 0) {
+        showMessage(emptyText, 'demo-empty');
+        clearHighlight();
+        return;
+      }
+      buildHighlight(input.value, data);
+      input.classList.add('highlighted');
+      syncScroll();
+      clearEl(output);
+      keys.forEach(function(k) {
+        const cat = categories[k] || 'file';
+        const row = document.createElement('div');
+        row.className = 'demo-field demo-cat-' + cat;
+        const keySpan = document.createElement('span');
+        keySpan.className = 'demo-key';
+        keySpan.textContent = formatKey(k);
+        const valSpan = document.createElement('span');
+        valSpan.className = 'demo-value';
+        const v = data[k];
+        valSpan.textContent = Array.isArray(v) ? v.join(', ') : String(v);
+        row.appendChild(keySpan);
+        row.appendChild(valSpan);
+        output.appendChild(row);
+      });
+    } catch (e) {
+      showMessage('Parse error.', 'demo-empty');
+      clearHighlight();
+    }
+  }
+
+  input.addEventListener('focus', function() { loadWasm(); }, { once: true });
+  input.addEventListener('scroll', syncScroll);
+
+  input.addEventListener('input', function() {
+    clearHighlight();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(parse, 50);
+  });
+
+  examples.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      input.value = btn.dataset.filename;
+      parse();
+    });
+  });
+
+  // Defer WASM load until the parser demo section is visible
+  if (input.value.trim()) {
+    var demoSection = input.closest('section') || input.closest('.section');
+    if (demoSection && 'IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+          io.disconnect();
+          loadWasm().then(function() { if (wasm) parse(); });
+        }
+      }, { rootMargin: '200px' });
+      io.observe(demoSection);
+    } else {
+      loadWasm().then(function() { if (wasm) parse(); });
+    }
+  }
+})();
+</script>
+
+{# ── Supported ────────────────────────────────────────── #}
+<section id="supported" class="supported section">
+  <div class="container">
+    <div class="section-header" data-animate>
+      <h2><a href="#supported" class="anchor-link">{{ trans(key="supported_header", lang=lang) }}</a></h2>
+      <p>{{ trans(key="supported_subheader", lang=lang) }}</p>
+    </div>
+  </div>
+
+  {# Items mixed across categories so brand colors are evenly distributed.
+     Duplicate tracks ensure pills fill edge-to-edge on wide viewports. #}
+  <div class="supported-marquee" data-stagger>
+    <div class="supported-marquee__row" data-animate>
+      <div class="supported-marquee__track">
+        {{ m::service_item(name="MyAnimeList", color="46, 81, 162") }}
+        {{ m::service_item(name="Crunchyroll", color="244, 117, 33") }}
+        {{ m::service_item(name="mpv", color="102, 51, 153") }}
+        {{ m::service_item(name="Firefox", icon="firefox.svg", color="255, 113, 63") }}
+        {{ m::service_item(name="MPC-HC") }}
+        {{ m::service_item(name="PotPlayer") }}
+        {{ m::service_item(name="Jellyfin", color="0, 164, 217") }}
+        {{ m::service_item(name="Celluloid") }}
+        {{ m::service_item(name="SMPlayer") }}
+        {{ m::service_item(name="AniList", color="61, 180, 242") }}
+        {{ m::service_item(name="Haruna") }}
+      </div>
+      <div class="supported-marquee__track" aria-hidden="true">
+        {{ m::service_item(name="MyAnimeList", color="46, 81, 162") }}
+        {{ m::service_item(name="Crunchyroll", color="244, 117, 33") }}
+        {{ m::service_item(name="mpv", color="102, 51, 153") }}
+        {{ m::service_item(name="Firefox", icon="firefox.svg", color="255, 113, 63") }}
+        {{ m::service_item(name="MPC-HC") }}
+        {{ m::service_item(name="PotPlayer") }}
+        {{ m::service_item(name="Jellyfin", color="0, 164, 217") }}
+        {{ m::service_item(name="Celluloid") }}
+        {{ m::service_item(name="SMPlayer") }}
+        {{ m::service_item(name="AniList", color="61, 180, 242") }}
+        {{ m::service_item(name="Haruna") }}
+      </div>
+    </div>
+
+    <div class="supported-marquee__row" data-animate>
+      <div class="supported-marquee__track">
+        {{ m::service_item(name="VLC", color="255, 136, 0") }}
+        {{ m::service_item(name="Netflix", icon="netflix.svg", color="229, 9, 20") }}
+        {{ m::service_item(name="Kodi", color="18, 142, 212") }}
+        {{ m::service_item(name="Chrome", icon="chrome.svg", color="66, 133, 244") }}
+        {{ m::service_item(name="MPC-BE") }}
+        {{ m::service_item(name="Hidive", color="0, 174, 239") }}
+        {{ m::service_item(name="KMPlayer") }}
+        {{ m::service_item(name="GOM Player") }}
+        {{ m::service_item(name="Kitsu", color="239, 83, 63") }}
+        {{ m::service_item(name="QMPlay2") }}
+        {{ m::service_item(name="GNOME Videos") }}
+      </div>
+      <div class="supported-marquee__track" aria-hidden="true">
+        {{ m::service_item(name="VLC", color="255, 136, 0") }}
+        {{ m::service_item(name="Netflix", icon="netflix.svg", color="229, 9, 20") }}
+        {{ m::service_item(name="Kodi", color="18, 142, 212") }}
+        {{ m::service_item(name="Chrome", icon="chrome.svg", color="66, 133, 244") }}
+        {{ m::service_item(name="MPC-BE") }}
+        {{ m::service_item(name="Hidive", color="0, 174, 239") }}
+        {{ m::service_item(name="KMPlayer") }}
+        {{ m::service_item(name="GOM Player") }}
+        {{ m::service_item(name="Kitsu", color="239, 83, 63") }}
+        {{ m::service_item(name="QMPlay2") }}
+        {{ m::service_item(name="GNOME Videos") }}
+      </div>
+    </div>
+
+    <div class="supported-marquee__row" data-animate>
+      <div class="supported-marquee__track">
+        {{ m::service_item(name="Plex", color="233, 160, 13") }}
+        {{ m::service_item(name="Edge", icon="edge.svg", color="0, 120, 215") }}
+        {{ m::service_item(name="Bilibili", color="0, 161, 214") }}
+        {{ m::service_item(name="Brave", icon="brave.svg", color="251, 84, 43") }}
+        {{ m::service_item(name="Clapper") }}
+        {{ m::service_item(name="Dragon Player") }}
+        {{ m::service_item(name="Parole") }}
+        {{ m::service_item(name="Baka MPlayer") }}
+        {{ m::service_item(name="Elisa") }}
+        {{ m::service_item(name="Windows Media Player") }}
+        {{ m::service_item(name="WMP (New)") }}
+      </div>
+      <div class="supported-marquee__track" aria-hidden="true">
+        {{ m::service_item(name="Plex", color="233, 160, 13") }}
+        {{ m::service_item(name="Edge", icon="edge.svg", color="0, 120, 215") }}
+        {{ m::service_item(name="Bilibili", color="0, 161, 214") }}
+        {{ m::service_item(name="Brave", icon="brave.svg", color="251, 84, 43") }}
+        {{ m::service_item(name="Clapper") }}
+        {{ m::service_item(name="Dragon Player") }}
+        {{ m::service_item(name="Parole") }}
+        {{ m::service_item(name="Baka MPlayer") }}
+        {{ m::service_item(name="Elisa") }}
+        {{ m::service_item(name="Windows Media Player") }}
+        {{ m::service_item(name="WMP (New)") }}
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── FAQ ──────────────────────────────────────────────── #}
+<section id="faq" class="faq section">
+  <div class="container">
+    <div class="section-header" data-animate>
+      <h2><a href="#faq" class="anchor-link">{{ trans(key="faq_header", lang=lang) }}</a></h2>
+    </div>
+
+    <div class="faq-list" data-stagger>
+      {{ m::faq_item(
+        question=trans(key="faq_running_q", lang=lang),
+        answer=trans(key="faq_running_a", lang=lang)
+      ) }}
+
+      {{ m::faq_item(
+        question=trans(key="faq_streaming_q", lang=lang),
+        answer=trans(key="faq_streaming_a", lang=lang)
+      ) }}
+
+      {{ m::faq_item(
+        question=trans(key="faq_offline_q", lang=lang),
+        answer=trans(key="faq_offline_a", lang=lang)
+      ) }}
+
+      {{ m::faq_item(
+        question=trans(key="faq_numbering_q", lang=lang),
+        answer=trans(key="faq_numbering_a", lang=lang)
+      ) }}
+
+      {{ m::faq_item(
+        question=trans(key="faq_player_q", lang=lang),
+        answer=trans(key="faq_player_a", lang=lang)
+      ) }}
+
+      {{ m::faq_item(
+        question=trans(key="faq_macos_q", lang=lang),
+        answer=trans(key="faq_macos_a", lang=lang)
+      ) }}
+    </div>
+  </div>
+</section>
+
+{# ── Download ─────────────────────────────────────────── #}
+<section id="download" class="download section">
+  <div class="container">
+    <div class="download-card" data-animate>
+      <div class="section-header">
+        <h2><a href="#download" class="anchor-link">{{ trans(key="download_title", lang=lang) }}</a></h2>
+        <p>{{ trans(key="download_subtitle", lang=lang) }}</p>
+      </div>
+
+      <div class="download-platforms">
+        <div class="platform-item">
+          <div class="btn-wrapper">
+            <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
+              {{ m::icon_linux_tux() }}
+              {{ trans(key="download_linux", lang=lang) }}
+            </a>
+            <span class="btn-badge">preview</span>
+          </div>
+          <span class="platform-info">{{ trans(key="download_linux_info", lang=lang) }}</span>
+          <span class="platform-note">{{ trans(key="download_linux_note", lang=lang) | safe }}</span>
+        </div>
+        <div class="platform-item">
+          <div class="btn-wrapper">
+            <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
+              {{ m::icon_windows_dl() }}
+              {{ trans(key="download_windows", lang=lang) }}
+            </a>
+            <span class="btn-badge">preview</span>
+          </div>
+          <span class="platform-info">{{ trans(key="download_windows_info", lang=lang) }}</span>
+        </div>
+      </div>
+
+      <div class="download-features">
+        <p class="download-features-label">{{ trans(key="download_features_label", lang=lang) }}</p>
+        <ul>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_detect", lang=lang) }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_library", lang=lang) }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_sync", lang=lang) | safe }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_seasons", lang=lang) }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_torrents", lang=lang) }}</li>
+        </ul>
+      </div>
+
+      <div class="download-source">
+        <p>{{ trans(key="download_source", lang=lang) }}</p>
+        <div class="code-block"><span class="prompt">$ </span><span class="cmd">cargo install --git {{ config.extra.github_url }} ryuuji-gui</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock content %}

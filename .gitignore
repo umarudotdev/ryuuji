@@ -1,0 +1,7 @@
+/target
+*.db
+*.db-journal
+.env
+web/public/
+web/static/wasm/*.d.ts
+web/static/wasm/package.json

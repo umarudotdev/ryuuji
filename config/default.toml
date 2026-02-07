@@ -1,0 +1,57 @@
+[general]
+# How often to check for media playback (in seconds).
+detection_interval = 5
+# Close to tray instead of quitting.
+close_to_tray = false
+
+[library]
+# Automatically update progress when episode changes.
+auto_update = true
+# Ask for confirmation before updating progress.
+confirm_update = false
+# Directories to scan for local anime files.
+watch_folders = []
+# Minimum file size (MB) to consider a video file (skips samples/extras).
+min_file_size_mb = 10
+# Scan watch folders on startup.
+scan_on_startup = false
+
+[services]
+# Primary service for syncing. One of: "anilist", "kitsu", "mal"
+primary = "anilist"
+
+[services.anilist]
+enabled = true
+client_id = "36981"
+client_secret = "aFg7m9yiPy8RjxVSPyHW1nO7YpWLFu9Bp24WJnka"
+
+[services.kitsu]
+enabled = false
+
+[services.mal]
+enabled = false
+client_id = "605cb7270d3ec49175455368e678f5c9"
+
+[appearance]
+# Selected theme name.
+theme = "Ryuuji"
+# Theme mode: "dark" or "light".
+mode = "dark"
+
+[discord]
+# Enable Discord Rich Presence.
+enabled = false
+
+[logging]
+# Log level: "error", "warn", "info", "debug", or "trace".
+level = "info"
+# Write logs to ~/.local/share/ryuuji/logs/.
+file_logging = true
+
+[torrent]
+# Enable torrent RSS feature.
+enabled = false
+# Auto-check interval in minutes (0 = disabled).
+auto_check_interval = 0
+# Auto-download torrents matching a "Prefer" filter.
+auto_download = false
