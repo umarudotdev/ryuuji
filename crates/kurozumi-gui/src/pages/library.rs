@@ -29,8 +29,8 @@ pub fn view<'a>(
     );
 
     let view_icon = match view_mode {
-        LibraryViewMode::Grid => "\u{2630}", // list icon when in grid mode (click to switch)
-        LibraryViewMode::List => "\u{25A6}", // grid icon when in list mode
+        LibraryViewMode::Grid => lucide_icons::iced::icon_list(),
+        LibraryViewMode::List => lucide_icons::iced::icon_layout_grid(),
     };
 
     let header = row![
@@ -39,7 +39,7 @@ pub fn view<'a>(
             .size(style::TEXT_XS)
             .color(cs.outline)
             .width(Length::Fill),
-        button(text(view_icon).size(style::TEXT_BASE))
+        button(view_icon.size(style::TEXT_BASE))
             .padding([style::SPACE_XS, style::SPACE_SM])
             .on_press(Message::Library(LibraryMsg::ViewModeToggled))
             .style(theme::ghost_button(cs)),
