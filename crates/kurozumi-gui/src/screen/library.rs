@@ -399,17 +399,15 @@ fn chip_bar(cs: &ColorScheme, active: WatchStatus) -> Element<'static, Message> 
                 WatchStatus::PlanToWatch => "Plan".to_string(),
                 other => other.as_str().to_string(),
             };
-            let label = if is_selected {
-                format!("\u{2713} {base_label}")
-            } else {
-                base_label
-            };
+            let mut chip_content = row![].spacing(style::SPACE_XXS).align_y(Alignment::Center);
+            if is_selected {
+                chip_content = chip_content.push(
+                    lucide_icons::iced::icon_check().size(style::TEXT_XS),
+                );
+            }
+            chip_content = chip_content.push(text(base_label).size(style::TEXT_XS));
 
-            button(
-                text(label)
-                    .size(style::TEXT_XS)
-                    .center(),
-            )
+            button(chip_content)
             .height(Length::Fixed(style::CHIP_HEIGHT))
             .padding([style::SPACE_XS, style::SPACE_MD])
             .on_press(Message::TabChanged(status))
@@ -704,11 +702,11 @@ fn anime_detail<'a>(cs: &ColorScheme, lib_row: &'a LibraryRow, score_input: &str
         column![
             text(ep_text).size(style::TEXT_BASE),
             row![
-                button(text("\u{2212}").size(style::TEXT_SM))
+                button(lucide_icons::iced::icon_minus().size(style::TEXT_SM))
                     .on_press(Message::EpisodeDecrement(anime_id))
                     .style(theme::control_button(cs))
                     .padding([style::SPACE_XS, style::SPACE_LG]),
-                button(text("+").size(style::TEXT_SM))
+                button(lucide_icons::iced::icon_plus().size(style::TEXT_SM))
                     .on_press(Message::EpisodeIncrement(anime_id))
                     .style(theme::control_button(cs))
                     .padding([style::SPACE_XS, style::SPACE_LG]),

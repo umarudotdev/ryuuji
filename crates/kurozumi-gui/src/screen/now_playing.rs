@@ -116,7 +116,7 @@ fn playing_card<'a>(
 /// Empty state when nothing is playing.
 fn empty_state<'a>(cs: &ColorScheme) -> Element<'a, Message> {
     let content = column![
-        text("\u{25B6}") // Play triangle
+        lucide_icons::iced::icon_play()
             .size(56.0)
             .color(cs.outline),
         text("Nothing playing")
