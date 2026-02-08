@@ -4,7 +4,11 @@
 //! capturing the needed color tokens from a `ColorScheme`.
 
 use iced::widget::{button, container, text_input};
-use iced::{border::Radius, Background, Border, Color, Shadow, Theme, Vector};
+use iced::{Background, Border, Color, Shadow, Theme, Vector};
+use iced_aw::style::{
+    card as aw_card, context_menu as aw_context_menu, number_input as aw_number_input,
+    status::Status as AwStatus,
+};
 
 use crate::style;
 
@@ -172,100 +176,6 @@ pub fn list_item(
     }
 }
 
-/// Grid card button — elevated card with selection border.
-pub fn grid_card(
-    selected: bool,
-    cs: &ColorScheme,
-) -> impl Fn(&Theme, button::Status) -> button::Style {
-    let surface_container = cs.surface_container;
-    let surface_container_high = cs.surface_container_high;
-    let outline_variant = cs.outline_variant;
-    let primary = cs.primary;
-    let on_surface = cs.on_surface;
-
-    move |_theme, status| {
-        let (bg, border_color, shadow) = if selected {
-            (
-                surface_container_high,
-                primary,
-                Shadow {
-                    color: Color {
-                        a: 0.2,
-                        ..Color::BLACK
-                    },
-                    offset: Vector::new(0.0, 2.0),
-                    blur_radius: 8.0,
-                },
-            )
-        } else {
-            match status {
-                button::Status::Hovered => (
-                    surface_container_high,
-                    outline_variant,
-                    Shadow {
-                        color: Color {
-                            a: 0.15,
-                            ..Color::BLACK
-                        },
-                        offset: Vector::new(0.0, 2.0),
-                        blur_radius: 6.0,
-                    },
-                ),
-                _ => (
-                    surface_container,
-                    outline_variant,
-                    Shadow {
-                        color: Color {
-                            a: 0.1,
-                            ..Color::BLACK
-                        },
-                        offset: Vector::new(0.0, 1.0),
-                        blur_radius: 4.0,
-                    },
-                ),
-            }
-        };
-
-        button::Style {
-            background: Some(Background::Color(bg)),
-            text_color: on_surface,
-            border: Border {
-                color: border_color,
-                width: if selected { 2.0 } else { 1.0 },
-                radius: style::RADIUS_LG.into(),
-            },
-            shadow,
-            ..Default::default()
-        }
-    }
-}
-
-/// Score / episode small control button (filled tonal).
-pub fn control_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> button::Style {
-    let primary = cs.primary;
-    let primary_dim = cs.primary_dim;
-    let on_primary = cs.on_primary;
-    let surface_container_high = cs.surface_container_high;
-    let on_surface = cs.on_surface;
-
-    move |_theme, status| {
-        let (bg, text_color) = match status {
-            button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
-            button::Status::Pressed => (Some(Background::Color(primary_dim)), on_primary),
-            _ => (Some(Background::Color(surface_container_high)), on_surface),
-        };
-        button::Style {
-            background: bg,
-            text_color,
-            border: Border {
-                radius: style::RADIUS_SM.into(),
-                ..Border::default()
-            },
-            ..Default::default()
-        }
-    }
-}
-
 /// Primary action button (Save, Confirm, etc.).
 pub fn primary_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> button::Style {
     let primary = cs.primary;
@@ -411,26 +321,6 @@ pub fn dialog_container(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style
     }
 }
 
-/// Grid cover placeholder — slightly different proportions for grid cards.
-pub fn grid_cover_placeholder(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style {
-    let bg = cs.surface_container_high;
-    let outline_variant = cs.outline_variant;
-    move |_theme| container::Style {
-        background: Some(Background::Color(bg)),
-        border: Border {
-            color: outline_variant,
-            width: 0.0,
-            radius: Radius {
-                top_left: style::RADIUS_LG,
-                top_right: style::RADIUS_LG,
-                bottom_right: 0.0,
-                bottom_left: 0.0,
-            },
-        },
-        ..Default::default()
-    }
-}
-
 /// Status color bar at top of grid cards.
 pub fn status_bar_accent(color: Color) -> impl Fn(&Theme) -> container::Style {
     move |_theme| container::Style {
@@ -448,5 +338,64 @@ pub fn status_color(cs: &ColorScheme, status: kurozumi_core::models::WatchStatus
         WatchStatus::OnHold => cs.status_on_hold,
         WatchStatus::Dropped => cs.status_dropped,
         WatchStatus::PlanToWatch => cs.status_plan,
+    }
+}
+
+// ── iced_aw widget styles ───────────────────────────────────────────
+
+/// iced_aw Card style: matches our `card()` container appearance.
+pub fn aw_card_style(cs: &ColorScheme) -> impl Fn(&Theme, AwStatus) -> aw_card::Style + 'static {
+    let bg = cs.surface_container;
+    let border_color = cs.outline_variant;
+    let on_surface = cs.on_surface;
+    let on_surface_variant = cs.on_surface_variant;
+    move |_theme, _status| aw_card::Style {
+        background: Background::Color(bg),
+        border_radius: style::RADIUS_LG,
+        border_width: 1.0,
+        border_color,
+        head_background: Background::Color(bg),
+        head_text_color: on_surface_variant,
+        body_background: Background::Color(bg),
+        body_text_color: on_surface,
+        foot_background: Background::Color(bg),
+        foot_text_color: on_surface,
+        close_color: on_surface_variant,
+    }
+}
+
+/// iced_aw ContextMenu style: transparent backdrop (menu container is styled separately).
+pub fn aw_context_menu_style(
+    _cs: &ColorScheme,
+) -> impl Fn(&Theme, AwStatus) -> aw_context_menu::Style + 'static {
+    move |_theme, _status| aw_context_menu::Style {
+        background: Background::Color(Color::TRANSPARENT),
+    }
+}
+
+/// iced_aw NumberInput button style.
+pub fn aw_number_input_style(
+    cs: &ColorScheme,
+) -> impl Fn(&Theme, AwStatus) -> aw_number_input::Style + 'static {
+    let primary = cs.primary;
+    let on_primary = cs.on_primary;
+    let surface_container_high = cs.surface_container_high;
+    let on_surface = cs.on_surface;
+    move |_theme, status| {
+        let (bg, icon) = match status {
+            AwStatus::Hovered => (Some(Background::Color(primary)), on_primary),
+            AwStatus::Disabled => (
+                Some(Background::Color(surface_container_high)),
+                Color {
+                    a: 0.5,
+                    ..on_surface
+                },
+            ),
+            _ => (Some(Background::Color(surface_container_high)), on_surface),
+        };
+        aw_number_input::Style {
+            button_background: bg,
+            icon_color: icon,
+        }
     }
 }

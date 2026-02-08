@@ -10,6 +10,11 @@ kurozumi-parse = { workspace = true }
 kurozumi-api = { workspace = true }
 
 iced = { version = "0.14", features = ["tokio", "tiny-skia", "advanced"] }
+iced_aw = { version = "0.13", default-features = false, features = [
+    "number_input",
+    "card",
+    "context_menu",
+] }
 lucide-icons = { version = "0.563", features = ["iced"] }
 dark-light = { workspace = true }
 directories = { workspace = true }

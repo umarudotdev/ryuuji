@@ -41,12 +41,6 @@ pub const NAV_LABEL_SIZE: f32 = 12.0;
 pub const CHIP_HEIGHT: f32 = 32.0;
 pub const CHIP_RADIUS: f32 = 8.0;
 
-// ── Grid view ────────────────────────────────────────────────────
-
-pub const GRID_COLUMNS: usize = 4;
-pub const GRID_COVER_HEIGHT: f32 = 200.0;
-pub const GRID_CARD_WIDTH: f32 = 160.0;
-
 // ── Border radii ─────────────────────────────────────────────────
 
 pub const RADIUS_SM: f32 = 4.0;
