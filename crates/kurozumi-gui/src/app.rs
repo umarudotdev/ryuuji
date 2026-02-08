@@ -121,6 +121,9 @@ impl Kurozumi {
             }
             Message::DetectionTick => Task::perform(detect_and_parse(), Message::DetectionResult),
             Message::DetectionResult(media) => {
+                if media.is_none() {
+                    self.now_playing.matched_row = None;
+                }
                 self.now_playing.detected = media.clone();
                 if let (Some(db), Some(detected)) = (&self.db, media) {
                     let db = db.clone();
@@ -137,18 +140,21 @@ impl Kurozumi {
                 Task::none()
             }
             Message::DetectionProcessed(result) => {
+                let mut follow_up = Task::none();
                 match result {
                     Ok(outcome) => {
                         self.status_message = match &outcome {
                             UpdateOutcome::Updated {
                                 anime_title,
                                 episode,
+                                ..
                             } => {
                                 format!("Updated {anime_title} to ep {episode}")
                             }
                             UpdateOutcome::AddedToLibrary {
                                 anime_title,
                                 episode,
+                                ..
                             } => {
                                 format!("Added {anime_title} (ep {episode}) to library")
                             }
@@ -158,6 +164,26 @@ impl Kurozumi {
                             }
                             UpdateOutcome::NothingPlaying => self.status_message.clone(),
                         };
+
+                        // Fire follow-up query for matched anime details.
+                        let anime_id = match &outcome {
+                            UpdateOutcome::Updated { anime_id, .. }
+                            | UpdateOutcome::AlreadyCurrent { anime_id, .. }
+                            | UpdateOutcome::AddedToLibrary { anime_id, .. } => Some(*anime_id),
+                            _ => None,
+                        };
+                        if let (Some(db), Some(id)) = (&self.db, anime_id) {
+                            let db = db.clone();
+                            follow_up = Task::perform(
+                                async move { db.get_library_row(id).await.ok().flatten() },
+                                |row| {
+                                    Message::NowPlaying(now_playing::Message::LibraryRowFetched(
+                                        row,
+                                    ))
+                                },
+                            );
+                        }
+
                         self.now_playing.last_outcome = Some(outcome);
                     }
                     Err(e) => {
@@ -166,13 +192,15 @@ impl Kurozumi {
                 }
                 if self.page == Page::Library {
                     let action = self.library.refresh_task(self.db.as_ref());
-                    return self.handle_action(action);
+                    let lib_task = self.handle_action(action);
+                    return Task::batch([follow_up, lib_task]);
                 }
                 if self.page == Page::Search {
                     let action = self.search.load_entries(self.db.as_ref());
-                    return self.handle_action(action);
+                    let search_task = self.handle_action(action);
+                    return Task::batch([follow_up, search_task]);
                 }
-                Task::none()
+                follow_up
             }
             Message::AppearanceChanged(mode) => {
                 // System theme changed — pick the matching default theme.
@@ -198,8 +226,12 @@ impl Kurozumi {
                 }
                 Task::none()
             }
-            Message::NowPlaying(_msg) => {
-                // NowPlaying has no interactive messages yet.
+            Message::NowPlaying(msg) => {
+                match msg {
+                    now_playing::Message::LibraryRowFetched(row) => {
+                        self.now_playing.matched_row = row;
+                    }
+                }
                 Task::none()
             }
             Message::Library(msg) => {
