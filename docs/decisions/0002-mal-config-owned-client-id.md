@@ -72,6 +72,6 @@ AniList and Kitsu retain `ServiceToggle` (they use different auth models — Ani
 ## Consequences
 
 - Users must perform a one-time registration at myanimelist.net/apiconfig before using MAL sync.
-- The Settings page (planned) should include a link to the registration page and instructions for the redirect URI.
+- The Settings page includes MAL configuration with the client ID field.
 - Empty `client_id` means MAL auth will fail with a clear error — no silent fallback.
 - If MAL changes their API registration process, only documentation needs updating, not code.

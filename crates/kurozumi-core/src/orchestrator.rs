@@ -56,7 +56,6 @@ pub fn process_detection(
         MatchResult::Matched(anime) | MatchResult::Fuzzy(anime, _) => {
             let anime_title = anime.title.preferred().to_string();
 
-            // Check existing library entry.
             match storage.get_library_entry_for_anime(anime.id)? {
                 Some(entry) => {
                     if episode > entry.watched_episodes {

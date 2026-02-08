@@ -49,7 +49,6 @@ fn identify_bracketed_keywords(tokens: &[Token], elements: &mut Elements, identi
             apply_keyword(kind, &token.text, elements);
             identified[i] = true;
         }
-        // Also check for resolution pattern inside brackets (e.g., "1920x1080").
         if elements.resolution.is_none() {
             if let Some(res) = parse_resolution(&token.text) {
                 elements.resolution = Some(res);
@@ -69,7 +68,6 @@ fn extract_release_group(tokens: &[Token], elements: &mut Elements, identified: 
             continue;
         }
         if token.kind == TokenKind::Bracketed {
-            // Don't claim something that's clearly a keyword or resolution.
             if keyword::lookup(&token.text).is_none() && !is_checksum(&token.text) {
                 elements.release_group = Some(token.text.clone());
                 identified[i] = true;
@@ -129,7 +127,6 @@ fn extract_episode(tokens: &[Token], elements: &mut Elements, identified: &mut [
         // Check if previous non-delimiter token is a dash.
         if text == "-" {
             identified[i] = true;
-            // Look for number after this dash.
             if let Some(next) = next_free_text(tokens, identified, i) {
                 if let Some((ep_str, ep_num)) = parse_episode_number(&tokens[next].text) {
                     elements.episode = Some(ep_str);
@@ -142,8 +139,6 @@ fn extract_episode(tokens: &[Token], elements: &mut Elements, identified: &mut [
         }
     }
 
-    // Strategy 2: Look for standalone number tokens (e.g., "05", "12").
-    // Prefer numbers that appear after a sequence of text tokens.
     let mut saw_text = false;
     for i in 0..tokens.len() {
         if identified[i] {
@@ -163,7 +158,6 @@ fn extract_episode(tokens: &[Token], elements: &mut Elements, identified: &mut [
         }
     }
 
-    // Strategy 3: Check bracketed tokens for episode patterns like "01", "12v2".
     for i in 0..tokens.len() {
         if identified[i] || tokens[i].kind != TokenKind::Bracketed {
             continue;
@@ -185,7 +179,6 @@ fn extract_title(tokens: &[Token], elements: &mut Elements, identified: &[bool])
     for (i, token) in tokens.iter().enumerate() {
         if identified[i] {
             if started {
-                // Stop collecting title when we hit an identified token.
                 break;
             }
             continue;
@@ -193,7 +186,6 @@ fn extract_title(tokens: &[Token], elements: &mut Elements, identified: &[bool])
 
         match token.kind {
             TokenKind::FreeText => {
-                // Skip standalone dashes.
                 if token.text == "-" {
                     if started {
                         break;
@@ -204,7 +196,6 @@ fn extract_title(tokens: &[Token], elements: &mut Elements, identified: &[bool])
                 title_parts.push(token.text.as_str());
             }
             TokenKind::Delimiter if started => {
-                // Include delimiter as space in title.
                 title_parts.push(" ");
             }
             _ => {
@@ -244,28 +235,24 @@ fn next_free_text(tokens: &[Token], identified: &[bool], start: usize) -> Option
 fn parse_episode_number(s: &str) -> Option<(String, u32)> {
     let s = s.trim();
 
-    // Skip if it looks like a year (4 digits, starts with 19 or 20).
     if s.len() == 4 && (s.starts_with("19") || s.starts_with("20")) {
         if s.parse::<u32>().is_ok() {
             return None;
         }
     }
 
-    // "12v2" pattern — strip version suffix.
     let base = if let Some(pos) = s.to_lowercase().find('v') {
         &s[..pos]
     } else {
         s
     };
 
-    // "12.5" — take integer part.
     let int_part = if let Some(pos) = base.find('.') {
         &base[..pos]
     } else {
         base
     };
 
-    // Range "01-03" — take first number.
     let first = if let Some(pos) = int_part.find('-') {
         &int_part[..pos]
     } else {

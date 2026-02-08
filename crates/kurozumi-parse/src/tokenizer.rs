@@ -46,11 +46,9 @@ pub fn tokenize(input: &str) -> Vec<Token> {
     while i < chars.len() {
         let c = chars[i];
 
-        // Check for opening bracket.
         if let Some(close) = opening_bracket(c) {
             i += 1;
             let start = i;
-            // Find matching closing bracket.
             while i < chars.len() && chars[i] != close {
                 i += 1;
             }
@@ -67,9 +65,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
             continue;
         }
 
-        // Check for delimiter.
         if is_delimiter(c) {
-            // Consume consecutive delimiters but just emit one.
             while i < chars.len() && is_delimiter(chars[i]) {
                 i += 1;
             }
@@ -80,7 +76,6 @@ pub fn tokenize(input: &str) -> Vec<Token> {
             continue;
         }
 
-        // Free text: consume until bracket or delimiter.
         let start = i;
         while i < chars.len() && !is_delimiter(chars[i]) && opening_bracket(chars[i]).is_none() {
             i += 1;
@@ -103,7 +98,6 @@ fn strip_extension(input: &str) -> &str {
         if let Some(stripped) = input.strip_suffix(ext) {
             return stripped;
         }
-        // Case-insensitive check.
         if input.len() > ext.len() {
             let suffix = &input[input.len() - ext.len()..];
             if suffix.eq_ignore_ascii_case(ext) {

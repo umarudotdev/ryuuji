@@ -120,7 +120,6 @@ fn listen_for_redirect() -> Result<String, MalError> {
         .and_then(|line| line.split_whitespace().nth(1))
         .ok_or_else(|| MalError::Auth("malformed HTTP request from redirect".into()))?;
 
-    // Parse query params from the path.
     let full_url = format!("http://localhost{path}");
     let parsed = Url::parse(&full_url)
         .map_err(|e| MalError::Auth(format!("failed to parse redirect URL: {e}")))?;
@@ -131,7 +130,6 @@ fn listen_for_redirect() -> Result<String, MalError> {
         .map(|(_, v)| v.to_string())
         .ok_or_else(|| MalError::Auth("no 'code' parameter in redirect".into()))?;
 
-    // Send a minimal success response to the browser.
     let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n\
                     <html><body><h2>Authorization successful!</h2>\
                     <p>You can close this tab and return to kurozumi.</p></body></html>";
