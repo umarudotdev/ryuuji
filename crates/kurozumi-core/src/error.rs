@@ -19,4 +19,7 @@ pub enum KurozumiError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("relation error: {0}")]
+    Relation(String),
 }

@@ -8,6 +8,9 @@ use crate::models::{Anime, AnimeIds, AnimeTitle, LibraryEntry, WatchStatus};
 
 const SCHEMA: &str = include_str!("../../../migrations/001_initial.sql");
 
+/// Token record: (access_token, refresh_token, expires_at).
+pub type TokenRecord = (String, Option<String>, Option<String>);
+
 /// SQLite-backed storage for the kurozumi library.
 pub struct Storage {
     conn: Connection,
@@ -357,10 +360,7 @@ impl Storage {
     }
 
     /// Get the full token record for a service (token, refresh_token, expires_at).
-    pub fn get_token_full(
-        &self,
-        service: &str,
-    ) -> Result<Option<(String, Option<String>, Option<String>)>, KurozumiError> {
+    pub fn get_token_full(&self, service: &str) -> Result<Option<TokenRecord>, KurozumiError> {
         self.conn
             .query_row(
                 "SELECT token, refresh, expires_at FROM auth_tokens WHERE service = ?1",

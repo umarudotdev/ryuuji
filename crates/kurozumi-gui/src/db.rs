@@ -13,6 +13,7 @@ use kurozumi_core::error::KurozumiError;
 use kurozumi_core::models::{Anime, DetectedMedia, LibraryEntry, WatchStatus};
 use kurozumi_core::orchestrator::{self, UpdateOutcome};
 use kurozumi_core::recognition::RecognitionCache;
+use kurozumi_core::relations::RelationDatabase;
 use kurozumi_core::storage::{LibraryRow, Storage};
 
 /// Cloneable handle to the DB actor thread.
@@ -235,6 +236,7 @@ impl DbHandle {
 /// Run the actor loop on a dedicated thread.
 fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
     let mut cache = RecognitionCache::new();
+    let relations = RelationDatabase::embedded().unwrap_or_default();
 
     // Block the thread waiting for commands. We use blocking_recv because
     // this thread has no tokio runtime — it's a plain OS thread.
@@ -282,8 +284,13 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                 config,
                 reply,
             } => {
-                let result =
-                    orchestrator::process_detection(&detected, &storage, &config, &mut cache);
+                let result = orchestrator::process_detection(
+                    &detected,
+                    &storage,
+                    &config,
+                    &mut cache,
+                    Some(&relations),
+                );
                 // Invalidate cache when new anime is added to the library,
                 // so the next detection tick picks up the new entry.
                 if let Ok(UpdateOutcome::AddedToLibrary { .. }) = &result {

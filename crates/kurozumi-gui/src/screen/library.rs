@@ -207,7 +207,7 @@ impl Library {
         }
     }
 
-    fn sort_entries(&self, entries: &mut Vec<LibraryRow>) {
+    fn sort_entries(&self, entries: &mut [LibraryRow]) {
         match self.sort {
             LibrarySort::Alphabetical => {
                 entries.sort_by(|a, b| {

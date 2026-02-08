@@ -1,9 +1,12 @@
+use crate::player_db::PlayerDatabase;
 use crate::PlayerInfo;
 use mpris::PlayerFinder;
 use tracing::{debug, warn};
 
 /// Detect media players via MPRIS D-Bus on Linux.
-pub fn detect_mpris() -> Vec<PlayerInfo> {
+///
+/// Uses the player database to resolve player names from MPRIS identities.
+pub fn detect_mpris(db: &PlayerDatabase) -> Vec<PlayerInfo> {
     let finder = match PlayerFinder::new() {
         Ok(f) => f,
         Err(e) => {
@@ -35,10 +38,16 @@ pub fn detect_mpris() -> Vec<PlayerInfo> {
                 }
             });
 
-            debug!(player = %identity, title = ?media_title, "Detected MPRIS player");
+            // Resolve the player name using the database.
+            let player_name = db
+                .find_by_mpris(&identity)
+                .map(|p| p.name.clone())
+                .unwrap_or_else(|| identity.clone());
+
+            debug!(player = %identity, resolved = %player_name, title = ?media_title, "Detected MPRIS player");
 
             Some(PlayerInfo {
-                player_name: identity,
+                player_name,
                 media_title,
                 file_path,
             })

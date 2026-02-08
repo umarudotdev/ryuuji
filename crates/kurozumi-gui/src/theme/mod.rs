@@ -85,7 +85,7 @@ pub fn available_themes() -> Vec<KurozumiTheme> {
         if let Ok(entries) = std::fs::read_dir(&user_themes) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |e| e == "toml") {
+                if path.extension().is_some_and(|e| e == "toml") {
                     match std::fs::read_to_string(&path) {
                         Ok(content) => match KurozumiTheme::from_toml(&content) {
                             Ok(theme) => themes.push(theme),

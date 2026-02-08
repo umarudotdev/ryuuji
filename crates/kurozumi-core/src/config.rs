@@ -28,9 +28,10 @@ pub struct AppearanceConfig {
 }
 
 /// Theme mode for appearance config (kept in core so it's serializable with the config).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeMode {
+    #[default]
     Dark,
     Light,
     System,
@@ -42,12 +43,6 @@ impl Default for AppearanceConfig {
             theme: "Kurozumi Dark".into(),
             mode: ThemeMode::Dark,
         }
-    }
-}
-
-impl Default for ThemeMode {
-    fn default() -> Self {
-        Self::Dark
     }
 }
 

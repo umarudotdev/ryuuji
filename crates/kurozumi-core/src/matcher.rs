@@ -72,7 +72,7 @@ pub fn match_title(query: &str, candidates: &[Anime]) -> MatchResult {
 /// Check for exact string match against all title variants.
 fn exact_match(query: &str, anime: &Anime) -> bool {
     let titles = all_titles(anime);
-    titles.iter().any(|t| *t == query)
+    titles.contains(&query)
 }
 
 /// Check for normalized match (case-insensitive, stripped punctuation).

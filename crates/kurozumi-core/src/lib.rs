@@ -4,4 +4,5 @@ pub mod matcher;
 pub mod models;
 pub mod orchestrator;
 pub mod recognition;
+pub mod relations;
 pub mod storage;
