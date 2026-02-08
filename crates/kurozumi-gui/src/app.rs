@@ -457,11 +457,15 @@ impl Kurozumi {
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
-        let status_bar = container(text(&self.status_message).size(style::TEXT_XS))
-            .style(theme::status_bar(cs))
-            .width(Length::Fill)
-            .height(Length::Fixed(style::STATUS_BAR_HEIGHT))
-            .padding([4.0, style::SPACE_MD]);
+        let status_bar = container(
+            text(&self.status_message)
+                .size(style::TEXT_XS)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        )
+        .style(theme::status_bar(cs))
+        .width(Length::Fill)
+        .height(Length::Fixed(style::STATUS_BAR_HEIGHT))
+        .padding([4.0, style::SPACE_MD]);
 
         let main: Element<'_, Message> =
             column![row![nav, page_content].height(Length::Fill), status_bar,].into();
@@ -515,13 +519,18 @@ impl Kurozumi {
                 };
                 container(
                     column![
-                        text("Remove from library?").size(style::TEXT_LG),
+                        text("Remove from library?")
+                            .size(style::TEXT_LG)
+                            .font(style::FONT_HEADING)
+                            .line_height(style::LINE_HEIGHT_TIGHT),
                         text(title.as_str())
                             .size(style::TEXT_SM)
-                            .color(cs.on_surface_variant),
+                            .color(cs.on_surface_variant)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
                         text("This action cannot be undone.")
                             .size(style::TEXT_XS)
-                            .color(cs.outline),
+                            .color(cs.outline)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
                         row![
                             button(text("Cancel").size(style::TEXT_SM))
                                 .padding([style::SPACE_SM, style::SPACE_XL])
@@ -549,7 +558,10 @@ impl Kurozumi {
             button(
                 column![
                     icon.size(style::NAV_ICON_SIZE).center(),
-                    text(label).size(style::NAV_LABEL_SIZE).center(),
+                    text(label)
+                        .size(style::NAV_LABEL_SIZE)
+                        .line_height(style::LINE_HEIGHT_LOOSE)
+                        .center(),
                 ]
                 .align_x(Alignment::Center)
                 .spacing(style::SPACE_XXS)
@@ -565,10 +577,16 @@ impl Kurozumi {
 
         let rail = column![
             // Branding
-            container(text("K").size(style::TEXT_XL).color(cs.primary),)
-                .width(Length::Fill)
-                .center_x(Length::Fill)
-                .padding([style::SPACE_LG, 0.0]),
+            container(
+                text("K")
+                    .size(style::TEXT_XL)
+                    .font(style::FONT_HEADING)
+                    .color(cs.primary)
+                    .line_height(style::LINE_HEIGHT_TIGHT),
+            )
+            .width(Length::Fill)
+            .center_x(Length::Fill)
+            .padding([style::SPACE_LG, 0.0]),
             // Navigation items
             column![
                 nav_item(icons::icon_play(), "Playing", Page::NowPlaying),

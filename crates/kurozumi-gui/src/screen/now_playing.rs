@@ -50,8 +50,11 @@ fn info_row<'a>(cs: &ColorScheme, label: &'a str, value: String) -> Element<'a, 
         text(label)
             .size(style::TEXT_SM)
             .color(cs.on_surface_variant)
+            .line_height(style::LINE_HEIGHT_LOOSE)
             .width(Length::Fixed(120.0)),
-        text(value).size(style::TEXT_SM),
+        text(value)
+            .size(style::TEXT_SM)
+            .line_height(style::LINE_HEIGHT_LOOSE),
     ]
     .spacing(style::SPACE_SM)
     .align_y(Alignment::Center)
@@ -87,11 +90,18 @@ fn playing_dashboard<'a>(
 
     let now_playing_card = container(
         column![
-            text(display_title).size(style::TEXT_3XL),
-            text(episode_text).size(style::TEXT_LG).color(cs.primary),
+            text(display_title)
+                .size(style::TEXT_3XL)
+                .font(style::FONT_HEADING)
+                .line_height(style::LINE_HEIGHT_TIGHT),
+            text(episode_text)
+                .size(style::TEXT_LG)
+                .color(cs.primary)
+                .line_height(style::LINE_HEIGHT_NORMAL),
             text(meta_line)
                 .size(style::TEXT_SM)
-                .color(cs.on_surface_variant),
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
         ]
         .spacing(style::SPACE_SM),
     )
@@ -132,7 +142,9 @@ fn playing_dashboard<'a>(
         if !info_rows.is_empty() {
             let mut info_col = column![text("Anime Info")
                 .size(style::TEXT_SM)
-                .color(cs.on_surface_variant),]
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),]
             .spacing(style::SPACE_SM);
 
             for r in info_rows {
@@ -166,10 +178,18 @@ fn playing_dashboard<'a>(
             column![
                 text("Library Progress")
                     .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),
+                    .font(style::FONT_HEADING)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
                 row![
-                    text("\u{2022}").size(style::TEXT_SM).color(status_color),
-                    text(status_label).size(style::TEXT_SM).color(status_color),
+                    text("\u{2022}")
+                        .size(style::TEXT_SM)
+                        .color(status_color)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                    text(status_label)
+                        .size(style::TEXT_SM)
+                        .color(status_color)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
                 ]
                 .spacing(style::SPACE_XS)
                 .align_y(Alignment::Center),
@@ -197,8 +217,14 @@ fn playing_dashboard<'a>(
 
         let status_card = container(
             row![
-                text("\u{2022}").size(style::TEXT_SM).color(dot_color),
-                text(status).size(style::TEXT_SM).color(dot_color),
+                text("\u{2022}")
+                    .size(style::TEXT_SM)
+                    .color(dot_color)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+                text(status)
+                    .size(style::TEXT_SM)
+                    .color(dot_color)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
             ]
             .spacing(style::SPACE_SM)
             .align_y(Alignment::Center),
@@ -219,10 +245,13 @@ fn empty_state<'a>(cs: &ColorScheme) -> Element<'a, Message> {
         lucide_icons::iced::icon_play().size(56.0).color(cs.outline),
         text("Nothing playing")
             .size(style::TEXT_XL)
-            .color(cs.on_surface_variant),
+            .font(style::FONT_HEADING)
+            .color(cs.on_surface_variant)
+            .line_height(style::LINE_HEIGHT_TIGHT),
         text("Start a media player with an anime file to see it here.")
             .size(style::TEXT_SM)
-            .color(cs.outline),
+            .color(cs.outline)
+            .line_height(style::LINE_HEIGHT_LOOSE),
     ]
     .spacing(style::SPACE_MD)
     .align_x(Alignment::Center);

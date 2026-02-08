@@ -33,15 +33,19 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     .center_y(Length::Fixed(style::COVER_HEIGHT))
     .style(theme::cover_placeholder(cs));
 
-    let mut title_section =
-        column![text(anime.title.preferred()).size(style::TEXT_XL),].spacing(style::SPACE_XS);
+    let mut title_section = column![text(anime.title.preferred())
+        .size(style::TEXT_XL)
+        .font(style::FONT_HEADING)
+        .line_height(style::LINE_HEIGHT_TIGHT),]
+    .spacing(style::SPACE_XS);
 
     if let Some(english) = &anime.title.english {
         if Some(english.as_str()) != anime.title.romaji.as_deref() {
             title_section = title_section.push(
                 text(english.as_str())
                     .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
             );
         }
     }
@@ -57,7 +61,8 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         title_section = title_section.push(
             text(meta_parts.join(" "))
                 .size(style::TEXT_SM)
-                .color(cs.outline),
+                .color(cs.outline)
+                .line_height(style::LINE_HEIGHT_LOOSE),
         );
     }
 
@@ -68,7 +73,8 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         column![
             text("Status")
                 .size(style::TEXT_XS)
-                .color(cs.on_surface_variant),
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
             pick_list(WatchStatus::ALL, Some(entry.status), move |s| {
                 on_status_changed(s)
             })
@@ -76,7 +82,8 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
             .padding([style::SPACE_XS, style::SPACE_SM]),
             text("Score")
                 .size(style::TEXT_XS)
-                .color(cs.on_surface_variant),
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
             NumberInput::new(&score_val, 0.0..=10.0, on_score_cb)
                 .step(0.5)
                 .width(Length::Fixed(100.0))
@@ -99,7 +106,9 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
 
     let progress_card = container(
         column![
-            text(ep_text).size(style::TEXT_BASE),
+            text(ep_text)
+                .size(style::TEXT_BASE)
+                .line_height(style::LINE_HEIGHT_NORMAL),
             NumberInput::new(&entry.watched_episodes, 0..=max_ep, move |ep| {
                 on_episode_changed(ep)
             })
