@@ -94,9 +94,7 @@ impl Kurozumi {
                 }
                 Task::none()
             }
-            Message::DetectionTick => {
-                Task::perform(detect_and_parse(), Message::DetectionResult)
-            }
+            Message::DetectionTick => Task::perform(detect_and_parse(), Message::DetectionResult),
             Message::DetectionResult(media) => {
                 self.now_playing.detected = media.clone();
                 if let (Some(db), Some(detected)) = (&self.db, media) {
@@ -117,10 +115,16 @@ impl Kurozumi {
                 match result {
                     Ok(outcome) => {
                         self.status_message = match &outcome {
-                            UpdateOutcome::Updated { anime_title, episode } => {
+                            UpdateOutcome::Updated {
+                                anime_title,
+                                episode,
+                            } => {
                                 format!("Updated {anime_title} to ep {episode}")
                             }
-                            UpdateOutcome::AddedToLibrary { anime_title, episode } => {
+                            UpdateOutcome::AddedToLibrary {
+                                anime_title,
+                                episode,
+                            } => {
                                 format!("Added {anime_title} (ep {episode}) to library")
                             }
                             UpdateOutcome::AlreadyCurrent { .. } => self.status_message.clone(),
@@ -227,10 +231,10 @@ impl Kurozumi {
             Page::Library => self.library.view(cs).map(Message::Library),
             Page::Search => container(
                 column![
-                    text("Search").size(style::TEXT_XL).color(cs.on_surface_variant),
-                    text("Coming soon")
-                        .size(style::TEXT_SM)
-                        .color(cs.outline),
+                    text("Search")
+                        .size(style::TEXT_XL)
+                        .color(cs.on_surface_variant),
+                    text("Coming soon").size(style::TEXT_SM).color(cs.outline),
                 ]
                 .spacing(style::SPACE_SM),
             )
@@ -239,24 +243,23 @@ impl Kurozumi {
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
-        let status_bar = container(
-            text(&self.status_message).size(style::TEXT_XS),
-        )
-        .style(theme::status_bar(cs))
-        .width(Length::Fill)
-        .height(Length::Fixed(style::STATUS_BAR_HEIGHT))
-        .padding([4.0, style::SPACE_MD]);
+        let status_bar = container(text(&self.status_message).size(style::TEXT_XS))
+            .style(theme::status_bar(cs))
+            .width(Length::Fill)
+            .height(Length::Fixed(style::STATUS_BAR_HEIGHT))
+            .padding([4.0, style::SPACE_MD]);
 
-        let main: Element<'_, Message> = column![
-            row![nav, page_content].height(Length::Fill),
-            status_bar,
-        ]
-        .into();
+        let main: Element<'_, Message> =
+            column![row![nav, page_content].height(Length::Fill), status_bar,].into();
 
         // Wrap in modal if one is active.
         if let Some(modal_kind) = &self.modal_state {
             let modal_content = self.build_modal_content(cs, modal_kind);
-            crate::widgets::modal(main, modal_content, Message::Library(library::Message::CancelModal))
+            crate::widgets::modal(
+                main,
+                modal_content,
+                Message::Library(library::Message::CancelModal),
+            )
         } else {
             main
         }
@@ -273,14 +276,17 @@ impl Kurozumi {
         self.current_theme.iced_theme()
     }
 
-    fn build_modal_content<'a>(&self, cs: &ColorScheme, kind: &'a ModalKind) -> Element<'a, Message> {
+    fn build_modal_content<'a>(
+        &self,
+        cs: &ColorScheme,
+        kind: &'a ModalKind,
+    ) -> Element<'a, Message> {
         match kind {
             ModalKind::ConfirmDelete { anime_id, title } => {
                 let anime_id = *anime_id;
                 container(
                     column![
-                        text("Remove from library?")
-                            .size(style::TEXT_LG),
+                        text("Remove from library?").size(style::TEXT_LG),
                         text(title.as_str())
                             .size(style::TEXT_SM)
                             .color(cs.on_surface_variant),
@@ -294,7 +300,9 @@ impl Kurozumi {
                                 .style(theme::ghost_button(cs)),
                             button(text("Delete").size(style::TEXT_SM))
                                 .padding([style::SPACE_SM, style::SPACE_XL])
-                                .on_press(Message::Library(library::Message::ConfirmDelete(anime_id)))
+                                .on_press(Message::Library(library::Message::ConfirmDelete(
+                                    anime_id
+                                )))
                                 .style(theme::danger_button(cs)),
                         ]
                         .spacing(style::SPACE_SM),
@@ -309,34 +317,31 @@ impl Kurozumi {
     }
 
     fn nav_rail<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
-        let nav_item =
-            |icon: iced::widget::Text<'static>, label: &'static str, page: Page| {
-                let active = self.page == page;
-                button(
-                    column![
-                        icon.size(style::NAV_ICON_SIZE).center(),
-                        text(label).size(style::NAV_LABEL_SIZE).center(),
-                    ]
-                    .align_x(Alignment::Center)
-                    .spacing(style::SPACE_XXS)
-                    .width(Length::Fill),
-                )
-                .width(Length::Fixed(64.0))
-                .padding([style::SPACE_SM, style::SPACE_XS])
-                .on_press(Message::NavigateTo(page))
-                .style(theme::nav_rail_item(active, cs))
-            };
+        let nav_item = |icon: iced::widget::Text<'static>, label: &'static str, page: Page| {
+            let active = self.page == page;
+            button(
+                column![
+                    icon.size(style::NAV_ICON_SIZE).center(),
+                    text(label).size(style::NAV_LABEL_SIZE).center(),
+                ]
+                .align_x(Alignment::Center)
+                .spacing(style::SPACE_XXS)
+                .width(Length::Fill),
+            )
+            .width(Length::Fixed(64.0))
+            .padding([style::SPACE_SM, style::SPACE_XS])
+            .on_press(Message::NavigateTo(page))
+            .style(theme::nav_rail_item(active, cs))
+        };
 
         use lucide_icons::iced as icons;
 
         let rail = column![
             // Branding
-            container(
-                text("K").size(style::TEXT_XL).color(cs.primary),
-            )
-            .width(Length::Fill)
-            .center_x(Length::Fill)
-            .padding([style::SPACE_LG, 0.0]),
+            container(text("K").size(style::TEXT_XL).color(cs.primary),)
+                .width(Length::Fill)
+                .center_x(Length::Fill)
+                .padding([style::SPACE_LG, 0.0]),
             // Navigation items
             column![
                 nav_item(icons::icon_play(), "Playing", Page::NowPlaying),

@@ -87,14 +87,18 @@ impl DbHandle {
         status: WatchStatus,
     ) -> Result<Vec<LibraryRow>, KurozumiError> {
         let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(DbCommand::GetLibraryByStatus { status, reply });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        let _ = self
+            .tx
+            .send(DbCommand::GetLibraryByStatus { status, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
     pub async fn get_all_library(&self) -> Result<Vec<LibraryRow>, KurozumiError> {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(DbCommand::GetAllLibrary { reply });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
     pub async fn update_episode_count(
@@ -108,21 +112,19 @@ impl DbHandle {
             episodes,
             reply,
         });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
-    pub async fn record_watch(
-        &self,
-        anime_id: i64,
-        episode: u32,
-    ) -> Result<(), KurozumiError> {
+    pub async fn record_watch(&self, anime_id: i64, episode: u32) -> Result<(), KurozumiError> {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(DbCommand::RecordWatch {
             anime_id,
             episode,
             reply,
         });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
     pub async fn update_library_status(
@@ -136,7 +138,8 @@ impl DbHandle {
             status,
             reply,
         });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
     pub async fn update_library_score(
@@ -150,13 +153,17 @@ impl DbHandle {
             score,
             reply,
         });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
     pub async fn delete_library_entry(&self, anime_id: i64) -> Result<(), KurozumiError> {
         let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(DbCommand::DeleteLibraryEntry { anime_id, reply });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        let _ = self
+            .tx
+            .send(DbCommand::DeleteLibraryEntry { anime_id, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
     pub async fn process_detection(
@@ -170,7 +177,8 @@ impl DbHandle {
             config,
             reply,
         });
-        rx.await.unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 }
 

@@ -210,7 +210,10 @@ mod tests {
 
     #[test]
     fn test_empty_inputs() {
-        assert!(matches!(match_title("", &[frieren()]), MatchResult::NoMatch));
+        assert!(matches!(
+            match_title("", &[frieren()]),
+            MatchResult::NoMatch
+        ));
         assert!(matches!(match_title("test", &[]), MatchResult::NoMatch));
     }
 }

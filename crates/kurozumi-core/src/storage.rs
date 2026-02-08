@@ -204,11 +204,7 @@ impl Storage {
     }
 
     /// Update just the episode count for a library entry.
-    pub fn update_episode_count(
-        &self,
-        anime_id: i64,
-        episodes: u32,
-    ) -> Result<(), KurozumiError> {
+    pub fn update_episode_count(&self, anime_id: i64, episodes: u32) -> Result<(), KurozumiError> {
         self.conn.execute(
             "UPDATE library_entry SET watched_episodes = ?1, updated_at = ?2
              WHERE anime_id = ?3",
@@ -232,11 +228,7 @@ impl Storage {
     }
 
     /// Update just the score for a library entry.
-    pub fn update_library_score(
-        &self,
-        anime_id: i64,
-        score: f32,
-    ) -> Result<(), KurozumiError> {
+    pub fn update_library_score(&self, anime_id: i64, score: f32) -> Result<(), KurozumiError> {
         self.conn.execute(
             "UPDATE library_entry SET score = ?1, updated_at = ?2
              WHERE anime_id = ?3",
@@ -360,9 +352,18 @@ fn row_to_anime_at(row: &rusqlite::Row<'_>, off: usize) -> Anime {
     Anime {
         id: row.get(off).unwrap_or(0),
         ids: AnimeIds {
-            anilist: row.get::<_, Option<i64>>(off + 1).unwrap_or(None).map(|v| v as u64),
-            kitsu: row.get::<_, Option<i64>>(off + 2).unwrap_or(None).map(|v| v as u64),
-            mal: row.get::<_, Option<i64>>(off + 3).unwrap_or(None).map(|v| v as u64),
+            anilist: row
+                .get::<_, Option<i64>>(off + 1)
+                .unwrap_or(None)
+                .map(|v| v as u64),
+            kitsu: row
+                .get::<_, Option<i64>>(off + 2)
+                .unwrap_or(None)
+                .map(|v| v as u64),
+            mal: row
+                .get::<_, Option<i64>>(off + 3)
+                .unwrap_or(None)
+                .map(|v| v as u64),
         },
         title: AnimeTitle {
             romaji: row.get(off + 4).unwrap_or(None),

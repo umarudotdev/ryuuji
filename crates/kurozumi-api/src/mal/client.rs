@@ -58,7 +58,10 @@ impl AnimeService for MalClient {
             .query(&[
                 ("q", query),
                 ("limit", "10"),
-                ("fields", "id,title,alternative_titles,num_episodes,main_picture,media_type,status"),
+                (
+                    "fields",
+                    "id,title,alternative_titles,num_episodes,main_picture,media_type,status",
+                ),
             ])
             .send()
             .await?;
@@ -78,9 +81,8 @@ impl AnimeService for MalClient {
 
     async fn get_user_list(&self) -> Result<Vec<UserListEntry>, MalError> {
         let mut entries = Vec::new();
-        let mut url = format!(
-            "{BASE_URL}/v2/users/@me/animelist?fields=list_status&limit=100&nsfw=true"
-        );
+        let mut url =
+            format!("{BASE_URL}/v2/users/@me/animelist?fields=list_status&limit=100&nsfw=true");
 
         loop {
             let resp = self
@@ -96,7 +98,11 @@ impl AnimeService for MalClient {
                 .await
                 .map_err(|e| MalError::Parse(e.to_string()))?;
 
-            entries.extend(page.data.into_iter().map(|item| item.into_user_list_entry()));
+            entries.extend(
+                page.data
+                    .into_iter()
+                    .map(|item| item.into_user_list_entry()),
+            );
 
             match page.paging.next {
                 Some(next_url) => url = next_url,

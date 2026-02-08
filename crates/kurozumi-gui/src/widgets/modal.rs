@@ -9,9 +9,7 @@ use iced::advanced::renderer::{self, Quad};
 use iced::advanced::widget::{self, Tree, Widget};
 use iced::advanced::{Clipboard, Renderer as _, Shell};
 use iced::mouse;
-use iced::{
-    Border, Color, Element, Event, Length, Point, Rectangle, Size, Theme, Vector,
-};
+use iced::{Border, Color, Element, Event, Length, Point, Rectangle, Size, Theme, Vector};
 
 /// Modal backdrop color — deep semi-transparent black.
 /// Works well for both light and dark themes.
@@ -51,9 +49,7 @@ struct Modal<'a, Message> {
 
 // ── Widget impl ─────────────────────────────────────────────────────
 
-impl<'a, Message: Clone + 'a> Widget<Message, Theme, iced::Renderer>
-    for Modal<'a, Message>
-{
+impl<'a, Message: Clone + 'a> Widget<Message, Theme, iced::Renderer> for Modal<'a, Message> {
     fn children(&self) -> Vec<Tree> {
         let content = self.modal_content.as_ref().unwrap();
         vec![Tree::new(&self.base), Tree::new(content)]
@@ -150,18 +146,13 @@ impl<'a, Message: Clone + 'a> Widget<Message, Theme, iced::Renderer>
         renderer: &iced::Renderer,
         operation: &mut dyn widget::Operation,
     ) {
-        self.base.as_widget_mut().operate(
-            &mut tree.children[0],
-            layout,
-            renderer,
-            operation,
-        );
+        self.base
+            .as_widget_mut()
+            .operate(&mut tree.children[0], layout, renderer, operation);
     }
 }
 
-impl<'a, Message: Clone + 'a> From<Modal<'a, Message>>
-    for Element<'a, Message>
-{
+impl<'a, Message: Clone + 'a> From<Modal<'a, Message>> for Element<'a, Message> {
     fn from(m: Modal<'a, Message>) -> Self {
         Element::new(m)
     }
@@ -176,15 +167,10 @@ struct ModalOverlay<'a, Message> {
     viewport: Rectangle,
 }
 
-impl<'a, Message: Clone + 'a>
-    overlay::Overlay<Message, Theme, iced::Renderer>
+impl<'a, Message: Clone + 'a> overlay::Overlay<Message, Theme, iced::Renderer>
     for ModalOverlay<'a, Message>
 {
-    fn layout(
-        &mut self,
-        renderer: &iced::Renderer,
-        bounds: Size,
-    ) -> layout::Node {
+    fn layout(&mut self, renderer: &iced::Renderer, bounds: Size) -> layout::Node {
         let limits = layout::Limits::new(Size::ZERO, bounds);
         let node = self
             .content
@@ -265,10 +251,7 @@ impl<'a, Message: Clone + 'a>
             }
             // Escape -> dismiss.
             Event::Keyboard(iced::keyboard::Event::KeyPressed {
-                key:
-                    iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::Escape,
-                    ),
+                key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
                 ..
             }) => {
                 shell.publish(self.on_blur.clone());

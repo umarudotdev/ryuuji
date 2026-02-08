@@ -36,22 +36,14 @@ pub enum Message {
 impl Settings {
     /// Initialize form state from the current config.
     pub fn from_config(config: &AppConfig) -> Self {
-        let theme_names: Vec<String> = available_themes()
-            .iter()
-            .map(|t| t.name.clone())
-            .collect();
+        let theme_names: Vec<String> = available_themes().iter().map(|t| t.name.clone()).collect();
 
         Self {
             interval_input: config.general.detection_interval.to_string(),
             auto_update: config.library.auto_update,
             confirm_update: config.library.confirm_update,
             mal_enabled: config.services.mal.enabled,
-            mal_client_id: config
-                .services
-                .mal
-                .client_id
-                .clone()
-                .unwrap_or_default(),
+            mal_client_id: config.services.mal.client_id.clone().unwrap_or_default(),
             selected_theme: config.appearance.theme.clone(),
             selected_mode: config.appearance.mode,
             available_theme_names: theme_names,
@@ -165,21 +157,19 @@ impl Settings {
         let detection_card = settings_card(
             cs,
             "Detection",
-            column![
-                row![
-                    text("Detection interval (seconds)")
-                        .size(style::TEXT_BASE)
-                        .width(Length::Fill),
-                    text_input("5", &self.interval_input)
-                        .on_input(|v| Message::IntervalChanged(v))
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
-                        .width(Length::Fixed(80.0))
-                        .style(theme::text_input_style(cs)),
-                ]
-                .align_y(Alignment::Center)
-                .spacing(style::SPACE_MD),
-            ],
+            column![row![
+                text("Detection interval (seconds)")
+                    .size(style::TEXT_BASE)
+                    .width(Length::Fill),
+                text_input("5", &self.interval_input)
+                    .on_input(|v| Message::IntervalChanged(v))
+                    .size(style::TEXT_SM)
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .width(Length::Fixed(80.0))
+                    .style(theme::text_input_style(cs)),
+            ]
+            .align_y(Alignment::Center)
+            .spacing(style::SPACE_MD),],
         );
 
         let library_card = settings_card(
@@ -200,13 +190,11 @@ impl Settings {
             .spacing(style::SPACE_MD),
         );
 
-        let mut mal_content = column![
-            toggler(self.mal_enabled)
-                .label("Enable MAL sync")
-                .text_size(style::TEXT_BASE)
-                .on_toggle(|v| Message::MalEnabledToggled(v))
-                .spacing(style::SPACE_SM),
-        ]
+        let mut mal_content = column![toggler(self.mal_enabled)
+            .label("Enable MAL sync")
+            .text_size(style::TEXT_BASE)
+            .on_toggle(|v| Message::MalEnabledToggled(v))
+            .spacing(style::SPACE_SM),]
         .spacing(style::SPACE_MD);
 
         if self.mal_enabled {
@@ -227,12 +215,10 @@ impl Settings {
 
         let mal_card = settings_card(cs, "MyAnimeList", mal_content);
 
-        let mut footer = row![
-            button(text("Save Settings").size(style::TEXT_SM))
-                .padding([style::SPACE_SM, style::SPACE_XL])
-                .on_press(Message::Save)
-                .style(theme::primary_button(cs)),
-        ]
+        let mut footer = row![button(text("Save Settings").size(style::TEXT_SM))
+            .padding([style::SPACE_SM, style::SPACE_XL])
+            .on_press(Message::Save)
+            .style(theme::primary_button(cs)),]
         .spacing(style::SPACE_MD)
         .align_y(Alignment::Center);
 
@@ -242,15 +228,20 @@ impl Settings {
             } else {
                 cs.status_completed
             };
-            footer = footer.push(
-                text(&self.status_message).size(style::TEXT_SM).color(color),
-            );
+            footer = footer.push(text(&self.status_message).size(style::TEXT_SM).color(color));
         }
 
-        let page = column![heading, appearance_card, detection_card, library_card, mal_card, footer]
-            .spacing(style::SPACE_LG)
-            .padding(style::SPACE_XL)
-            .width(Length::Fill);
+        let page = column![
+            heading,
+            appearance_card,
+            detection_card,
+            library_card,
+            mal_card,
+            footer
+        ]
+        .spacing(style::SPACE_LG)
+        .padding(style::SPACE_XL)
+        .width(Length::Fill);
 
         iced::widget::scrollable(page).height(Length::Fill).into()
     }

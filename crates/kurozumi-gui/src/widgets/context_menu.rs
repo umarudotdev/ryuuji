@@ -51,9 +51,7 @@ enum Status {
 
 // ── Widget impl ─────────────────────────────────────────────────────
 
-impl<'a, Message: 'a> Widget<Message, Theme, iced::Renderer>
-    for ContextMenu<'a, Message>
-{
+impl<'a, Message: 'a> Widget<Message, Theme, iced::Renderer> for ContextMenu<'a, Message> {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -131,10 +129,7 @@ impl<'a, Message: 'a> Widget<Message, Theme, iced::Renderer>
                     return;
                 }
                 Event::Keyboard(iced::keyboard::Event::KeyPressed {
-                    key:
-                        iced::keyboard::Key::Named(
-                            iced::keyboard::key::Named::Escape,
-                        ),
+                    key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
                     ..
                 }) => {
                     state.status = Status::Closed;
@@ -230,12 +225,9 @@ impl<'a, Message: 'a> Widget<Message, Theme, iced::Renderer>
         renderer: &iced::Renderer,
         operation: &mut dyn widget::Operation,
     ) {
-        self.base.as_widget_mut().operate(
-            &mut tree.children[0],
-            layout,
-            renderer,
-            operation,
-        );
+        self.base
+            .as_widget_mut()
+            .operate(&mut tree.children[0], layout, renderer, operation);
     }
 }
 
@@ -259,11 +251,7 @@ const EDGE_PADDING: f32 = 5.0;
 impl<'a, Message: 'a> overlay::Overlay<Message, Theme, iced::Renderer>
     for ContextMenuOverlay<'a, Message>
 {
-    fn layout(
-        &mut self,
-        renderer: &iced::Renderer,
-        bounds: Size,
-    ) -> layout::Node {
+    fn layout(&mut self, renderer: &iced::Renderer, bounds: Size) -> layout::Node {
         let limits = layout::Limits::new(Size::ZERO, bounds);
 
         let node = self
@@ -357,4 +345,3 @@ impl<'a, Message: 'a> overlay::Overlay<Message, Theme, iced::Renderer>
         10.0
     }
 }
-
