@@ -53,6 +53,12 @@ impl WatchStatus {
     ];
 }
 
+impl std::fmt::Display for WatchStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// A user's library entry linking to an anime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LibraryEntry {
