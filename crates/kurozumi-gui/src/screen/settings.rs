@@ -324,7 +324,16 @@ impl Settings {
         .padding(style::SPACE_XL)
         .width(Length::Fill);
 
-        iced::widget::scrollable(page).height(Length::Fill).into()
+        iced::widget::scrollable(page)
+            .direction(iced::widget::scrollable::Direction::Vertical(
+                iced::widget::scrollable::Scrollbar::new()
+                    .width(6)
+                    .scroller_width(4)
+                    .margin(2),
+            ))
+            .style(theme::overlay_scrollbar(cs))
+            .height(Length::Fill)
+            .into()
     }
 
     // ── Card builders ───────────────────────────────────────────────
@@ -348,7 +357,9 @@ impl Settings {
                         |name: String| Message::ThemeChanged(name),
                     )
                     .text_size(style::TEXT_SM)
-                    .padding([style::SPACE_XS, style::SPACE_SM]),
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .style(theme::pick_list_style(cs))
+                    .menu_style(theme::pick_list_menu_style(cs)),
                 ]
                 .align_y(Alignment::Center)
                 .spacing(style::SPACE_MD),
@@ -363,7 +374,9 @@ impl Settings {
                         |mode: ThemeMode| Message::ModeChanged(mode),
                     )
                     .text_size(style::TEXT_SM)
-                    .padding([style::SPACE_XS, style::SPACE_SM]),
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .style(theme::pick_list_style(cs))
+                    .menu_style(theme::pick_list_menu_style(cs)),
                 ]
                 .align_y(Alignment::Center)
                 .spacing(style::SPACE_MD),
@@ -403,7 +416,9 @@ impl Settings {
                     .label("Close to system tray")
                     .text_size(style::TEXT_BASE)
                     .on_toggle(Message::CloseToTrayToggled)
-                    .spacing(style::SPACE_SM),
+                    .spacing(style::SPACE_SM)
+                    .size(22.0)
+                    .style(theme::toggler_style(cs)),
             ]
             .spacing(style::SPACE_SM),
         )
@@ -425,12 +440,16 @@ impl Settings {
                     .label("Auto-update progress from detected playback")
                     .text_size(style::TEXT_BASE)
                     .on_toggle(Message::AutoUpdateToggled)
-                    .spacing(style::SPACE_SM),
+                    .spacing(style::SPACE_SM)
+                    .size(22.0)
+                    .style(theme::toggler_style(cs)),
                 toggler(self.confirm_update)
                     .label("Confirm before updating")
                     .text_size(style::TEXT_BASE)
                     .on_toggle(Message::ConfirmUpdateToggled)
-                    .spacing(style::SPACE_SM),
+                    .spacing(style::SPACE_SM)
+                    .size(22.0)
+                    .style(theme::toggler_style(cs)),
             ]
             .spacing(style::SPACE_SM),
         )
@@ -458,7 +477,9 @@ impl Settings {
                     |svc: String| Message::PrimaryServiceChanged(svc),
                 )
                 .text_size(style::TEXT_SM)
-                .padding([style::SPACE_XS, style::SPACE_SM]),
+                .padding([style::SPACE_SM, style::SPACE_MD])
+                .style(theme::pick_list_style(cs))
+                .menu_style(theme::pick_list_menu_style(cs)),
             ]
             .align_y(Alignment::Center)
             .spacing(style::SPACE_MD),
@@ -479,7 +500,9 @@ impl Settings {
                 .label("Enable MAL sync")
                 .text_size(style::TEXT_BASE)
                 .on_toggle(Message::MalEnabledToggled)
-                .spacing(style::SPACE_SM),
+                .spacing(style::SPACE_SM)
+                .size(22.0)
+                .style(theme::toggler_style(cs)),
         );
 
         if self.mal_enabled {
@@ -560,7 +583,9 @@ impl Settings {
                     .label("Discord Rich Presence")
                     .text_size(style::TEXT_BASE)
                     .on_toggle(Message::DiscordEnabledToggled)
-                    .spacing(style::SPACE_SM),
+                    .spacing(style::SPACE_SM)
+                    .size(22.0)
+                    .style(theme::toggler_style(cs)),
             ]
             .spacing(style::SPACE_SM),
         )

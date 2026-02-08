@@ -8,7 +8,9 @@ use kurozumi_core::models::{
     Anime, AnimeIds, AnimeTitle, DetectedMedia, LibraryEntry, WatchStatus,
 };
 use kurozumi_core::orchestrator::UpdateOutcome;
+use kurozumi_core::storage::LibraryRow;
 
+use crate::cover_cache::{self, CoverCache, CoverState};
 use crate::db::DbHandle;
 use crate::screen::{library, now_playing, search, settings, Action, ModalKind, Page};
 use crate::style;
@@ -30,6 +32,8 @@ pub struct Kurozumi {
     library: library::Library,
     search: search::Search,
     settings: settings::Settings,
+    // Cover images
+    cover_cache: CoverCache,
     // App-level chrome
     modal_state: Option<ModalKind>,
     status_message: String,
@@ -59,6 +63,7 @@ impl Default for Kurozumi {
             library: library::Library::new(),
             search: search::Search::new(),
             settings: settings_screen,
+            cover_cache: CoverCache::default(),
             modal_state: None,
             status_message: "Ready".into(),
             window_state: WindowState::load(),
@@ -70,6 +75,10 @@ impl Default for Kurozumi {
 #[derive(Debug, Clone)]
 pub enum Message {
     NavigateTo(Page),
+    CoverLoaded {
+        anime_id: i64,
+        result: Result<std::path::PathBuf, String>,
+    },
     DetectionTick,
     DetectionResult(Option<DetectedMedia>),
     DetectionProcessed(Result<UpdateOutcome, String>),
@@ -110,12 +119,26 @@ impl Kurozumi {
                     return self.handle_action(action);
                 }
                 if page == Page::Search {
+                    self.search.mal_authenticated = self.settings.mal_authenticated;
                     let action = self.search.load_entries(self.db.as_ref());
                     return self.handle_action(action);
                 }
                 if page == Page::Settings {
                     let action = self.settings.load_stats(self.db.as_ref());
                     return self.handle_action(action);
+                }
+                Task::none()
+            }
+            Message::CoverLoaded { anime_id, result } => {
+                match result {
+                    Ok(path) => {
+                        self.cover_cache
+                            .states
+                            .insert(anime_id, CoverState::Loaded(path));
+                    }
+                    Err(_) => {
+                        self.cover_cache.states.insert(anime_id, CoverState::Failed);
+                    }
                 }
                 Task::none()
             }
@@ -178,7 +201,7 @@ impl Kurozumi {
                                 async move { db.get_library_row(id).await.ok().flatten() },
                                 |row| {
                                     Message::NowPlaying(now_playing::Message::LibraryRowFetched(
-                                        row,
+                                        Box::new(row),
                                     ))
                                 },
                             );
@@ -226,21 +249,108 @@ impl Kurozumi {
                 }
                 Task::none()
             }
-            Message::NowPlaying(msg) => {
-                match msg {
-                    now_playing::Message::LibraryRowFetched(row) => {
-                        self.now_playing.matched_row = row;
-                    }
+            Message::NowPlaying(msg) => match msg {
+                now_playing::Message::LibraryRowFetched(row) => {
+                    let row = *row;
+                    let cover_task = if let Some(r) = &row {
+                        self.request_cover(r.anime.id, r.anime.cover_url.as_deref())
+                    } else {
+                        Task::none()
+                    };
+                    self.now_playing.matched_row = row;
+                    cover_task
                 }
-                Task::none()
-            }
+            },
             Message::Library(msg) => {
+                // Request cover for newly selected anime.
+                let cover_task = match &msg {
+                    library::Message::AnimeSelected(id) => {
+                        let info = self
+                            .library
+                            .entries
+                            .iter()
+                            .find(|r| r.anime.id == *id)
+                            .map(|r| (r.anime.id, r.anime.cover_url.clone()));
+                        if let Some((id, url)) = info {
+                            self.request_cover(id, url.as_deref())
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    _ => Task::none(),
+                };
                 let action = self.library.update(msg, self.db.as_ref());
-                self.handle_action(action)
+                let action_task = self.handle_action(action);
+                // Batch-request covers for all visible entries.
+                let info = Self::cover_info_from_rows(&self.library.entries);
+                let batch_covers = self.batch_request_covers(info);
+                Task::batch([cover_task, action_task, batch_covers])
             }
             Message::Search(msg) => {
+                // Intercept messages that need app-level access.
+                match &msg {
+                    search::Message::SearchOnline => {
+                        let query = self.search.query().to_string();
+                        self.search.update(msg, self.db.as_ref());
+                        return self.spawn_mal_search(query);
+                    }
+                    search::Message::AddToLibrary(idx) => {
+                        let idx = *idx;
+                        if let Some(result) = self.search.online_results.get(idx).cloned() {
+                            return self.spawn_add_to_library(result);
+                        }
+                        return Task::none();
+                    }
+                    search::Message::OnlineResultsLoaded(_) => {
+                        // After online results load, batch-request covers.
+                        let action = self.search.update(msg, self.db.as_ref());
+                        let action_task = self.handle_action(action);
+                        let online_covers: Vec<(i64, Option<String>)> = self
+                            .search
+                            .online_results
+                            .iter()
+                            .map(|r| (search::online_cover_key(r.service_id), r.cover_url.clone()))
+                            .collect();
+                        let batch = self.batch_request_covers(online_covers);
+                        return Task::batch([action_task, batch]);
+                    }
+                    _ => {}
+                }
+
+                // Request cover for newly selected anime.
+                let cover_task = match &msg {
+                    search::Message::AnimeSelected(id) => {
+                        let info = self
+                            .search
+                            .all_entries
+                            .iter()
+                            .find(|r| r.anime.id == *id)
+                            .map(|r| (r.anime.id, r.anime.cover_url.clone()));
+                        if let Some((id, url)) = info {
+                            self.request_cover(id, url.as_deref())
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    search::Message::OnlineSelected(idx) => {
+                        let info =
+                            self.search.online_results.get(*idx).map(|r| {
+                                (search::online_cover_key(r.service_id), r.cover_url.clone())
+                            });
+                        if let Some((key, url)) = info {
+                            self.request_cover(key, url.as_deref())
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    _ => Task::none(),
+                };
                 let action = self.search.update(msg, self.db.as_ref());
-                self.handle_action(action)
+                let action_task = self.handle_action(action);
+                // Batch-request covers for all entries.
+                let info = Self::cover_info_from_rows(&self.search.all_entries);
+                let batch_covers = self.batch_request_covers(info);
+                Task::batch([cover_task, action_task, batch_covers])
             }
             Message::Settings(ref msg) => {
                 // Intercept async actions before delegating to settings.
@@ -343,6 +453,15 @@ impl Kurozumi {
                     .into_iter()
                     .map(|item| {
                         let alt = &item.node.alternative_titles;
+                        let season = item.node.start_season.as_ref().map(|s| {
+                            let mut c = s.season.chars();
+                            match c.next() {
+                                Some(first) => first.to_uppercase().to_string() + c.as_str(),
+                                None => s.season.clone(),
+                            }
+                        });
+                        let year = item.node.start_season.as_ref().map(|s| s.year);
+
                         let anime = Anime {
                             id: 0,
                             ids: AnimeIds {
@@ -365,8 +484,28 @@ impl Kurozumi {
                                 .main_picture
                                 .as_ref()
                                 .and_then(|p| p.medium.clone()),
-                            season: None,
-                            year: None,
+                            season,
+                            year,
+                            synopsis: item.node.synopsis.clone(),
+                            genres: item
+                                .node
+                                .genres
+                                .as_ref()
+                                .map(|g| g.iter().map(|x| x.name.clone()).collect())
+                                .unwrap_or_default(),
+                            media_type: item.node.media_type.clone(),
+                            airing_status: item.node.status.clone(),
+                            mean_score: item.node.mean,
+                            studios: item
+                                .node
+                                .studios
+                                .as_ref()
+                                .map(|s| s.iter().map(|x| x.name.clone()).collect())
+                                .unwrap_or_default(),
+                            source: item.node.source.clone(),
+                            rating: item.node.rating.clone(),
+                            start_date: item.node.start_date.clone(),
+                            end_date: item.node.end_date.clone(),
                         };
 
                         let status_str = item.list_status.status.as_deref().unwrap_or("watching");
@@ -415,6 +554,91 @@ impl Kurozumi {
         )
     }
 
+    /// Spawn an online MAL search as an async task.
+    fn spawn_mal_search(&self, query: String) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let client_id = self.settings.mal_client_id.trim().to_string();
+        if client_id.is_empty() {
+            return Task::none();
+        }
+
+        Task::perform(
+            async move {
+                use kurozumi_api::traits::AnimeService;
+
+                let token = db
+                    .get_mal_token()
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Not logged in to MAL".to_string())?;
+
+                let client = kurozumi_api::mal::MalClient::new(client_id, token);
+                client.search_anime(&query).await.map_err(|e| e.to_string())
+            },
+            |result| Message::Search(search::Message::OnlineResultsLoaded(result)),
+        )
+    }
+
+    /// Add an online search result to the local library.
+    fn spawn_add_to_library(
+        &self,
+        result: kurozumi_api::traits::AnimeSearchResult,
+    ) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+
+        Task::perform(
+            async move {
+                let anime = Anime {
+                    id: 0,
+                    ids: AnimeIds {
+                        anilist: None,
+                        kitsu: None,
+                        mal: Some(result.service_id),
+                    },
+                    title: AnimeTitle {
+                        romaji: Some(result.title.clone()),
+                        english: result.title_english.clone(),
+                        native: None,
+                    },
+                    synonyms: Vec::new(),
+                    episodes: result.episodes,
+                    cover_url: result.cover_url.clone(),
+                    season: result.season.clone(),
+                    year: result.year,
+                    synopsis: result.synopsis.clone(),
+                    genres: result.genres.clone(),
+                    media_type: result.media_type.clone(),
+                    airing_status: result.status.clone(),
+                    mean_score: result.mean_score,
+                    studios: Vec::new(),
+                    source: None,
+                    rating: None,
+                    start_date: None,
+                    end_date: None,
+                };
+
+                let entry = LibraryEntry {
+                    id: 0,
+                    anime_id: 0,
+                    status: WatchStatus::PlanToWatch,
+                    watched_episodes: 0,
+                    score: None,
+                    updated_at: Utc::now(),
+                };
+
+                db.mal_import_batch(vec![(anime, Some(entry))])
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            },
+            |result| Message::Search(search::Message::AddedToLibrary(result)),
+        )
+    }
+
     /// Interpret an Action returned by a screen.
     fn handle_action(&mut self, action: Action) -> Task<Message> {
         match action {
@@ -443,6 +667,57 @@ impl Kurozumi {
         }
     }
 
+    /// Batch-request cover downloads for a set of (anime_id, cover_url) pairs.
+    fn batch_request_covers(&mut self, items: Vec<(i64, Option<String>)>) -> Task<Message> {
+        let tasks: Vec<Task<Message>> = items
+            .into_iter()
+            .map(|(id, url)| self.request_cover(id, url.as_deref()))
+            .collect();
+        if tasks.is_empty() {
+            Task::none()
+        } else {
+            Task::batch(tasks)
+        }
+    }
+
+    /// Extract (anime_id, cover_url) pairs from library rows for batch cover requests.
+    fn cover_info_from_rows(rows: &[LibraryRow]) -> Vec<(i64, Option<String>)> {
+        rows.iter()
+            .map(|r| (r.anime.id, r.anime.cover_url.clone()))
+            .collect()
+    }
+
+    /// Request a cover image download for an anime if not already requested.
+    fn request_cover(&mut self, anime_id: i64, cover_url: Option<&str>) -> Task<Message> {
+        let Some(url) = cover_url else {
+            // No cover URL available — mark as failed so the placeholder renders.
+            self.cover_cache
+                .states
+                .entry(anime_id)
+                .or_insert(CoverState::Failed);
+            return Task::none();
+        };
+        if self.cover_cache.states.contains_key(&anime_id) {
+            return Task::none();
+        }
+        // Check disk cache first.
+        let path = cover_cache::cover_path(anime_id);
+        if path.exists() {
+            self.cover_cache
+                .states
+                .insert(anime_id, CoverState::Loaded(path));
+            return Task::none();
+        }
+        self.cover_cache
+            .states
+            .insert(anime_id, CoverState::Loading);
+        let url = url.to_string();
+        Task::perform(
+            async move { cover_cache::fetch_cover(anime_id, url).await },
+            move |result| Message::CoverLoaded { anime_id, result },
+        )
+    }
+
     pub fn view(&self) -> Element<'_, Message> {
         let cs = &self.current_theme.colors;
         let nav = self.nav_rail(cs);
@@ -450,10 +725,13 @@ impl Kurozumi {
         let page_content: Element<'_, Message> = match self.page {
             Page::NowPlaying => self
                 .now_playing
-                .view(cs, &self.status_message)
+                .view(cs, &self.status_message, &self.cover_cache)
                 .map(Message::NowPlaying),
-            Page::Library => self.library.view(cs).map(Message::Library),
-            Page::Search => self.search.view(cs).map(Message::Search),
+            Page::Library => self
+                .library
+                .view(cs, &self.cover_cache)
+                .map(Message::Library),
+            Page::Search => self.search.view(cs, &self.cover_cache).map(Message::Search),
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
@@ -576,34 +854,28 @@ impl Kurozumi {
         use lucide_icons::iced as icons;
 
         let rail = column![
-            // Branding
-            container(
-                text("K")
-                    .size(style::TEXT_XL)
-                    .font(style::FONT_HEADING)
-                    .color(cs.primary)
-                    .line_height(style::LINE_HEIGHT_TIGHT),
-            )
-            .width(Length::Fill)
-            .center_x(Length::Fill)
-            .padding([style::SPACE_LG, 0.0]),
-            // Navigation items
             column![
                 nav_item(icons::icon_play(), "Playing", Page::NowPlaying),
                 nav_item(icons::icon_library(), "Library", Page::Library),
                 nav_item(icons::icon_search(), "Search", Page::Search),
-                nav_item(icons::icon_settings(), "Settings", Page::Settings),
             ]
             .spacing(style::SPACE_XS)
             .align_x(Alignment::Center),
+            iced::widget::Space::new().height(Length::Fill),
+            container(nav_item(icons::icon_settings(), "Settings", Page::Settings))
+                .align_x(Alignment::Center)
+                .width(Length::Fill)
+                .padding(iced::Padding::new(0.0).bottom(style::SPACE_SM)),
         ]
-        .spacing(style::SPACE_SM)
         .align_x(Alignment::Center)
-        .width(Length::Fixed(style::NAV_RAIL_WIDTH));
+        .width(Length::Fill)
+        .height(Length::Fill);
 
         container(rail)
             .style(theme::nav_rail_bg(cs))
+            .width(Length::Fixed(style::NAV_RAIL_WIDTH))
             .height(Length::Fill)
+            .padding(iced::Padding::new(0.0).top(style::SPACE_LG))
             .into()
     }
 }

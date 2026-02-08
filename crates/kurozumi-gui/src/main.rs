@@ -1,5 +1,7 @@
 mod app;
+mod cover_cache;
 mod db;
+mod format;
 mod screen;
 mod style;
 mod subscription;

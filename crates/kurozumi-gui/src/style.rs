@@ -43,6 +43,8 @@ pub const NAV_RAIL_WIDTH: f32 = 80.0;
 pub const STATUS_BAR_HEIGHT: f32 = 28.0;
 pub const COVER_WIDTH: f32 = 130.0;
 pub const COVER_HEIGHT: f32 = 185.0;
+pub const THUMB_WIDTH: f32 = 40.0;
+pub const THUMB_HEIGHT: f32 = 57.0;
 
 // ── Navigation rail ──────────────────────────────────────────────
 
@@ -53,6 +55,15 @@ pub const NAV_LABEL_SIZE: f32 = 12.0;
 
 pub const CHIP_HEIGHT: f32 = 32.0;
 pub const CHIP_RADIUS: f32 = 8.0;
+
+// ── Progress bars ────────────────────────────────────────────────
+
+pub const PROGRESS_HEIGHT: f32 = 6.0;
+
+// ── Badge dimensions ─────────────────────────────────────────────
+
+pub const BADGE_HEIGHT: f32 = 22.0;
+pub const BADGE_PADDING_H: f32 = 8.0;
 
 // ── Border radii ─────────────────────────────────────────────────
 

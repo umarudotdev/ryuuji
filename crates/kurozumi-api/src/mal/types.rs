@@ -21,26 +21,48 @@ pub struct MalAnimeNode {
     pub main_picture: Option<MalPicture>,
     pub alternative_titles: Option<MalAlternativeTitles>,
     pub num_episodes: Option<u32>,
-    #[allow(dead_code)]
     pub media_type: Option<String>,
-    #[allow(dead_code)]
     pub status: Option<String>,
+    pub synopsis: Option<String>,
+    pub genres: Option<Vec<MalGenre>>,
+    pub mean: Option<f32>,
+    pub studios: Option<Vec<MalStudio>>,
+    pub source: Option<String>,
+    pub rating: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub start_season: Option<MalSeason>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct MalPicture {
     pub medium: Option<String>,
-    #[allow(dead_code)]
     pub large: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct MalAlternativeTitles {
     pub en: Option<String>,
-    #[allow(dead_code)]
     pub ja: Option<String>,
-    #[allow(dead_code)]
     pub synonyms: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MalGenre {
+    pub id: u64,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MalStudio {
+    pub id: u64,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MalSeason {
+    pub year: u32,
+    pub season: String,
 }
 
 // ── User anime list responses ───────────────────────────────────
@@ -75,12 +97,30 @@ pub struct MalPaging {
 
 impl MalAnimeNode {
     pub fn into_search_result(self) -> AnimeSearchResult {
+        let season_str = self.start_season.as_ref().map(|s| {
+            let mut c = s.season.chars();
+            match c.next() {
+                Some(first) => first.to_uppercase().to_string() + c.as_str(),
+                None => s.season.clone(),
+            }
+        });
+        let year = self.start_season.as_ref().map(|s| s.year);
         AnimeSearchResult {
             service_id: self.id,
             title: self.title,
             title_english: self.alternative_titles.and_then(|alt| alt.en),
             episodes: self.num_episodes,
             cover_url: self.main_picture.and_then(|pic| pic.medium),
+            media_type: self.media_type,
+            status: self.status,
+            synopsis: self.synopsis,
+            genres: self
+                .genres
+                .map(|g| g.into_iter().map(|x| x.name).collect())
+                .unwrap_or_default(),
+            mean_score: self.mean,
+            season: season_str,
+            year,
         }
     }
 }
@@ -124,7 +164,16 @@ mod tests {
                         },
                         "num_episodes": 28,
                         "media_type": "tv",
-                        "status": "finished_airing"
+                        "status": "finished_airing",
+                        "synopsis": "After the party defeats the Demon King...",
+                        "genres": [{"id": 1, "name": "Action"}, {"id": 2, "name": "Adventure"}],
+                        "mean": 9.32,
+                        "studios": [{"id": 11, "name": "Madhouse"}],
+                        "source": "manga",
+                        "rating": "pg_13",
+                        "start_date": "2023-09-29",
+                        "end_date": "2024-03-22",
+                        "start_season": {"year": 2023, "season": "fall"}
                     }
                 }
             ]

@@ -138,6 +138,16 @@ mod tests {
             cover_url: None,
             season: None,
             year: None,
+            synopsis: None,
+            genres: vec![],
+            media_type: None,
+            airing_status: None,
+            mean_score: None,
+            studios: vec![],
+            source: None,
+            rating: None,
+            start_date: None,
+            end_date: None,
         }
     }
 
@@ -155,6 +165,16 @@ mod tests {
             cover_url: None,
             season: None,
             year: None,
+            synopsis: None,
+            genres: vec![],
+            media_type: None,
+            airing_status: None,
+            mean_score: None,
+            studios: vec![],
+            source: None,
+            rating: None,
+            start_date: None,
+            end_date: None,
         }
     }
 

@@ -3,11 +3,10 @@
 //! Each function returns a closure suitable for Iced's `.style()` method,
 //! capturing the needed color tokens from a `ColorScheme`.
 
-use iced::widget::{button, container, text_input};
+use iced::overlay::menu;
+use iced::widget::{button, container, pick_list, progress_bar, scrollable, text_input, toggler};
 use iced::{Background, Border, Color, Shadow, Theme, Vector};
-use iced_aw::style::{
-    context_menu as aw_context_menu, number_input as aw_number_input, status::Status as AwStatus,
-};
+use iced_aw::style::{context_menu as aw_context_menu, status::Status as AwStatus};
 
 use crate::style;
 
@@ -272,12 +271,67 @@ pub fn text_input_style(
             border: Border {
                 color: border_color,
                 width: 1.0,
-                radius: style::RADIUS_SM.into(),
+                radius: style::RADIUS_MD.into(),
             },
             icon: on_surface_variant,
             placeholder: outline,
             value: on_surface,
             selection: primary,
+        }
+    }
+}
+
+/// MD3-style toggler: primary track when on, outline track when off.
+pub fn toggler_style(cs: &ColorScheme) -> impl Fn(&Theme, toggler::Status) -> toggler::Style {
+    let primary = cs.primary;
+    let primary_hover = cs.primary_hover;
+    let on_primary = cs.on_primary;
+    let outline = cs.outline;
+    let outline_variant = cs.outline_variant;
+    let surface_bright = cs.surface_bright;
+    let on_surface = cs.on_surface;
+
+    move |_theme, status| match status {
+        toggler::Status::Active { is_toggled } | toggler::Status::Disabled { is_toggled } => {
+            let disabled = matches!(status, toggler::Status::Disabled { .. });
+            let alpha = if disabled { 0.38 } else { 1.0 };
+            let (track, knob) = if is_toggled {
+                (primary, on_primary)
+            } else {
+                (outline_variant, outline)
+            };
+            toggler::Style {
+                background: Background::Color(Color { a: alpha, ..track }),
+                foreground: Background::Color(Color { a: alpha, ..knob }),
+                background_border_width: 1.0,
+                background_border_color: Color {
+                    a: alpha,
+                    ..outline_variant
+                },
+                foreground_border_width: 0.0,
+                foreground_border_color: Color::TRANSPARENT,
+                text_color: Some(on_surface),
+                border_radius: None,
+                padding_ratio: 0.25,
+            }
+        }
+        toggler::Status::Hovered { is_toggled } => {
+            let (track, knob) = if is_toggled {
+                (primary_hover, on_primary)
+            } else {
+                (surface_bright, on_surface)
+            };
+            toggler::Style {
+                background: Background::Color(track),
+                foreground: Background::Color(knob),
+                background_border_width: 1.0,
+                background_border_color: outline_variant,
+                foreground_border_width: 0.0,
+                foreground_border_color: Color::TRANSPARENT,
+                text_color: Some(on_surface),
+                border_radius: None,
+                padding_ratio: 0.25,
+            }
         }
     }
 }
@@ -351,29 +405,191 @@ pub fn aw_context_menu_style(
     }
 }
 
-/// iced_aw NumberInput button style.
-pub fn aw_number_input_style(
-    cs: &ColorScheme,
-) -> impl Fn(&Theme, AwStatus) -> aw_number_input::Style + 'static {
+// ── New styled components ─────────────────────────────────────────
+
+/// Progress bar track (surface_container_high) with primary-colored fill.
+pub fn episode_progress(cs: &ColorScheme) -> impl Fn(&Theme) -> progress_bar::Style {
+    let primary = cs.primary;
+    let track = cs.surface_container_high;
+    move |_theme| progress_bar::Style {
+        background: Background::Color(track),
+        bar: Background::Color(primary),
+        border: Border {
+            radius: style::RADIUS_FULL.into(),
+            ..Border::default()
+        },
+    }
+}
+
+/// Metadata badge (genre/studio pill): tonal surface with outline border.
+pub fn metadata_badge(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style {
+    let bg = cs.surface_container_high;
+    let border_color = cs.outline_variant;
+    move |_theme| container::Style {
+        background: Some(Background::Color(bg)),
+        border: Border {
+            color: border_color,
+            width: 1.0,
+            radius: style::RADIUS_FULL.into(),
+        },
+        ..Default::default()
+    }
+}
+
+/// Pick list trigger: themed surface background with outline border.
+pub fn pick_list_style(cs: &ColorScheme) -> impl Fn(&Theme, pick_list::Status) -> pick_list::Style {
+    let primary = cs.primary;
+    let outline = cs.outline;
+    let outline_variant = cs.outline_variant;
+    let surface_container_low = cs.surface_container_low;
+    let on_surface = cs.on_surface;
+    let on_surface_variant = cs.on_surface_variant;
+
+    move |_theme, status| {
+        let (border_color, handle_color) = match status {
+            pick_list::Status::Opened { .. } => (primary, primary),
+            pick_list::Status::Hovered => (outline, on_surface),
+            _ => (outline_variant, on_surface_variant),
+        };
+        pick_list::Style {
+            text_color: on_surface,
+            placeholder_color: on_surface_variant,
+            handle_color,
+            background: Background::Color(surface_container_low),
+            border: Border {
+                color: border_color,
+                width: 1.0,
+                radius: style::RADIUS_MD.into(),
+            },
+        }
+    }
+}
+
+/// Pick list dropdown menu: themed background with primary selection highlight.
+pub fn pick_list_menu_style(cs: &ColorScheme) -> impl Fn(&Theme) -> menu::Style {
+    let surface_container = cs.surface_container;
+    let outline_variant = cs.outline_variant;
+    let on_surface = cs.on_surface;
     let primary = cs.primary;
     let on_primary = cs.on_primary;
+
+    move |_theme| menu::Style {
+        background: Background::Color(surface_container),
+        border: Border {
+            color: outline_variant,
+            width: 1.0,
+            radius: style::RADIUS_MD.into(),
+        },
+        text_color: on_surface,
+        selected_text_color: on_primary,
+        selected_background: Background::Color(primary),
+        shadow: Shadow {
+            color: Color {
+                a: 0.2,
+                ..Color::BLACK
+            },
+            offset: Vector::new(0.0, 4.0),
+            blur_radius: 12.0,
+        },
+    }
+}
+
+/// Stepper +/- button style with per-corner radius for pill-group layout.
+///
+/// `left` = true → rounds left corners only, `right` = true → rounds right only.
+pub fn stepper_button_style(
+    cs: &ColorScheme,
+    left: bool,
+    right: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style {
     let surface_container_high = cs.surface_container_high;
+    let on_surface_variant = cs.on_surface_variant;
+    let primary_container = cs.primary_container;
+    let on_primary_container = cs.on_primary_container;
+    let primary = cs.primary;
+    let on_primary = cs.on_primary;
     let on_surface = cs.on_surface;
+    let outline_variant = cs.outline_variant;
+
+    let r = style::RADIUS_MD;
+    let radius = iced::border::Radius {
+        top_left: if left { r } else { 0.0 },
+        top_right: if right { r } else { 0.0 },
+        bottom_right: if right { r } else { 0.0 },
+        bottom_left: if left { r } else { 0.0 },
+    };
+
     move |_theme, status| {
         let (bg, icon) = match status {
-            AwStatus::Hovered => (Some(Background::Color(primary)), on_primary),
-            AwStatus::Disabled => (
-                Some(Background::Color(surface_container_high)),
+            button::Status::Pressed => (primary, on_primary),
+            button::Status::Hovered => (primary_container, on_primary_container),
+            button::Status::Disabled => (
+                surface_container_high,
                 Color {
-                    a: 0.5,
+                    a: 0.38,
                     ..on_surface
                 },
             ),
-            _ => (Some(Background::Color(surface_container_high)), on_surface),
+            _ => (surface_container_high, on_surface_variant),
         };
-        aw_number_input::Style {
-            button_background: bg,
-            icon_color: icon,
+        button::Style {
+            background: Some(Background::Color(bg)),
+            text_color: icon,
+            border: Border {
+                color: outline_variant,
+                width: 1.0,
+                radius,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+/// Fluent Design overlay scrollbar: thin transparent rail, pill scroller
+/// that becomes more visible on hover/drag.
+pub fn overlay_scrollbar(
+    cs: &ColorScheme,
+) -> impl Fn(&Theme, scrollable::Status) -> scrollable::Style {
+    let on_surface = cs.on_surface;
+    let primary = cs.primary;
+
+    move |_theme, status| {
+        let (scroller_color, scroller_alpha) = match status {
+            scrollable::Status::Dragged { .. } => (primary, 0.7),
+            scrollable::Status::Hovered {
+                is_vertical_scrollbar_hovered: true,
+                ..
+            } => (on_surface, 0.5),
+            scrollable::Status::Hovered { .. } => (on_surface, 0.25),
+            _ => (on_surface, 0.15),
+        };
+
+        let rail = scrollable::Rail {
+            background: None,
+            border: Border::default(),
+            scroller: scrollable::Scroller {
+                background: Background::Color(Color {
+                    a: scroller_alpha,
+                    ..scroller_color
+                }),
+                border: Border {
+                    radius: style::RADIUS_FULL.into(),
+                    ..Border::default()
+                },
+            },
+        };
+
+        scrollable::Style {
+            container: container::Style::default(),
+            vertical_rail: rail,
+            horizontal_rail: rail,
+            gap: None,
+            auto_scroll: scrollable::AutoScroll {
+                background: Background::Color(Color::TRANSPARENT),
+                border: Border::default(),
+                shadow: Shadow::default(),
+                icon: on_surface,
+            },
         }
     }
 }
