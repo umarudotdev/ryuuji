@@ -36,11 +36,10 @@ impl NowPlaying {
     pub fn view<'a>(
         &'a self,
         cs: &ColorScheme,
-        status: &'a str,
         covers: &'a CoverCache,
     ) -> Element<'a, Message> {
         let content: Element<'a, Message> = match &self.detected {
-            Some(media) => playing_dashboard(cs, media, self.matched_row.as_ref(), status, covers),
+            Some(media) => playing_dashboard(cs, media, self.matched_row.as_ref(), covers),
             None => empty_state(cs),
         };
 
@@ -143,7 +142,6 @@ fn playing_dashboard<'a>(
     cs: &ColorScheme,
     media: &'a DetectedMedia,
     matched_row: Option<&'a LibraryRow>,
-    status: &'a str,
     covers: &'a CoverCache,
 ) -> Element<'a, Message> {
     // ── Now Playing card ────────────────────────────────────────
@@ -243,6 +241,30 @@ fn playing_dashboard<'a>(
         .spacing(style::SPACE_LG)
         .padding(style::SPACE_XL);
 
+    // ── Synopsis card (right after the main card) ──────────────
+    if let Some(lib_row) = matched_row {
+        let anime = &lib_row.anime;
+
+        if let Some(synopsis) = &anime.synopsis {
+            if !synopsis.is_empty() {
+                let synopsis_card = container(
+                    column![
+                        section_heading(cs, "Synopsis"),
+                        text(synopsis.as_str())
+                            .size(style::TEXT_SM)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
+                    ]
+                    .spacing(style::SPACE_SM),
+                )
+                .style(theme::card(cs))
+                .padding(style::SPACE_LG)
+                .width(Length::Fill);
+
+                page = page.push(synopsis_card);
+            }
+        }
+    }
+
     // ── Anime Info card ─────────────────────────────────────────
     if let Some(lib_row) = matched_row {
         let anime = &lib_row.anime;
@@ -276,11 +298,9 @@ fn playing_dashboard<'a>(
         if let Some(score) = anime.mean_score {
             info_rows.push(info_row(cs, "Score", format!("\u{2605} {score:.2}")));
         }
-        // Genres as badges instead of plain text.
         if !anime.genres.is_empty() {
             info_rows.push(badge_row(cs, "Genres", &anime.genres));
         }
-        // Studios as badges.
         if !anime.studios.is_empty() {
             info_rows.push(badge_row(cs, "Studios", &anime.studios));
         }
@@ -316,57 +336,6 @@ fn playing_dashboard<'a>(
 
             page = page.push(anime_info_card);
         }
-
-        // ── Synopsis card ───────────────────────────────────────
-        if let Some(synopsis) = &anime.synopsis {
-            if !synopsis.is_empty() {
-                let synopsis_card = container(
-                    column![
-                        section_heading(cs, "Synopsis"),
-                        text(synopsis.as_str())
-                            .size(style::TEXT_SM)
-                            .line_height(style::LINE_HEIGHT_LOOSE),
-                    ]
-                    .spacing(style::SPACE_SM),
-                )
-                .style(theme::card(cs))
-                .padding(style::SPACE_LG)
-                .width(Length::Fill);
-
-                page = page.push(synopsis_card);
-            }
-        }
-    }
-
-    // ── Status card ─────────────────────────────────────────────
-    if !status.is_empty() {
-        let dot_color = if status.starts_with("Error") {
-            cs.error
-        } else if status.starts_with("Updated") || status.starts_with("Added") {
-            cs.status_completed
-        } else {
-            cs.on_surface_variant
-        };
-
-        let status_card = container(
-            row![
-                text("\u{2022}")
-                    .size(style::TEXT_SM)
-                    .color(dot_color)
-                    .line_height(style::LINE_HEIGHT_LOOSE),
-                text(status)
-                    .size(style::TEXT_SM)
-                    .color(dot_color)
-                    .line_height(style::LINE_HEIGHT_LOOSE),
-            ]
-            .spacing(style::SPACE_SM)
-            .align_y(Alignment::Center),
-        )
-        .style(theme::card(cs))
-        .padding([style::SPACE_SM, style::SPACE_LG])
-        .width(Length::Fill);
-
-        page = page.push(status_card);
     }
 
     scrollable(page)

@@ -54,8 +54,10 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
     let mut info_col = column![text(title)
         .size(style::TEXT_BASE)
         .font(style::FONT_HEADING)
-        .line_height(style::LINE_HEIGHT_NORMAL)]
-    .spacing(style::SPACE_XXS);
+        .line_height(style::LINE_HEIGHT_NORMAL)
+        .wrapping(iced::widget::text::Wrapping::None)]
+    .spacing(style::SPACE_XXS)
+    .clip(true);
 
     // Meta line: media type · year · genres
     let mut meta_parts: Vec<String> = Vec::new();
@@ -84,14 +86,30 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
         );
     }
 
+    // Right-side: status badge + episode progress
+    let status_label = lib_row.entry.status.to_string();
+    let right_col = column![
+        container(
+            text(status_label)
+                .size(style::TEXT_XS)
+                .color(status_col)
+                .line_height(style::LINE_HEIGHT_NORMAL),
+        )
+        .style(theme::status_badge(cs, status_col))
+        .padding([style::SPACE_XXS, style::SPACE_SM]),
+        text(progress)
+            .size(style::TEXT_XS)
+            .color(cs.on_surface_variant)
+            .line_height(style::LINE_HEIGHT_LOOSE),
+    ]
+    .spacing(style::SPACE_XXS)
+    .align_x(Alignment::End);
+
     let content = row![
         status_bar,
         thumb,
         info_col.width(Length::Fill),
-        text(progress)
-            .size(style::TEXT_SM)
-            .color(cs.on_surface_variant)
-            .line_height(style::LINE_HEIGHT_LOOSE),
+        right_col,
     ]
     .spacing(style::SPACE_SM)
     .align_y(Alignment::Center);

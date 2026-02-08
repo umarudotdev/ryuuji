@@ -90,6 +90,8 @@ pub enum Message {
     ConfirmDelete(i64),
     CancelModal,
     DbOperationDone(Result<(), String>),
+    ClearQuery,
+    CloseDetail,
     // Filter & sort
     StatusFilterChanged(Option<WatchStatus>),
     SortChanged(SearchSort),
@@ -200,6 +202,18 @@ impl Search {
     /// Handle a search message, returning an Action for the app router.
     pub fn update(&mut self, msg: Message, db: Option<&DbHandle>) -> Action {
         match msg {
+            Message::ClearQuery => {
+                self.query.clear();
+                if self.search_mode == SearchMode::Local {
+                    self.refilter();
+                }
+                Action::None
+            }
+            Message::CloseDetail => {
+                self.selected_anime = None;
+                self.selected_online = None;
+                Action::None
+            }
             Message::QueryChanged(new_query) => {
                 self.query = new_query;
                 if self.search_mode == SearchMode::Local {
@@ -449,14 +463,32 @@ impl Search {
         let search_input = text_input("Search library...", &self.query)
             .on_input(Message::QueryChanged)
             .size(style::TEXT_BASE)
-            .padding([style::SPACE_SM, style::SPACE_MD])
+            .padding([style::SPACE_XS, style::SPACE_SM])
             .width(Length::Fill)
-            .style(theme::text_input_style(cs));
+            .style(theme::text_input_borderless(cs));
 
-        let header = row![search_icon, search_input]
+        let mut search_row = row![search_icon, search_input]
             .spacing(style::SPACE_SM)
-            .align_y(Alignment::Center)
-            .padding([style::SPACE_SM, style::SPACE_LG]);
+            .align_y(Alignment::Center);
+
+        if !self.query.is_empty() {
+            let clear_btn = button(
+                lucide_icons::iced::icon_x()
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant),
+            )
+            .on_press(Message::ClearQuery)
+            .padding(style::SPACE_XS)
+            .style(theme::icon_button(cs));
+            search_row = search_row.push(clear_btn);
+        }
+
+        let header = container(search_row)
+            .style(theme::search_bar(cs))
+            .padding([style::SPACE_SM, style::SPACE_MD])
+            .width(Length::Fill);
+
+        let header = container(header).padding([style::SPACE_SM, style::SPACE_LG]);
 
         // Status filter chip bar + result count + sort picker
         let result_count = format!(
@@ -559,6 +591,7 @@ impl Search {
                 let detail = detail_panel(
                     cs,
                     lib_row,
+                    Message::CloseDetail,
                     move |s| Message::StatusChanged(anime_id, s),
                     move |v| Message::ScoreChanged(anime_id, v),
                     move |ep| Message::EpisodeChanged(anime_id, ep),
@@ -742,7 +775,7 @@ impl Search {
             if let Some(result) = self.online_results.get(idx) {
                 let cover_key = online_cover_key(result.service_id);
                 let detail =
-                    online_detail_panel(cs, result, Message::AddToLibrary(idx), covers, cover_key);
+                    online_detail_panel(cs, result, Message::CloseDetail, Message::AddToLibrary(idx), covers, cover_key);
                 return row![
                     container(content).width(Length::FillPortion(3)),
                     rule::vertical(1),
