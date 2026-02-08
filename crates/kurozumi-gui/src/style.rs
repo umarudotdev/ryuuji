@@ -18,11 +18,24 @@ pub const SPACE_3XL: f32 = 48.0;
 
 pub const TEXT_XS: f32 = 11.0;
 pub const TEXT_SM: f32 = 12.0;
-pub const TEXT_BASE: f32 = 14.0;
+pub const TEXT_BASE: f32 = 15.0;
 pub const TEXT_LG: f32 = 16.0;
 pub const TEXT_XL: f32 = 22.0;
 pub const TEXT_2XL: f32 = 28.0;
 pub const TEXT_3XL: f32 = 36.0;
+
+// Line heights (multipliers for `LineHeight::Relative`)
+pub const LINE_HEIGHT_TIGHT: f32 = 1.2; // headings, display text
+pub const LINE_HEIGHT_NORMAL: f32 = 1.45; // body text, labels
+pub const LINE_HEIGHT_LOOSE: f32 = 1.6; // small/caption text
+
+// Font weight presets
+pub const FONT_HEADING: iced::Font = iced::Font {
+    family: iced::font::Family::Name("Geist"),
+    weight: iced::font::Weight::Medium,
+    stretch: iced::font::Stretch::Normal,
+    style: iced::font::Style::Normal,
+};
 
 // ── Layout ───────────────────────────────────────────────────────
 

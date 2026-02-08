@@ -240,6 +240,7 @@ impl Library {
             text(count_text)
                 .size(style::TEXT_XS)
                 .color(cs.outline)
+                .line_height(style::LINE_HEIGHT_LOOSE)
                 .width(Length::Fill),
             pick_list(LibrarySort::ALL, Some(self.sort), |s| {
                 Message::SortChanged(s)
@@ -255,7 +256,8 @@ impl Library {
             container(
                 column![text("No anime in this list.")
                     .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),]
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),]
                 .align_x(Alignment::Center),
             )
             .padding(style::SPACE_3XL)
@@ -329,7 +331,11 @@ fn chip_bar(cs: &ColorScheme, active: WatchStatus) -> Element<'static, Message> 
                 chip_content =
                     chip_content.push(lucide_icons::iced::icon_check().size(style::TEXT_XS));
             }
-            chip_content = chip_content.push(text(base_label).size(style::TEXT_XS));
+            chip_content = chip_content.push(
+                text(base_label)
+                    .size(style::TEXT_XS)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            );
 
             button(container(chip_content).center_y(Length::Fill))
                 .height(Length::Fixed(style::CHIP_HEIGHT))
@@ -366,10 +372,14 @@ fn anime_list_item<'a>(
 
     let content = row![
         status_bar,
-        text(title).size(style::TEXT_BASE).width(Length::Fill),
+        text(title)
+            .size(style::TEXT_BASE)
+            .line_height(style::LINE_HEIGHT_NORMAL)
+            .width(Length::Fill),
         text(progress)
             .size(style::TEXT_SM)
-            .color(cs.on_surface_variant),
+            .color(cs.on_surface_variant)
+            .line_height(style::LINE_HEIGHT_LOOSE),
     ]
     .spacing(style::SPACE_SM)
     .align_y(Alignment::Center);
@@ -388,26 +398,30 @@ fn anime_list_item<'a>(
     let menu_bg = cs.surface_container_high;
     let menu_border = cs.outline;
     let menu_item = move |label: &'a str, msg: Message| -> Element<'a, Message> {
-        button(text(label).size(style::TEXT_SM))
-            .width(Length::Fill)
-            .padding([style::SPACE_XS, style::SPACE_MD])
-            .on_press(msg)
-            .style(move |_theme: &Theme, status| {
-                let (bg, tc) = match status {
-                    button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
-                    _ => (None, on_surface),
-                };
-                button::Style {
-                    background: bg,
-                    text_color: tc,
-                    border: Border {
-                        radius: style::RADIUS_SM.into(),
-                        ..Border::default()
-                    },
-                    ..Default::default()
-                }
-            })
-            .into()
+        button(
+            text(label)
+                .size(style::TEXT_SM)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        )
+        .width(Length::Fill)
+        .padding([style::SPACE_XS, style::SPACE_MD])
+        .on_press(msg)
+        .style(move |_theme: &Theme, status| {
+            let (bg, tc) = match status {
+                button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
+                _ => (None, on_surface),
+            };
+            button::Style {
+                background: bg,
+                text_color: tc,
+                border: Border {
+                    radius: style::RADIUS_SM.into(),
+                    ..Border::default()
+                },
+                ..Default::default()
+            }
+        })
+        .into()
     };
 
     ContextMenu::new(base, move || {
@@ -449,25 +463,29 @@ fn anime_list_item<'a>(
                     ),
                 ),
                 rule::horizontal(1),
-                button(text("Delete").size(style::TEXT_SM))
-                    .width(Length::Fill)
-                    .padding([style::SPACE_XS, style::SPACE_MD])
-                    .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
-                    .style(move |_theme: &Theme, status| {
-                        let (bg, tc) = match status {
-                            button::Status::Hovered => (Some(Background::Color(error)), on_error),
-                            _ => (None, error),
-                        };
-                        button::Style {
-                            background: bg,
-                            text_color: tc,
-                            border: Border {
-                                radius: style::RADIUS_SM.into(),
-                                ..Border::default()
-                            },
-                            ..Default::default()
-                        }
-                    }),
+                button(
+                    text("Delete")
+                        .size(style::TEXT_SM)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                )
+                .width(Length::Fill)
+                .padding([style::SPACE_XS, style::SPACE_MD])
+                .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
+                .style(move |_theme: &Theme, status| {
+                    let (bg, tc) = match status {
+                        button::Status::Hovered => (Some(Background::Color(error)), on_error),
+                        _ => (None, error),
+                    };
+                    button::Style {
+                        background: bg,
+                        text_color: tc,
+                        border: Border {
+                            radius: style::RADIUS_SM.into(),
+                            ..Border::default()
+                        },
+                        ..Default::default()
+                    }
+                }),
             ]
             .spacing(style::SPACE_XXS)
             .width(Length::Fixed(160.0)),

@@ -254,14 +254,20 @@ impl Search {
             )
         };
 
-        let count_row = container(text(result_count).size(style::TEXT_XS).color(cs.outline))
-            .padding([0.0, style::SPACE_LG]);
+        let count_row = container(
+            text(result_count)
+                .size(style::TEXT_XS)
+                .color(cs.outline)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        )
+        .padding([0.0, style::SPACE_LG]);
 
         let list: Element<'_, Message> = if !self.loaded {
             container(
                 text("Loading...")
                     .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
             )
             .padding(style::SPACE_3XL)
             .width(Length::Fill)
@@ -273,11 +279,16 @@ impl Search {
             } else {
                 "No matching anime found."
             };
-            container(text(msg).size(style::TEXT_SM).color(cs.on_surface_variant))
-                .padding(style::SPACE_3XL)
-                .width(Length::Fill)
-                .center_x(Length::Fill)
-                .into()
+            container(
+                text(msg)
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            )
+            .padding(style::SPACE_3XL)
+            .width(Length::Fill)
+            .center_x(Length::Fill)
+            .into()
         } else {
             let items: Vec<Element<'a, Message>> = self
                 .filtered_indices
@@ -377,7 +388,8 @@ fn search_list_item<'a>(
 
     let status_label = text(lib_row.entry.status.as_str())
         .size(style::TEXT_XS)
-        .color(cs.on_surface_variant);
+        .color(cs.on_surface_variant)
+        .line_height(style::LINE_HEIGHT_LOOSE);
 
     let status_bar = container(text("").size(1))
         .width(Length::Fixed(3.0))
@@ -386,11 +398,15 @@ fn search_list_item<'a>(
 
     let content = row![
         status_bar,
-        text(title).size(style::TEXT_BASE).width(Length::Fill),
+        text(title)
+            .size(style::TEXT_BASE)
+            .line_height(style::LINE_HEIGHT_NORMAL)
+            .width(Length::Fill),
         status_label,
         text(progress)
             .size(style::TEXT_SM)
-            .color(cs.on_surface_variant),
+            .color(cs.on_surface_variant)
+            .line_height(style::LINE_HEIGHT_LOOSE),
     ]
     .spacing(style::SPACE_SM)
     .align_y(Alignment::Center);
@@ -409,26 +425,30 @@ fn search_list_item<'a>(
     let menu_bg = cs.surface_container_high;
     let menu_border = cs.outline;
     let menu_item = move |label: &'a str, msg: Message| -> Element<'a, Message> {
-        button(text(label).size(style::TEXT_SM))
-            .width(Length::Fill)
-            .padding([style::SPACE_XS, style::SPACE_MD])
-            .on_press(msg)
-            .style(move |_theme: &Theme, status| {
-                let (bg, tc) = match status {
-                    button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
-                    _ => (None, on_surface),
-                };
-                button::Style {
-                    background: bg,
-                    text_color: tc,
-                    border: Border {
-                        radius: style::RADIUS_SM.into(),
-                        ..Border::default()
-                    },
-                    ..Default::default()
-                }
-            })
-            .into()
+        button(
+            text(label)
+                .size(style::TEXT_SM)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        )
+        .width(Length::Fill)
+        .padding([style::SPACE_XS, style::SPACE_MD])
+        .on_press(msg)
+        .style(move |_theme: &Theme, status| {
+            let (bg, tc) = match status {
+                button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
+                _ => (None, on_surface),
+            };
+            button::Style {
+                background: bg,
+                text_color: tc,
+                border: Border {
+                    radius: style::RADIUS_SM.into(),
+                    ..Border::default()
+                },
+                ..Default::default()
+            }
+        })
+        .into()
     };
 
     ContextMenu::new(base, move || {
@@ -470,25 +490,29 @@ fn search_list_item<'a>(
                     ),
                 ),
                 rule::horizontal(1),
-                button(text("Delete").size(style::TEXT_SM))
-                    .width(Length::Fill)
-                    .padding([style::SPACE_XS, style::SPACE_MD])
-                    .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
-                    .style(move |_theme: &Theme, status| {
-                        let (bg, tc) = match status {
-                            button::Status::Hovered => (Some(Background::Color(error)), on_error),
-                            _ => (None, error),
-                        };
-                        button::Style {
-                            background: bg,
-                            text_color: tc,
-                            border: Border {
-                                radius: style::RADIUS_SM.into(),
-                                ..Border::default()
-                            },
-                            ..Default::default()
-                        }
-                    }),
+                button(
+                    text("Delete")
+                        .size(style::TEXT_SM)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                )
+                .width(Length::Fill)
+                .padding([style::SPACE_XS, style::SPACE_MD])
+                .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
+                .style(move |_theme: &Theme, status| {
+                    let (bg, tc) = match status {
+                        button::Status::Hovered => (Some(Background::Color(error)), on_error),
+                        _ => (None, error),
+                    };
+                    button::Style {
+                        background: bg,
+                        text_color: tc,
+                        border: Border {
+                            radius: style::RADIUS_SM.into(),
+                            ..Border::default()
+                        },
+                        ..Default::default()
+                    }
+                }),
             ]
             .spacing(style::SPACE_XXS)
             .width(Length::Fixed(160.0)),

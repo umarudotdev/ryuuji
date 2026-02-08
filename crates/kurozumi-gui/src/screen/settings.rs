@@ -305,7 +305,10 @@ impl Settings {
     // ── View ────────────────────────────────────────────────────────
 
     pub fn view<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
-        let heading = text("Settings").size(style::TEXT_2XL);
+        let heading = text("Settings")
+            .size(style::TEXT_2XL)
+            .font(style::FONT_HEADING)
+            .line_height(style::LINE_HEIGHT_TIGHT);
 
         let page = column![
             heading,
@@ -331,9 +334,14 @@ impl Settings {
             column![
                 text("Appearance")
                     .size(style::TEXT_XS)
-                    .color(cs.on_surface_variant),
+                    .font(style::FONT_HEADING)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
                 row![
-                    text("Theme").size(style::TEXT_BASE).width(Length::Fill),
+                    text("Theme")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
                     pick_list(
                         self.available_theme_names.as_slice(),
                         Some(&self.selected_theme),
@@ -345,7 +353,10 @@ impl Settings {
                 .align_y(Alignment::Center)
                 .spacing(style::SPACE_MD),
                 row![
-                    text("Mode").size(style::TEXT_BASE).width(Length::Fill),
+                    text("Mode")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
                     pick_list(
                         ThemeMode::ALL,
                         Some(self.selected_mode),
@@ -370,10 +381,13 @@ impl Settings {
             column![
                 text("General")
                     .size(style::TEXT_XS)
-                    .color(cs.on_surface_variant),
+                    .font(style::FONT_HEADING)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
                 row![
                     text("Detection interval (seconds)")
                         .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("5", &self.interval_input)
                         .on_input(Message::IntervalChanged)
@@ -404,7 +418,9 @@ impl Settings {
             column![
                 text("Library")
                     .size(style::TEXT_XS)
-                    .color(cs.on_surface_variant),
+                    .font(style::FONT_HEADING)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
                 toggler(self.auto_update)
                     .label("Auto-update progress from detected playback")
                     .text_size(style::TEXT_BASE)
@@ -428,10 +444,13 @@ impl Settings {
         let mut content = column![
             text("Services")
                 .size(style::TEXT_XS)
-                .color(cs.on_surface_variant),
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
             row![
                 text("Primary service")
                     .size(style::TEXT_BASE)
+                    .line_height(style::LINE_HEIGHT_NORMAL)
                     .width(Length::Fill),
                 pick_list(
                     self.primary_service_options.as_slice(),
@@ -451,7 +470,9 @@ impl Settings {
         content = content.push(
             text("MyAnimeList")
                 .size(style::TEXT_XS)
-                .color(cs.on_surface_variant),
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
         );
         content = content.push(
             toggler(self.mal_enabled)
@@ -464,7 +485,10 @@ impl Settings {
         if self.mal_enabled {
             content = content.push(
                 row![
-                    text("Client ID").size(style::TEXT_BASE).width(Length::Fill),
+                    text("Client ID")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
                     text_input("your-client-id", &self.mal_client_id)
                         .on_input(Message::MalClientIdChanged)
                         .on_submit(Message::MalClientIdSubmitted)
@@ -508,7 +532,12 @@ impl Settings {
                     } else {
                         cs.status_completed
                     };
-                content = content.push(text(&self.mal_status).size(style::TEXT_SM).color(color));
+                content = content.push(
+                    text(&self.mal_status)
+                        .size(style::TEXT_SM)
+                        .color(color)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                );
             }
         }
 
@@ -524,7 +553,9 @@ impl Settings {
             column![
                 text("Integrations")
                     .size(style::TEXT_XS)
-                    .color(cs.on_surface_variant),
+                    .font(style::FONT_HEADING)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
                 toggler(self.discord_enabled)
                     .label("Discord Rich Presence")
                     .text_size(style::TEXT_BASE)
@@ -542,30 +573,39 @@ impl Settings {
     fn data_card<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
         let mut content = column![text("Data")
             .size(style::TEXT_XS)
-            .color(cs.on_surface_variant),]
+            .font(style::FONT_HEADING)
+            .color(cs.on_surface_variant)
+            .line_height(style::LINE_HEIGHT_LOOSE),]
         .spacing(style::SPACE_SM);
 
         // Stats
         if let Some(stats) = &self.library_stats {
             content = content.push(
                 column![
-                    text(format!("Total entries: {}", stats.total)).size(style::TEXT_BASE),
+                    text(format!("Total entries: {}", stats.total))
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL),
                     row![
                         text(format!("Watching: {}", stats.watching))
                             .size(style::TEXT_SM)
-                            .color(cs.on_surface_variant),
+                            .color(cs.on_surface_variant)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
                         text(format!("Completed: {}", stats.completed))
                             .size(style::TEXT_SM)
-                            .color(cs.on_surface_variant),
+                            .color(cs.on_surface_variant)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
                         text(format!("On Hold: {}", stats.on_hold))
                             .size(style::TEXT_SM)
-                            .color(cs.on_surface_variant),
+                            .color(cs.on_surface_variant)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
                         text(format!("Dropped: {}", stats.dropped))
                             .size(style::TEXT_SM)
-                            .color(cs.on_surface_variant),
+                            .color(cs.on_surface_variant)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
                         text(format!("Plan to Watch: {}", stats.plan_to_watch))
                             .size(style::TEXT_SM)
-                            .color(cs.on_surface_variant),
+                            .color(cs.on_surface_variant)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
                     ]
                     .spacing(style::SPACE_LG),
                 ]
@@ -575,7 +615,8 @@ impl Settings {
             content = content.push(
                 text("Loading library stats...")
                     .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
             );
         }
 
@@ -596,7 +637,12 @@ impl Settings {
             } else {
                 cs.status_completed
             };
-            content = content.push(text(&self.export_status).size(style::TEXT_SM).color(color));
+            content = content.push(
+                text(&self.export_status)
+                    .size(style::TEXT_SM)
+                    .color(color)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            );
         }
 
         container(content)
@@ -615,20 +661,32 @@ impl Settings {
             column![
                 text("About")
                     .size(style::TEXT_XS)
-                    .color(cs.on_surface_variant),
-                text(format!("kurozumi v{version}")).size(style::TEXT_BASE),
+                    .font(style::FONT_HEADING)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+                text(format!("kurozumi v{version}"))
+                    .size(style::TEXT_BASE)
+                    .line_height(style::LINE_HEIGHT_NORMAL),
                 row![
                     text("Config:")
                         .size(style::TEXT_SM)
-                        .color(cs.on_surface_variant),
-                    text(config_path).size(style::TEXT_SM).color(cs.outline),
+                        .color(cs.on_surface_variant)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                    text(config_path)
+                        .size(style::TEXT_SM)
+                        .color(cs.outline)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
                 ]
                 .spacing(style::SPACE_SM),
                 row![
                     text("Database:")
                         .size(style::TEXT_SM)
-                        .color(cs.on_surface_variant),
-                    text(db_path).size(style::TEXT_SM).color(cs.outline),
+                        .color(cs.on_surface_variant)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                    text(db_path)
+                        .size(style::TEXT_SM)
+                        .color(cs.outline)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
                 ]
                 .spacing(style::SPACE_SM),
             ]
