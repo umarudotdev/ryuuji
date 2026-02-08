@@ -1,7 +1,9 @@
 pub mod platform;
-pub mod players;
+pub mod player_db;
 
 use serde::{Deserialize, Serialize};
+
+pub use player_db::{PlayerDatabase, PlayerDef};
 
 /// Information about a detected media player and what it's playing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +18,13 @@ pub struct PlayerInfo {
 
 /// Detect what's currently playing across all supported media players.
 ///
-/// Returns a list of all detected active players with media info.
+/// Uses the embedded player database.
 pub fn detect_players() -> Vec<PlayerInfo> {
-    platform::detect()
+    let db = PlayerDatabase::embedded();
+    detect_players_with_db(&db)
+}
+
+/// Detect what's currently playing, using a custom player database.
+pub fn detect_players_with_db(db: &PlayerDatabase) -> Vec<PlayerInfo> {
+    platform::detect(db)
 }

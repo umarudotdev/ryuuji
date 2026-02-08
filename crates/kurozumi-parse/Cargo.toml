@@ -6,6 +6,8 @@ edition.workspace = true
 [dependencies]
 serde = { workspace = true }
 phf = { version = "0.11", features = ["macros"] }
+bitflags = "2"
+regex = "1"
 
 [dev-dependencies]
 serde_json = { workspace = true }

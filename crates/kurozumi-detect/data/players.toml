@@ -1,0 +1,169 @@
+# Kurozumi Player Database
+# Data-driven media player detection, inspired by anisthesia.
+# Users can create ~/.config/kurozumi/players.toml to override or add entries.
+
+# ── Cross-platform ───────────────────────────────────────────────
+
+[[player]]
+name = "mpv"
+executables = ["mpv"]
+mpris_identities = ["mpv", "mpv media player"]
+window_classes = ["mpv"]
+title_patterns = []
+enabled = true
+
+[[player]]
+name = "VLC"
+executables = ["vlc"]
+mpris_identities = ["vlc", "VLC media player"]
+window_classes = ["vlc"]
+title_patterns = ["^(.+?)\\s*-\\s*VLC media player$"]
+enabled = true
+
+[[player]]
+name = "Kodi"
+executables = ["kodi", "kodi.bin"]
+mpris_identities = ["kodi"]
+window_classes = ["kodi", "Kodi"]
+title_patterns = []
+enabled = true
+
+# ── Linux ────────────────────────────────────────────────────────
+
+[[player]]
+name = "SMPlayer"
+executables = ["smplayer"]
+mpris_identities = ["smplayer"]
+window_classes = ["smplayer"]
+title_patterns = ["^(.+?)\\s*-\\s*SMPlayer$"]
+enabled = true
+
+[[player]]
+name = "Celluloid"
+executables = ["celluloid"]
+mpris_identities = ["celluloid", "io.github.celluloid_player.Celluloid"]
+window_classes = ["celluloid"]
+title_patterns = ["^(.+?)\\s*-\\s*Celluloid$"]
+enabled = true
+
+[[player]]
+name = "GNOME Videos"
+executables = ["totem"]
+mpris_identities = ["totem", "org.gnome.Totem"]
+window_classes = ["totem"]
+title_patterns = ["^(.+?)\\s*-\\s*Videos$"]
+enabled = true
+
+[[player]]
+name = "Haruna"
+executables = ["haruna"]
+mpris_identities = ["haruna"]
+window_classes = ["haruna"]
+title_patterns = ["^(.+?)\\s*-\\s*Haruna$"]
+enabled = true
+
+[[player]]
+name = "Clapper"
+executables = ["clapper"]
+mpris_identities = ["clapper", "com.github.rafostar.Clapper"]
+window_classes = ["clapper"]
+title_patterns = ["^(.+?)\\s*-\\s*Clapper$"]
+enabled = true
+
+[[player]]
+name = "Dragon Player"
+executables = ["dragon"]
+mpris_identities = ["dragonplayer"]
+window_classes = ["dragon"]
+title_patterns = []
+enabled = true
+
+[[player]]
+name = "Parole"
+executables = ["parole"]
+mpris_identities = ["parole"]
+window_classes = ["parole"]
+title_patterns = []
+enabled = true
+
+[[player]]
+name = "Baka MPlayer"
+executables = ["baka-mplayer"]
+mpris_identities = ["baka-mplayer"]
+window_classes = ["baka-mplayer"]
+title_patterns = ["^(.+?)\\s*-\\s*Baka MPlayer$"]
+enabled = true
+
+[[player]]
+name = "QMPlay2"
+executables = ["QMPlay2"]
+mpris_identities = ["QMPlay2"]
+window_classes = ["QMPlay2"]
+title_patterns = ["^(.+?)\\s*-\\s*QMPlay2$"]
+enabled = true
+
+[[player]]
+name = "Elisa"
+executables = ["elisa"]
+mpris_identities = ["elisa"]
+window_classes = ["elisa"]
+title_patterns = []
+enabled = true
+
+# ── Windows ──────────────────────────────────────────────────────
+
+[[player]]
+name = "MPC-HC"
+executables = ["mpc-hc64.exe", "mpc-hc.exe"]
+mpris_identities = []
+window_classes = ["MediaPlayerClassicW"]
+title_patterns = ["^(.+?)\\s*-\\s*Media Player Classic"]
+enabled = true
+
+[[player]]
+name = "MPC-BE"
+executables = ["mpc-be64.exe", "mpc-be.exe"]
+mpris_identities = []
+window_classes = ["MediaPlayerClassicW"]
+title_patterns = ["^(.+?)\\s*-\\s*MPC-BE"]
+enabled = true
+
+[[player]]
+name = "PotPlayer"
+executables = ["PotPlayerMini64.exe", "PotPlayerMini.exe"]
+mpris_identities = []
+window_classes = ["PotPlayer64", "PotPlayer"]
+title_patterns = ["^(.+?)\\s*-\\s*PotPlayer$"]
+enabled = true
+
+[[player]]
+name = "KMPlayer"
+executables = ["KMPlayer.exe"]
+mpris_identities = []
+window_classes = ["KMPlayer"]
+title_patterns = ["^(.+?)\\s*-\\s*KMPlayer$"]
+enabled = true
+
+[[player]]
+name = "GOM Player"
+executables = ["GOM64.exe", "GOM.exe"]
+mpris_identities = []
+window_classes = ["GomPlayer1"]
+title_patterns = ["^(.+?)\\s*-\\s*GOM Player$"]
+enabled = true
+
+[[player]]
+name = "Windows Media Player"
+executables = ["wmplayer.exe"]
+mpris_identities = []
+window_classes = ["WMPlayerApp"]
+title_patterns = ["^Windows Media Player\\s*-\\s*(.+)$"]
+enabled = true
+
+[[player]]
+name = "Windows Media Player (New)"
+executables = ["Microsoft.Media.Player.exe"]
+mpris_identities = []
+window_classes = ["Microsoft.Media.Player"]
+title_patterns = []
+enabled = true
