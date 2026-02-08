@@ -6,8 +6,7 @@
 use iced::widget::{button, container, text_input};
 use iced::{Background, Border, Color, Shadow, Theme, Vector};
 use iced_aw::style::{
-    card as aw_card, context_menu as aw_context_menu, number_input as aw_number_input,
-    status::Status as AwStatus,
+    context_menu as aw_context_menu, number_input as aw_number_input, status::Status as AwStatus,
 };
 
 use crate::style;
@@ -342,27 +341,6 @@ pub fn status_color(cs: &ColorScheme, status: kurozumi_core::models::WatchStatus
 }
 
 // ── iced_aw widget styles ───────────────────────────────────────────
-
-/// iced_aw Card style: matches our `card()` container appearance.
-pub fn aw_card_style(cs: &ColorScheme) -> impl Fn(&Theme, AwStatus) -> aw_card::Style + 'static {
-    let bg = cs.surface_container;
-    let border_color = cs.outline_variant;
-    let on_surface = cs.on_surface;
-    let on_surface_variant = cs.on_surface_variant;
-    move |_theme, _status| aw_card::Style {
-        background: Background::Color(bg),
-        border_radius: style::RADIUS_LG,
-        border_width: 1.0,
-        border_color,
-        head_background: Background::Color(bg),
-        head_text_color: on_surface_variant,
-        body_background: Background::Color(bg),
-        body_text_color: on_surface,
-        foot_background: Background::Color(bg),
-        foot_text_color: on_surface,
-        close_color: on_surface_variant,
-    }
-}
 
 /// iced_aw ContextMenu style: transparent backdrop (menu container is styled separately).
 pub fn aw_context_menu_style(
