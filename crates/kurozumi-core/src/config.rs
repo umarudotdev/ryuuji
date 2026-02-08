@@ -14,6 +14,55 @@ pub struct AppConfig {
     pub library: LibraryConfig,
     pub services: ServicesConfig,
     pub discord: DiscordConfig,
+    #[serde(default)]
+    pub appearance: AppearanceConfig,
+}
+
+/// Appearance / theme settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppearanceConfig {
+    /// Name of the selected theme (matched against available theme names).
+    pub theme: String,
+    /// Theme mode — "dark" or "light".
+    pub mode: ThemeMode,
+}
+
+/// Theme mode for appearance config (kept in core so it's serializable with the config).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeMode {
+    Dark,
+    Light,
+    System,
+}
+
+impl Default for AppearanceConfig {
+    fn default() -> Self {
+        Self {
+            theme: "Kurozumi Dark".into(),
+            mode: ThemeMode::Dark,
+        }
+    }
+}
+
+impl Default for ThemeMode {
+    fn default() -> Self {
+        Self::Dark
+    }
+}
+
+impl ThemeMode {
+    pub const ALL: &[ThemeMode] = &[Self::Dark, Self::Light, Self::System];
+}
+
+impl std::fmt::Display for ThemeMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Dark => write!(f, "Dark"),
+            Self::Light => write!(f, "Light"),
+            Self::System => write!(f, "System"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

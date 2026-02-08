@@ -24,6 +24,12 @@ enabled = false
 enabled = false
 client_id = ""
 
+[appearance]
+# Selected theme name.
+theme = "Kurozumi Dark"
+# Theme mode: "dark" or "light".
+mode = "dark"
+
 [discord]
 # Enable Discord Rich Presence.
 enabled = false
