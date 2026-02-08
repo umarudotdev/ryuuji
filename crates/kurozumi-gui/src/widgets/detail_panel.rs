@@ -19,6 +19,7 @@ use crate::widgets;
 pub fn detail_panel<'a, Message: Clone + 'static>(
     cs: &ColorScheme,
     lib_row: &'a LibraryRow,
+    on_close: Message,
     on_status_changed: impl Fn(WatchStatus) -> Message + 'static + Clone,
     on_score_changed: impl Fn(f32) -> Message + 'static + Clone,
     on_episode_changed: impl Fn(u32) -> Message + 'static + Clone,
@@ -115,10 +116,26 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         );
     }
 
+    // ── Close button ──────────────────────────────────────────────
+    let close_btn = button(
+        lucide_icons::iced::icon_x()
+            .size(style::TEXT_SM)
+            .color(cs.on_surface_variant),
+    )
+    .on_press(on_close)
+    .padding(style::SPACE_XS)
+    .style(theme::icon_button(cs));
+
+    let top_bar = row![container("").width(Length::Fill), close_btn]
+        .align_y(Alignment::Center);
+
     // ── Synopsis snippet ─────────────────────────────────────────
-    let mut detail_content = column![row![cover, title_section]
-        .spacing(style::SPACE_LG)
-        .align_y(Alignment::Start),]
+    let mut detail_content = column![
+        top_bar,
+        row![cover, title_section]
+            .spacing(style::SPACE_LG)
+            .align_y(Alignment::Start),
+    ]
     .spacing(style::SPACE_LG)
     .padding(style::SPACE_LG);
 
@@ -304,6 +321,7 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
 pub fn online_detail_panel<'a, Message: Clone + 'static>(
     cs: &ColorScheme,
     result: &'a AnimeSearchResult,
+    on_close: Message,
     on_add: Message,
     covers: &'a CoverCache,
     cover_key: i64,
@@ -393,9 +411,25 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
         );
     }
 
-    let mut detail_content = column![row![cover, title_section]
-        .spacing(style::SPACE_LG)
-        .align_y(Alignment::Start),]
+    // Close button
+    let close_btn = button(
+        lucide_icons::iced::icon_x()
+            .size(style::TEXT_SM)
+            .color(cs.on_surface_variant),
+    )
+    .on_press(on_close)
+    .padding(style::SPACE_XS)
+    .style(theme::icon_button(cs));
+
+    let top_bar = row![container("").width(Length::Fill), close_btn]
+        .align_y(Alignment::Center);
+
+    let mut detail_content = column![
+        top_bar,
+        row![cover, title_section]
+            .spacing(style::SPACE_LG)
+            .align_y(Alignment::Start),
+    ]
     .spacing(style::SPACE_LG)
     .padding(style::SPACE_LG);
 

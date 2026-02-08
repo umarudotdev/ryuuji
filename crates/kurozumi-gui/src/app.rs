@@ -725,7 +725,7 @@ impl Kurozumi {
         let page_content: Element<'_, Message> = match self.page {
             Page::NowPlaying => self
                 .now_playing
-                .view(cs, &self.status_message, &self.cover_cache)
+                .view(cs, &self.cover_cache)
                 .map(Message::NowPlaying),
             Page::Library => self
                 .library

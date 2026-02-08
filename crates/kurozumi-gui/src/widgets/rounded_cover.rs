@@ -29,12 +29,17 @@ pub fn rounded_cover<'a, Message: 'static>(
         )
         .width(Length::Fixed(width))
         .height(Length::Fixed(height))
-        .style(theme::cover_placeholder(cs))
+        .style(theme::cover_placeholder(cs, radius))
         .into()
     } else {
+        let icon_size = if width <= style::THUMB_WIDTH {
+            style::TEXT_BASE
+        } else {
+            style::TEXT_3XL
+        };
         container(
             lucide_icons::iced::icon_film()
-                .size(style::TEXT_3XL)
+                .size(icon_size)
                 .color(cs.outline)
                 .center(),
         )
@@ -42,7 +47,7 @@ pub fn rounded_cover<'a, Message: 'static>(
         .height(Length::Fixed(height))
         .center_x(Length::Fixed(width))
         .center_y(Length::Fixed(height))
-        .style(theme::cover_placeholder(cs))
+        .style(theme::cover_placeholder(cs, radius))
         .into()
     }
 }

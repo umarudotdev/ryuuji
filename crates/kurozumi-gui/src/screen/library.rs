@@ -56,6 +56,7 @@ pub enum Message {
     EpisodeInputChanged(String),
     EpisodeInputSubmitted,
     SortChanged(LibrarySort),
+    CloseDetail,
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
     CancelModal,
@@ -83,6 +84,10 @@ impl Library {
                 self.tab = status;
                 self.selected_anime = None;
                 self.refresh_task(db)
+            }
+            Message::CloseDetail => {
+                self.selected_anime = None;
+                Action::None
             }
             Message::AnimeSelected(id) => {
                 self.selected_anime = Some(id);
@@ -356,6 +361,7 @@ impl Library {
                 let detail = detail_panel(
                     cs,
                     lib_row,
+                    Message::CloseDetail,
                     move |s| Message::StatusChanged(anime_id, s),
                     move |v| Message::ScoreChanged(anime_id, v),
                     move |ep| Message::EpisodeChanged(anime_id, ep),

@@ -249,6 +249,28 @@ pub fn ghost_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> butt
     }
 }
 
+/// Transparent icon button — no border, subtle hover.
+pub fn icon_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> button::Style {
+    let surface_bright = cs.surface_bright;
+
+    move |_theme, status| {
+        let bg = match status {
+            button::Status::Hovered => Some(Background::Color(surface_bright)),
+            _ => None,
+        };
+        button::Style {
+            background: bg,
+            text_color: Color::TRANSPARENT,
+            border: Border {
+                color: Color::TRANSPARENT,
+                width: 0.0,
+                radius: style::RADIUS_FULL.into(),
+            },
+            ..Default::default()
+        }
+    }
+}
+
 /// Custom text input styling that adapts to theme.
 pub fn text_input_style(
     cs: &ColorScheme,
@@ -278,6 +300,45 @@ pub fn text_input_style(
             value: on_surface,
             selection: primary,
         }
+    }
+}
+
+/// Borderless text input for use inside a composite search bar container.
+pub fn text_input_borderless(
+    cs: &ColorScheme,
+) -> impl Fn(&Theme, text_input::Status) -> text_input::Style {
+    let on_surface = cs.on_surface;
+    let on_surface_variant = cs.on_surface_variant;
+    let outline = cs.outline;
+    let primary = cs.primary;
+
+    move |_theme, _status| text_input::Style {
+        background: Background::Color(Color::TRANSPARENT),
+        border: Border {
+            color: Color::TRANSPARENT,
+            width: 0.0,
+            radius: 0.0.into(),
+        },
+        icon: on_surface_variant,
+        placeholder: outline,
+        value: on_surface,
+        selection: primary,
+    }
+}
+
+/// Composite search bar container — pill-shaped with subtle border.
+pub fn search_bar(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style {
+    let bg = cs.surface_container_low;
+    let border_color = cs.outline_variant;
+    move |_theme| container::Style {
+        text_color: None,
+        background: Some(Background::Color(bg)),
+        border: Border {
+            color: border_color,
+            width: 1.0,
+            radius: style::RADIUS_FULL.into(),
+        },
+        ..Default::default()
     }
 }
 
@@ -337,7 +398,7 @@ pub fn toggler_style(cs: &ColorScheme) -> impl Fn(&Theme, toggler::Status) -> to
 }
 
 /// Cover art placeholder container.
-pub fn cover_placeholder(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style {
+pub fn cover_placeholder(cs: &ColorScheme, radius: f32) -> impl Fn(&Theme) -> container::Style {
     let bg = cs.surface_container_high;
     let border_color = cs.outline_variant;
     move |_theme| container::Style {
@@ -345,7 +406,7 @@ pub fn cover_placeholder(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Styl
         border: Border {
             color: border_color,
             width: 1.0,
-            radius: style::RADIUS_LG.into(),
+            radius: radius.into(),
         },
         ..Default::default()
     }
@@ -378,6 +439,32 @@ pub fn dialog_container(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style
 pub fn status_bar_accent(color: Color) -> impl Fn(&Theme) -> container::Style {
     move |_theme| container::Style {
         background: Some(Background::Color(color)),
+        border: Border {
+            radius: style::RADIUS_FULL.into(),
+            ..Border::default()
+        },
+        ..Default::default()
+    }
+}
+
+/// Subtle outlined badge for watch status labels.
+pub fn status_badge(cs: &ColorScheme, status_color: Color) -> impl Fn(&Theme) -> container::Style {
+    let bg = Color {
+        a: 0.1,
+        ..status_color
+    };
+    let border_color = Color {
+        a: 0.3,
+        ..status_color
+    };
+    let _ = cs;
+    move |_theme| container::Style {
+        background: Some(Background::Color(bg)),
+        border: Border {
+            color: border_color,
+            width: 1.0,
+            radius: style::RADIUS_SM.into(),
+        },
         ..Default::default()
     }
 }
