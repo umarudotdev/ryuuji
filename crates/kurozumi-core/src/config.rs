@@ -109,8 +109,8 @@ impl AppConfig {
 
         let user_path = Self::config_path();
         if user_path.exists() {
-            let user_str =
-                std::fs::read_to_string(&user_path).map_err(|e| KurozumiError::Config(e.to_string()))?;
+            let user_str = std::fs::read_to_string(&user_path)
+                .map_err(|e| KurozumiError::Config(e.to_string()))?;
             let user: AppConfig =
                 toml::from_str(&user_str).map_err(|e| KurozumiError::Config(e.to_string()))?;
             Ok(user)
@@ -125,8 +125,8 @@ impl AppConfig {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let content = toml::to_string_pretty(self)
-            .map_err(|e| KurozumiError::Config(e.to_string()))?;
+        let content =
+            toml::to_string_pretty(self).map_err(|e| KurozumiError::Config(e.to_string()))?;
         std::fs::write(&path, content)?;
         Ok(())
     }
@@ -183,6 +183,9 @@ mod tests {
         let config = AppConfig::default();
         let serialized = toml::to_string_pretty(&config).unwrap();
         let deserialized: AppConfig = toml::from_str(&serialized).unwrap();
-        assert_eq!(deserialized.general.detection_interval, config.general.detection_interval);
+        assert_eq!(
+            deserialized.general.detection_interval,
+            config.general.detection_interval
+        );
     }
 }

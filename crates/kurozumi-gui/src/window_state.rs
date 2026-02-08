@@ -71,6 +71,5 @@ impl WindowState {
 
 /// Path to the window state JSON file.
 fn state_path() -> Option<std::path::PathBuf> {
-    directories::ProjectDirs::from("", "", "kurozumi")
-        .map(|dirs| dirs.data_dir().join(FILE_NAME))
+    directories::ProjectDirs::from("", "", "kurozumi").map(|dirs| dirs.data_dir().join(FILE_NAME))
 }

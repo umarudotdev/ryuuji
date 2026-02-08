@@ -13,10 +13,8 @@ pub use colors::*;
 use iced::Theme;
 
 /// Embedded default theme TOML sources.
-pub(crate) const DEFAULT_DARK_TOML: &str =
-    include_str!("../../assets/themes/default-dark.toml");
-pub(crate) const DEFAULT_LIGHT_TOML: &str =
-    include_str!("../../assets/themes/default-light.toml");
+pub(crate) const DEFAULT_DARK_TOML: &str = include_str!("../../assets/themes/default-dark.toml");
+pub(crate) const DEFAULT_LIGHT_TOML: &str = include_str!("../../assets/themes/default-light.toml");
 
 /// A fully loaded theme with metadata and computed colors.
 #[derive(Debug, Clone)]
@@ -62,12 +60,10 @@ impl KurozumiTheme {
         match mode {
             ThemeMode::Dark => Self::default_dark(),
             ThemeMode::Light => Self::default_light(),
-            ThemeMode::System => {
-                match dark_light::detect() {
-                    Ok(dark_light::Mode::Light) => Self::default_light(),
-                    _ => Self::default_dark(),
-                }
-            }
+            ThemeMode::System => match dark_light::detect() {
+                Ok(dark_light::Mode::Light) => Self::default_light(),
+                _ => Self::default_dark(),
+            },
         }
     }
 
@@ -116,8 +112,7 @@ pub fn find_theme(name: &str) -> Option<KurozumiTheme> {
 
 /// Path to the user themes directory.
 fn user_themes_dir() -> Option<std::path::PathBuf> {
-    directories::ProjectDirs::from("", "", "kurozumi")
-        .map(|dirs| dirs.config_dir().join("themes"))
+    directories::ProjectDirs::from("", "", "kurozumi").map(|dirs| dirs.config_dir().join("themes"))
 }
 
 /// Build the iced Theme from a ColorScheme.

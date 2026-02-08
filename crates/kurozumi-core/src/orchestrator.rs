@@ -11,24 +11,13 @@ use crate::storage::Storage;
 #[derive(Debug, Clone)]
 pub enum UpdateOutcome {
     /// Episode progress was updated.
-    Updated {
-        anime_title: String,
-        episode: u32,
-    },
+    Updated { anime_title: String, episode: u32 },
     /// Already at this episode or beyond — no update needed.
-    AlreadyCurrent {
-        anime_title: String,
-        episode: u32,
-    },
+    AlreadyCurrent { anime_title: String, episode: u32 },
     /// Anime was recognized but no library entry exists yet — created one.
-    AddedToLibrary {
-        anime_title: String,
-        episode: u32,
-    },
+    AddedToLibrary { anime_title: String, episode: u32 },
     /// Could not match the detected title to any known anime.
-    Unrecognized {
-        raw_title: String,
-    },
+    Unrecognized { raw_title: String },
     /// Nothing is currently playing.
     NothingPlaying,
 }
@@ -74,10 +63,16 @@ pub fn process_detection(
                             storage.update_episode_count(anime.id, episode)?;
                             storage.record_watch(anime.id, episode)?;
                             info!(title = %anime_title, episode, "Updated progress");
-                            Ok(UpdateOutcome::Updated { anime_title, episode })
+                            Ok(UpdateOutcome::Updated {
+                                anime_title,
+                                episode,
+                            })
                         } else {
                             debug!(title = %anime_title, episode, "Auto-update disabled");
-                            Ok(UpdateOutcome::AlreadyCurrent { anime_title, episode })
+                            Ok(UpdateOutcome::AlreadyCurrent {
+                                anime_title,
+                                episode,
+                            })
                         }
                     } else {
                         debug!(
@@ -86,7 +81,10 @@ pub fn process_detection(
                             detected = episode,
                             "Already at or past this episode"
                         );
-                        Ok(UpdateOutcome::AlreadyCurrent { anime_title, episode })
+                        Ok(UpdateOutcome::AlreadyCurrent {
+                            anime_title,
+                            episode,
+                        })
                     }
                 }
                 None => {
@@ -102,7 +100,10 @@ pub fn process_detection(
                     storage.upsert_library_entry(&entry)?;
                     storage.record_watch(anime.id, episode)?;
                     info!(title = %anime_title, episode, "Added to library");
-                    Ok(UpdateOutcome::AddedToLibrary { anime_title, episode })
+                    Ok(UpdateOutcome::AddedToLibrary {
+                        anime_title,
+                        episode,
+                    })
                 }
             }
         }
@@ -187,7 +188,10 @@ mod tests {
             other => panic!("Expected Updated, got {other:?}"),
         }
 
-        let entry = storage.get_library_entry_for_anime(anime_id).unwrap().unwrap();
+        let entry = storage
+            .get_library_entry_for_anime(anime_id)
+            .unwrap()
+            .unwrap();
         assert_eq!(entry.watched_episodes, 5);
     }
 
@@ -200,7 +204,10 @@ mod tests {
 
         // Same episode again.
         let result = process_detection(&detected("Sousou no Frieren", 5), &storage, &config);
-        assert!(matches!(result.unwrap(), UpdateOutcome::AlreadyCurrent { .. }));
+        assert!(matches!(
+            result.unwrap(),
+            UpdateOutcome::AlreadyCurrent { .. }
+        ));
     }
 
     #[test]
@@ -208,6 +215,9 @@ mod tests {
         let (storage, config) = setup();
         // DB is empty, so nothing matches.
         let result = process_detection(&detected("Unknown Anime", 1), &storage, &config);
-        assert!(matches!(result.unwrap(), UpdateOutcome::Unrecognized { .. }));
+        assert!(matches!(
+            result.unwrap(),
+            UpdateOutcome::Unrecognized { .. }
+        ));
     }
 }

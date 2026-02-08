@@ -301,12 +301,10 @@ impl ColorScheme {
             ThemeMode::Light => Self::from_theme_file(
                 &toml::from_str(super::DEFAULT_LIGHT_TOML).expect("embedded light theme is valid"),
             ),
-            ThemeMode::System => {
-                match dark_light::detect() {
-                    Ok(dark_light::Mode::Light) => Self::for_mode(ThemeMode::Light),
-                    _ => Self::for_mode(ThemeMode::Dark),
-                }
-            }
+            ThemeMode::System => match dark_light::detect() {
+                Ok(dark_light::Mode::Light) => Self::for_mode(ThemeMode::Light),
+                _ => Self::for_mode(ThemeMode::Dark),
+            },
         }
     }
 }

@@ -119,10 +119,7 @@ pub fn filter_chip(
             }
         } else {
             let (bg, tc) = match status {
-                button::Status::Hovered => (
-                    Some(Background::Color(surface_bright)),
-                    on_surface,
-                ),
+                button::Status::Hovered => (Some(Background::Color(surface_bright)), on_surface),
                 _ => (None, on_surface_variant),
             };
             button::Style {
@@ -152,16 +149,12 @@ pub fn list_item(
 
     move |_theme, status| {
         let (bg, border_color) = if selected {
-            (
-                Some(Background::Color(surface_container_high)),
-                primary,
-            )
+            (Some(Background::Color(surface_container_high)), primary)
         } else {
             match status {
-                button::Status::Hovered => (
-                    Some(Background::Color(surface_container)),
-                    outline_variant,
-                ),
+                button::Status::Hovered => {
+                    (Some(Background::Color(surface_container)), outline_variant)
+                }
                 _ => (None, Color::TRANSPARENT),
             }
         };
@@ -196,7 +189,10 @@ pub fn grid_card(
                 surface_container_high,
                 primary,
                 Shadow {
-                    color: Color { a: 0.2, ..Color::BLACK },
+                    color: Color {
+                        a: 0.2,
+                        ..Color::BLACK
+                    },
                     offset: Vector::new(0.0, 2.0),
                     blur_radius: 8.0,
                 },
@@ -207,7 +203,10 @@ pub fn grid_card(
                     surface_container_high,
                     outline_variant,
                     Shadow {
-                        color: Color { a: 0.15, ..Color::BLACK },
+                        color: Color {
+                            a: 0.15,
+                            ..Color::BLACK
+                        },
                         offset: Vector::new(0.0, 2.0),
                         blur_radius: 6.0,
                     },
@@ -216,7 +215,10 @@ pub fn grid_card(
                     surface_container,
                     outline_variant,
                     Shadow {
-                        color: Color { a: 0.1, ..Color::BLACK },
+                        color: Color {
+                            a: 0.1,
+                            ..Color::BLACK
+                        },
                         offset: Vector::new(0.0, 1.0),
                         blur_radius: 4.0,
                     },
@@ -248,18 +250,9 @@ pub fn control_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> bu
 
     move |_theme, status| {
         let (bg, text_color) = match status {
-            button::Status::Hovered => (
-                Some(Background::Color(primary)),
-                on_primary,
-            ),
-            button::Status::Pressed => (
-                Some(Background::Color(primary_dim)),
-                on_primary,
-            ),
-            _ => (
-                Some(Background::Color(surface_container_high)),
-                on_surface,
-            ),
+            button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
+            button::Status::Pressed => (Some(Background::Color(primary_dim)), on_primary),
+            _ => (Some(Background::Color(surface_container_high)), on_surface),
         };
         button::Style {
             background: bg,
@@ -332,10 +325,7 @@ pub fn ghost_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> butt
 
     move |_theme, status| {
         let (bg, text_color) = match status {
-            button::Status::Hovered => (
-                Some(Background::Color(surface_bright)),
-                on_surface,
-            ),
+            button::Status::Hovered => (Some(Background::Color(surface_bright)), on_surface),
             _ => (None, on_surface_variant),
         };
         button::Style {
@@ -352,7 +342,9 @@ pub fn ghost_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> butt
 }
 
 /// Custom text input styling that adapts to theme.
-pub fn text_input_style(cs: &ColorScheme) -> impl Fn(&Theme, text_input::Status) -> text_input::Style {
+pub fn text_input_style(
+    cs: &ColorScheme,
+) -> impl Fn(&Theme, text_input::Status) -> text_input::Style {
     let primary = cs.primary;
     let outline = cs.outline;
     let outline_variant = cs.outline_variant;
@@ -408,7 +400,10 @@ pub fn dialog_container(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style
             radius: style::RADIUS_XL.into(),
         },
         shadow: Shadow {
-            color: Color { a: 0.3, ..Color::BLACK },
+            color: Color {
+                a: 0.3,
+                ..Color::BLACK
+            },
             offset: Vector::new(0.0, 8.0),
             blur_radius: 24.0,
         },

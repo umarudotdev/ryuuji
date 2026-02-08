@@ -48,10 +48,7 @@ fn playing_card<'a>(
     media: &'a DetectedMedia,
     status: &'a str,
 ) -> Element<'a, Message> {
-    let title = media
-        .anime_title
-        .as_deref()
-        .unwrap_or(&media.raw_title);
+    let title = media.anime_title.as_deref().unwrap_or(&media.raw_title);
 
     let episode_text = media
         .episode
@@ -71,9 +68,7 @@ fn playing_card<'a>(
     let info_card = container(
         column![
             text(title).size(style::TEXT_3XL),
-            text(episode_text)
-                .size(style::TEXT_LG)
-                .color(cs.primary),
+            text(episode_text).size(style::TEXT_LG).color(cs.primary),
             text(meta_line)
                 .size(style::TEXT_SM)
                 .color(cs.on_surface_variant),
@@ -116,9 +111,7 @@ fn playing_card<'a>(
 /// Empty state when nothing is playing.
 fn empty_state<'a>(cs: &ColorScheme) -> Element<'a, Message> {
     let content = column![
-        lucide_icons::iced::icon_play()
-            .size(56.0)
-            .color(cs.outline),
+        lucide_icons::iced::icon_play().size(56.0).color(cs.outline),
         text("Nothing playing")
             .size(style::TEXT_XL)
             .color(cs.on_surface_variant),

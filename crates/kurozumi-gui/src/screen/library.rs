@@ -1,6 +1,4 @@
-use iced::widget::{
-    button, column, container, pick_list, row, rule, scrollable, text, text_input,
-};
+use iced::widget::{button, column, container, pick_list, row, rule, scrollable, text, text_input};
 use iced::{Alignment, Background, Border, Color, Element, Length, Task, Theme};
 
 use kurozumi_core::models::WatchStatus;
@@ -148,7 +146,11 @@ impl Library {
                     let db = db.clone();
                     return Action::RunTask(Task::perform(
                         async move { db.update_library_status(anime_id, new_status).await },
-                        |r| app::Message::Library(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                        |r| {
+                            app::Message::Library(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
                     ));
                 }
                 Action::None
@@ -164,7 +166,11 @@ impl Library {
                         let db = db.clone();
                         return Action::RunTask(Task::perform(
                             async move { db.update_library_score(anime_id, score).await },
-                            |r| app::Message::Library(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                            |r| {
+                                app::Message::Library(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
                         ));
                     }
                 }
@@ -187,7 +193,11 @@ impl Library {
                         let db = db.clone();
                         return Action::RunTask(Task::perform(
                             async move { db.update_library_status(anime_id, new_status).await },
-                            |r| app::Message::Library(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                            |r| {
+                                app::Message::Library(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
                         ));
                     }
                     Action::None
@@ -210,7 +220,11 @@ impl Library {
                     let db = db.clone();
                     return Action::RunTask(Task::perform(
                         async move { db.delete_library_entry(anime_id).await },
-                        |r| app::Message::Library(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                        |r| {
+                            app::Message::Library(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
                     ));
                 }
                 Action::None
@@ -265,7 +279,11 @@ impl Library {
         let count_text = format!(
             "{} {}",
             self.entries.len(),
-            if self.entries.len() == 1 { "entry" } else { "entries" }
+            if self.entries.len() == 1 {
+                "entry"
+            } else {
+                "entries"
+            }
         );
 
         let view_icon = match self.view_mode {
@@ -295,11 +313,9 @@ impl Library {
 
         let list: Element<'_, Message> = if self.entries.is_empty() {
             container(
-                column![
-                    text("No anime in this list.")
-                        .size(style::TEXT_SM)
-                        .color(cs.on_surface_variant),
-                ]
+                column![text("No anime in this list.")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant),]
                 .align_x(Alignment::Center),
             )
             .padding(style::SPACE_3XL)
@@ -309,7 +325,8 @@ impl Library {
         } else {
             match self.view_mode {
                 LibraryViewMode::List => {
-                    let items: Vec<Element<'a, Message>> = self.entries
+                    let items: Vec<Element<'a, Message>> = self
+                        .entries
                         .iter()
                         .map(|r| anime_list_item(cs, r, self.selected_anime))
                         .collect();
@@ -323,7 +340,8 @@ impl Library {
                     .into()
                 }
                 LibraryViewMode::Grid => {
-                    let mut cards: Vec<Element<'a, Message>> = self.entries
+                    let mut cards: Vec<Element<'a, Message>> = self
+                        .entries
                         .iter()
                         .map(|r| grid_card(cs, r, self.selected_anime))
                         .collect();
@@ -344,8 +362,7 @@ impl Library {
                         }
                         for _ in count..style::GRID_COLUMNS {
                             grid_row = grid_row.push(
-                                container(text(""))
-                                    .width(Length::Fixed(style::GRID_CARD_WIDTH)),
+                                container(text("")).width(Length::Fixed(style::GRID_CARD_WIDTH)),
                             );
                         }
                         grid_rows.push(grid_row.into());
@@ -401,18 +418,17 @@ fn chip_bar(cs: &ColorScheme, active: WatchStatus) -> Element<'static, Message> 
             };
             let mut chip_content = row![].spacing(style::SPACE_XXS).align_y(Alignment::Center);
             if is_selected {
-                chip_content = chip_content.push(
-                    lucide_icons::iced::icon_check().size(style::TEXT_XS),
-                );
+                chip_content =
+                    chip_content.push(lucide_icons::iced::icon_check().size(style::TEXT_XS));
             }
             chip_content = chip_content.push(text(base_label).size(style::TEXT_XS));
 
             button(chip_content)
-            .height(Length::Fixed(style::CHIP_HEIGHT))
-            .padding([style::SPACE_XS, style::SPACE_MD])
-            .on_press(Message::TabChanged(status))
-            .style(theme::filter_chip(is_selected, cs))
-            .into()
+                .height(Length::Fixed(style::CHIP_HEIGHT))
+                .padding([style::SPACE_XS, style::SPACE_MD])
+                .on_press(Message::TabChanged(status))
+                .style(theme::filter_chip(is_selected, cs))
+                .into()
         })
         .collect();
 
@@ -452,9 +468,7 @@ fn grid_card<'a>(
     .style(theme::grid_cover_placeholder(cs));
 
     let info = column![
-        text(title)
-            .size(style::TEXT_SM)
-            .width(Length::Fill),
+        text(title).size(style::TEXT_SM).width(Length::Fill),
         text(progress)
             .size(style::TEXT_XS)
             .color(cs.on_surface_variant),
@@ -496,7 +510,9 @@ fn anime_list_item<'a>(
     let content = row![
         status_bar,
         text(title).size(style::TEXT_BASE).width(Length::Fill),
-        text(progress).size(style::TEXT_SM).color(cs.on_surface_variant),
+        text(progress)
+            .size(style::TEXT_SM)
+            .color(cs.on_surface_variant),
     ]
     .spacing(style::SPACE_SM)
     .align_y(Alignment::Center);
@@ -579,10 +595,7 @@ fn anime_list_item<'a>(
                 button(text("Delete").size(style::TEXT_SM))
                     .width(Length::Fill)
                     .padding([style::SPACE_XS, style::SPACE_MD])
-                    .on_press(Message::ContextAction(
-                        anime_id,
-                        ContextAction::Delete,
-                    ))
+                    .on_press(Message::ContextAction(anime_id, ContextAction::Delete,))
                     .style(move |_theme: &Theme, status| {
                         let (bg, tc) = match status {
                             button::Status::Hovered => (Some(Background::Color(error)), on_error),
@@ -622,7 +635,11 @@ fn anime_list_item<'a>(
 }
 
 /// Detail panel for the selected anime.
-fn anime_detail<'a>(cs: &ColorScheme, lib_row: &'a LibraryRow, score_input: &str) -> Element<'a, Message> {
+fn anime_detail<'a>(
+    cs: &ColorScheme,
+    lib_row: &'a LibraryRow,
+    score_input: &str,
+) -> Element<'a, Message> {
     let anime = &lib_row.anime;
     let entry = &lib_row.entry;
 
@@ -638,15 +655,16 @@ fn anime_detail<'a>(cs: &ColorScheme, lib_row: &'a LibraryRow, score_input: &str
     .center_y(Length::Fixed(style::COVER_HEIGHT))
     .style(theme::cover_placeholder(cs));
 
-    let mut title_section = column![
-        text(anime.title.preferred()).size(style::TEXT_XL),
-    ]
-    .spacing(style::SPACE_XS);
+    let mut title_section =
+        column![text(anime.title.preferred()).size(style::TEXT_XL),].spacing(style::SPACE_XS);
 
     if let Some(english) = &anime.title.english {
         if Some(english.as_str()) != anime.title.romaji.as_deref() {
-            title_section = title_section
-                .push(text(english.as_str()).size(style::TEXT_SM).color(cs.on_surface_variant));
+            title_section = title_section.push(
+                text(english.as_str())
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant),
+            );
         }
     }
 
@@ -668,22 +686,24 @@ fn anime_detail<'a>(cs: &ColorScheme, lib_row: &'a LibraryRow, score_input: &str
     let anime_id = anime.id;
     let status_card = container(
         column![
-            text("Status").size(style::TEXT_XS).color(cs.on_surface_variant),
+            text("Status")
+                .size(style::TEXT_XS)
+                .color(cs.on_surface_variant),
             pick_list(WatchStatus::ALL, Some(entry.status), move |s| {
                 Message::StatusChanged(anime_id, s)
             })
             .text_size(style::TEXT_SM)
             .padding([style::SPACE_XS, style::SPACE_SM]),
-            text("Score").size(style::TEXT_XS).color(cs.on_surface_variant),
-            row![
-                text_input("0-10", score_input)
-                    .on_input(|v| Message::ScoreInputChanged(v))
-                    .on_submit(Message::ScoreSubmitted(anime_id))
-                    .size(style::TEXT_SM)
-                    .padding([style::SPACE_XS, style::SPACE_SM])
-                    .width(Length::Fixed(80.0))
-                    .style(theme::text_input_style(cs)),
-            ]
+            text("Score")
+                .size(style::TEXT_XS)
+                .color(cs.on_surface_variant),
+            row![text_input("0-10", score_input)
+                .on_input(|v| Message::ScoreInputChanged(v))
+                .on_submit(Message::ScoreSubmitted(anime_id))
+                .size(style::TEXT_SM)
+                .padding([style::SPACE_XS, style::SPACE_SM])
+                .width(Length::Fixed(80.0))
+                .style(theme::text_input_style(cs)),]
             .spacing(style::SPACE_SM)
             .align_y(Alignment::Center),
         ]

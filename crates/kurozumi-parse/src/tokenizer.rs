@@ -24,7 +24,10 @@ fn is_delimiter(c: char) -> bool {
 }
 
 fn opening_bracket(c: char) -> Option<char> {
-    BRACKETS.iter().find(|(open, _)| *open == c).map(|(_, close)| *close)
+    BRACKETS
+        .iter()
+        .find(|(open, _)| *open == c)
+        .map(|(_, close)| *close)
 }
 
 /// Tokenize an anime filename into structured tokens.

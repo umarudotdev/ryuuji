@@ -17,15 +17,19 @@ fn main() -> iced::Result {
 
     let ws = window_state::WindowState::load();
 
-    let mut app = iced::application(app::Kurozumi::new, app::Kurozumi::update, app::Kurozumi::view)
-        .title(app::Kurozumi::title)
-        .subscription(app::Kurozumi::subscription)
-        .theme(app::Kurozumi::theme)
-        .font(GEIST_SANS)
-        .font(GEIST_MONO)
-        .font(lucide_icons::LUCIDE_FONT_BYTES)
-        .default_font(iced::Font::with_name("Geist"))
-        .window_size(ws.size());
+    let mut app = iced::application(
+        app::Kurozumi::new,
+        app::Kurozumi::update,
+        app::Kurozumi::view,
+    )
+    .title(app::Kurozumi::title)
+    .subscription(app::Kurozumi::subscription)
+    .theme(app::Kurozumi::theme)
+    .font(GEIST_SANS)
+    .font(GEIST_MONO)
+    .font(lucide_icons::LUCIDE_FONT_BYTES)
+    .default_font(iced::Font::with_name("Geist"))
+    .window_size(ws.size());
 
     if let Some(pos) = ws.position() {
         app = app.position(iced::window::Position::Specific(pos));

@@ -78,13 +78,9 @@ impl MalAnimeNode {
         AnimeSearchResult {
             service_id: self.id,
             title: self.title,
-            title_english: self
-                .alternative_titles
-                .and_then(|alt| alt.en),
+            title_english: self.alternative_titles.and_then(|alt| alt.en),
             episodes: self.num_episodes,
-            cover_url: self
-                .main_picture
-                .and_then(|pic| pic.medium),
+            cover_url: self.main_picture.and_then(|pic| pic.medium),
         }
     }
 }
@@ -137,7 +133,13 @@ mod tests {
         let resp: MalSearchResponse = serde_json::from_str(json).unwrap();
         assert_eq!(resp.data.len(), 1);
 
-        let result = resp.data.into_iter().next().unwrap().node.into_search_result();
+        let result = resp
+            .data
+            .into_iter()
+            .next()
+            .unwrap()
+            .node
+            .into_search_result();
         assert_eq!(result.service_id, 52991);
         assert_eq!(result.title, "Sousou no Frieren");
         assert_eq!(

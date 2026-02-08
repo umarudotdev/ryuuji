@@ -19,9 +19,8 @@ pub trait AnimeService: Send + Sync {
     ) -> impl Future<Output = Result<Vec<AnimeSearchResult>, Self::Error>> + Send;
 
     /// Get the authenticated user's anime list.
-    fn get_user_list(
-        &self,
-    ) -> impl Future<Output = Result<Vec<UserListEntry>, Self::Error>> + Send;
+    fn get_user_list(&self)
+        -> impl Future<Output = Result<Vec<UserListEntry>, Self::Error>> + Send;
 
     /// Update progress for an anime.
     fn update_progress(
