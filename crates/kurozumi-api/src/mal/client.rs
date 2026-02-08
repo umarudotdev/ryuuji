@@ -49,7 +49,9 @@ impl MalClient {
         let mut items = Vec::new();
         let mut url = format!(
             "{BASE_URL}/v2/users/@me/animelist\
-             ?fields=list_status,alternative_titles,num_episodes,main_picture\
+             ?fields=list_status,alternative_titles,num_episodes,main_picture,\
+             synopsis,genres,mean,studios,source,rating,start_date,end_date,\
+             start_season,media_type,status\
              &limit=100&nsfw=true"
         );
 
@@ -97,7 +99,8 @@ impl AnimeService for MalClient {
                 ("limit", "10"),
                 (
                     "fields",
-                    "id,title,alternative_titles,num_episodes,main_picture,media_type,status",
+                    "id,title,alternative_titles,num_episodes,main_picture,media_type,status,\
+                     synopsis,genres,mean,studios,source,rating,start_date,end_date,start_season",
                 ),
             ])
             .send()

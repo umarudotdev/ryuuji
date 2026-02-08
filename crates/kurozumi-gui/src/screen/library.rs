@@ -1,16 +1,16 @@
 use iced::widget::{button, column, container, pick_list, row, rule, scrollable, text};
-use iced::{Alignment, Background, Border, Color, Element, Length, Task, Theme};
-use iced_aw::ContextMenu;
+use iced::{Alignment, Element, Length, Task};
 
 use kurozumi_core::models::WatchStatus;
 use kurozumi_core::storage::LibraryRow;
 
 use crate::app;
+use crate::cover_cache::CoverCache;
 use crate::db::DbHandle;
-use crate::screen::{Action, ModalKind};
+use crate::screen::{Action, ContextAction, ModalKind};
 use crate::style;
 use crate::theme::{self, ColorScheme};
-use crate::widgets::detail_panel;
+use crate::widgets::{self, detail_panel};
 
 /// Sort mode for library list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -33,19 +33,14 @@ impl std::fmt::Display for LibrarySort {
     }
 }
 
-/// Actions available in the library context menu.
-#[derive(Debug, Clone)]
-pub enum ContextAction {
-    ChangeStatus(WatchStatus),
-    Delete,
-}
-
 /// Library screen state.
 pub struct Library {
     pub tab: WatchStatus,
     pub entries: Vec<LibraryRow>,
     pub selected_anime: Option<i64>,
     pub sort: LibrarySort,
+    pub score_input: String,
+    pub episode_input: String,
 }
 
 /// Messages handled by the Library screen.
@@ -56,6 +51,10 @@ pub enum Message {
     EpisodeChanged(i64, u32),
     StatusChanged(i64, WatchStatus),
     ScoreChanged(i64, f32),
+    ScoreInputChanged(String),
+    ScoreInputSubmitted,
+    EpisodeInputChanged(String),
+    EpisodeInputSubmitted,
     SortChanged(LibrarySort),
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
@@ -72,6 +71,8 @@ impl Library {
             entries: Vec::new(),
             selected_anime: None,
             sort: LibrarySort::default(),
+            score_input: String::new(),
+            episode_input: String::new(),
         }
     }
 
@@ -85,6 +86,11 @@ impl Library {
             }
             Message::AnimeSelected(id) => {
                 self.selected_anime = Some(id);
+                // Sync stepper text buffers to the selected entry
+                if let Some(row) = self.entries.iter().find(|r| r.anime.id == id) {
+                    self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
+                    self.episode_input = row.entry.watched_episodes.to_string();
+                }
                 Action::None
             }
             Message::EpisodeChanged(anime_id, new_ep) => {
@@ -125,6 +131,40 @@ impl Library {
                             ))
                         },
                     ));
+                }
+                Action::None
+            }
+            Message::ScoreInputChanged(val) => {
+                self.score_input = val;
+                Action::None
+            }
+            Message::ScoreInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    let score = self
+                        .score_input
+                        .parse::<f32>()
+                        .unwrap_or(0.0)
+                        .clamp(0.0, 10.0);
+                    self.score_input = format!("{score:.1}");
+                    return self.update(Message::ScoreChanged(anime_id, score), db);
+                }
+                Action::None
+            }
+            Message::EpisodeInputChanged(val) => {
+                self.episode_input = val;
+                Action::None
+            }
+            Message::EpisodeInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    let max_ep = self
+                        .entries
+                        .iter()
+                        .find(|r| r.anime.id == anime_id)
+                        .and_then(|r| r.anime.episodes)
+                        .unwrap_or(u32::MAX);
+                    let ep = self.episode_input.parse::<u32>().unwrap_or(0).min(max_ep);
+                    self.episode_input = ep.to_string();
+                    return self.update(Message::EpisodeChanged(anime_id, ep), db);
                 }
                 Action::None
             }
@@ -183,6 +223,13 @@ impl Library {
                 if let Ok(mut entries) = result {
                     self.sort_entries(&mut entries);
                     self.entries = entries;
+                    // Re-sync stepper text buffers to the (possibly updated) selected entry
+                    if let Some(id) = self.selected_anime {
+                        if let Some(row) = self.entries.iter().find(|r| r.anime.id == id) {
+                            self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
+                            self.episode_input = row.entry.watched_episodes.to_string();
+                        }
+                    }
                 }
                 Action::None
             }
@@ -224,7 +271,7 @@ impl Library {
         }
     }
 
-    pub fn view<'a>(&'a self, cs: &'a ColorScheme) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self, cs: &'a ColorScheme, covers: &'a CoverCache) -> Element<'a, Message> {
         let count_text = format!(
             "{} {}",
             self.entries.len(),
@@ -246,7 +293,9 @@ impl Library {
                 Message::SortChanged(s)
             })
             .text_size(style::TEXT_SM)
-            .padding([style::SPACE_XS, style::SPACE_SM]),
+            .padding([style::SPACE_SM, style::SPACE_MD])
+            .style(theme::pick_list_style(cs))
+            .menu_style(theme::pick_list_menu_style(cs)),
         ]
         .spacing(style::SPACE_SM)
         .align_y(Alignment::Center)
@@ -268,7 +317,16 @@ impl Library {
             let items: Vec<Element<'a, Message>> = self
                 .entries
                 .iter()
-                .map(|r| anime_list_item(cs, r, self.selected_anime))
+                .map(|r| {
+                    widgets::anime_list_item(
+                        cs,
+                        r,
+                        self.selected_anime,
+                        covers,
+                        Message::AnimeSelected,
+                        Message::ContextAction,
+                    )
+                })
                 .collect();
 
             scrollable(
@@ -276,6 +334,13 @@ impl Library {
                     .spacing(style::SPACE_XXS)
                     .padding([style::SPACE_XS, style::SPACE_LG]),
             )
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(6)
+                    .scroller_width(4)
+                    .margin(2),
+            ))
+            .style(theme::overlay_scrollbar(cs))
             .height(Length::Fill)
             .into()
         };
@@ -294,6 +359,13 @@ impl Library {
                     move |s| Message::StatusChanged(anime_id, s),
                     move |v| Message::ScoreChanged(anime_id, v),
                     move |ep| Message::EpisodeChanged(anime_id, ep),
+                    &self.score_input,
+                    Message::ScoreInputChanged,
+                    Message::ScoreInputSubmitted,
+                    &self.episode_input,
+                    Message::EpisodeInputChanged,
+                    Message::EpisodeInputSubmitted,
+                    covers,
                 );
                 return row![
                     container(content)
@@ -347,166 +419,4 @@ fn chip_bar(cs: &ColorScheme, active: WatchStatus) -> Element<'static, Message> 
         .collect();
 
     row(chips).spacing(style::SPACE_XS).into()
-}
-
-/// A single anime list item with context menu.
-fn anime_list_item<'a>(
-    cs: &'a ColorScheme,
-    lib_row: &'a LibraryRow,
-    selected: Option<i64>,
-) -> Element<'a, Message> {
-    let title = lib_row.anime.title.preferred();
-    let progress = match lib_row.anime.episodes {
-        Some(total) => format!("{} / {}", lib_row.entry.watched_episodes, total),
-        None => format!("{}", lib_row.entry.watched_episodes),
-    };
-
-    let is_selected = selected == Some(lib_row.anime.id);
-    let anime_id = lib_row.anime.id;
-    let status_col = theme::status_color(cs, lib_row.entry.status);
-
-    let status_bar = container(text("").size(1))
-        .width(Length::Fixed(3.0))
-        .height(Length::Fill)
-        .style(theme::status_bar_accent(status_col));
-
-    let content = row![
-        status_bar,
-        text(title)
-            .size(style::TEXT_BASE)
-            .line_height(style::LINE_HEIGHT_NORMAL)
-            .width(Length::Fill),
-        text(progress)
-            .size(style::TEXT_SM)
-            .color(cs.on_surface_variant)
-            .line_height(style::LINE_HEIGHT_LOOSE),
-    ]
-    .spacing(style::SPACE_SM)
-    .align_y(Alignment::Center);
-
-    let base = button(content)
-        .width(Length::Fill)
-        .padding([style::SPACE_SM, style::SPACE_MD])
-        .on_press(Message::AnimeSelected(anime_id))
-        .style(theme::list_item(is_selected, cs));
-
-    let primary = cs.primary;
-    let on_primary = cs.on_primary;
-    let on_surface = cs.on_surface;
-    let error = cs.error;
-    let on_error = cs.on_error;
-    let menu_bg = cs.surface_container_high;
-    let menu_border = cs.outline;
-    let menu_item = move |label: &'a str, msg: Message| -> Element<'a, Message> {
-        button(
-            text(label)
-                .size(style::TEXT_SM)
-                .line_height(style::LINE_HEIGHT_LOOSE),
-        )
-        .width(Length::Fill)
-        .padding([style::SPACE_XS, style::SPACE_MD])
-        .on_press(msg)
-        .style(move |_theme: &Theme, status| {
-            let (bg, tc) = match status {
-                button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
-                _ => (None, on_surface),
-            };
-            button::Style {
-                background: bg,
-                text_color: tc,
-                border: Border {
-                    radius: style::RADIUS_SM.into(),
-                    ..Border::default()
-                },
-                ..Default::default()
-            }
-        })
-        .into()
-    };
-
-    ContextMenu::new(base, move || {
-        container(
-            column![
-                menu_item(
-                    "Watching",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::Watching),
-                    ),
-                ),
-                menu_item(
-                    "Completed",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::Completed),
-                    ),
-                ),
-                menu_item(
-                    "On Hold",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::OnHold),
-                    ),
-                ),
-                menu_item(
-                    "Dropped",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::Dropped),
-                    ),
-                ),
-                menu_item(
-                    "Plan to Watch",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::PlanToWatch),
-                    ),
-                ),
-                rule::horizontal(1),
-                button(
-                    text("Delete")
-                        .size(style::TEXT_SM)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                )
-                .width(Length::Fill)
-                .padding([style::SPACE_XS, style::SPACE_MD])
-                .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
-                .style(move |_theme: &Theme, status| {
-                    let (bg, tc) = match status {
-                        button::Status::Hovered => (Some(Background::Color(error)), on_error),
-                        _ => (None, error),
-                    };
-                    button::Style {
-                        background: bg,
-                        text_color: tc,
-                        border: Border {
-                            radius: style::RADIUS_SM.into(),
-                            ..Border::default()
-                        },
-                        ..Default::default()
-                    }
-                }),
-            ]
-            .spacing(style::SPACE_XXS)
-            .width(Length::Fixed(160.0)),
-        )
-        .style(move |_theme: &Theme| container::Style {
-            background: Some(Background::Color(menu_bg)),
-            border: Border {
-                color: menu_border,
-                width: 1.0,
-                radius: style::RADIUS_MD.into(),
-            },
-            shadow: iced::Shadow {
-                color: Color::BLACK,
-                offset: iced::Vector::new(0.0, 4.0),
-                blur_radius: 16.0,
-            },
-            ..Default::default()
-        })
-        .padding(style::SPACE_XS)
-        .into()
-    })
-    .style(theme::aw_context_menu_style(cs))
-    .into()
 }

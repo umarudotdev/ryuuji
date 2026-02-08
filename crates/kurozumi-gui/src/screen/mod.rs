@@ -5,6 +5,8 @@ pub mod settings;
 
 use iced::Task;
 
+use kurozumi_core::models::WatchStatus;
+
 use crate::app;
 
 /// Which page is currently displayed.
@@ -37,6 +39,15 @@ pub enum Action {
     DismissModal,
     /// Run an async Iced task that eventually produces an app::Message.
     RunTask(Task<app::Message>),
+}
+
+/// Actions available in context menus for library entries.
+///
+/// Shared between Library and Search screens.
+#[derive(Debug, Clone)]
+pub enum ContextAction {
+    ChangeStatus(WatchStatus),
+    Delete,
 }
 
 /// What kind of modal is currently shown.

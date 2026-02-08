@@ -6,7 +6,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use crate::error::KurozumiError;
 use crate::models::{Anime, AnimeIds, AnimeTitle, LibraryEntry, WatchStatus};
 
-const SCHEMA: &str = include_str!("../../../migrations/001_initial.sql");
+const SCHEMA_V1: &str = include_str!("../../../migrations/001_initial.sql");
+const SCHEMA_V2: &str = include_str!("../../../migrations/002_add_anime_metadata.sql");
 
 /// Token record: (access_token, refresh_token, expires_at).
 pub type TokenRecord = (String, Option<String>, Option<String>);
@@ -36,7 +37,7 @@ impl Storage {
     pub fn open(path: &Path) -> Result<Self, KurozumiError> {
         let conn = Connection::open(path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
-        conn.execute_batch(SCHEMA)?;
+        run_migrations(&conn)?;
         Ok(Self { conn })
     }
 
@@ -44,7 +45,7 @@ impl Storage {
     pub fn open_memory() -> Result<Self, KurozumiError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch("PRAGMA foreign_keys=ON;")?;
-        conn.execute_batch(SCHEMA)?;
+        run_migrations(&conn)?;
         Ok(Self { conn })
     }
 
@@ -53,10 +54,15 @@ impl Storage {
     /// Insert a new anime, returning its auto-generated ID.
     pub fn insert_anime(&self, anime: &Anime) -> Result<i64, KurozumiError> {
         let synonyms_json = serde_json::to_string(&anime.synonyms).unwrap_or_default();
+        let genres_json = serde_json::to_string(&anime.genres).unwrap_or_default();
+        let studios_json = serde_json::to_string(&anime.studios).unwrap_or_default();
         self.conn.execute(
             "INSERT INTO anime (anilist_id, kitsu_id, mal_id, title_romaji, title_english,
-             title_native, synonyms, episodes, cover_url, season, year)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+             title_native, synonyms, episodes, cover_url, season, year,
+             synopsis, genres, media_type, airing_status, mean_score,
+             studios, source, rating, start_date, end_date)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+                     ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 anime.ids.anilist.map(|v| v as i64),
                 anime.ids.kitsu.map(|v| v as i64),
@@ -69,6 +75,16 @@ impl Storage {
                 anime.cover_url,
                 anime.season,
                 anime.year,
+                anime.synopsis,
+                genres_json,
+                anime.media_type,
+                anime.airing_status,
+                anime.mean_score,
+                studios_json,
+                anime.source,
+                anime.rating,
+                anime.start_date,
+                anime.end_date,
             ],
         )?;
         Ok(self.conn.last_insert_rowid())
@@ -79,7 +95,9 @@ impl Storage {
         self.conn
             .query_row(
                 "SELECT id, anilist_id, kitsu_id, mal_id, title_romaji, title_english,
-                 title_native, synonyms, episodes, cover_url, season, year
+                 title_native, synonyms, episodes, cover_url, season, year,
+                 synopsis, genres, media_type, airing_status, mean_score,
+                 studios, source, rating, start_date, end_date
                  FROM anime WHERE id = ?1",
                 params![id],
                 |row| Ok(row_to_anime(row)),
@@ -93,7 +111,9 @@ impl Storage {
         let pattern = format!("%{query}%");
         let mut stmt = self.conn.prepare(
             "SELECT id, anilist_id, kitsu_id, mal_id, title_romaji, title_english,
-             title_native, synonyms, episodes, cover_url, season, year
+             title_native, synonyms, episodes, cover_url, season, year,
+             synopsis, genres, media_type, airing_status, mean_score,
+             studios, source, rating, start_date, end_date
              FROM anime
              WHERE title_romaji LIKE ?1 OR title_english LIKE ?1 OR title_native LIKE ?1
                    OR synonyms LIKE ?1",
@@ -109,7 +129,9 @@ impl Storage {
     pub fn all_anime(&self) -> Result<Vec<Anime>, KurozumiError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, anilist_id, kitsu_id, mal_id, title_romaji, title_english,
-             title_native, synonyms, episodes, cover_url, season, year
+             title_native, synonyms, episodes, cover_url, season, year,
+             synopsis, genres, media_type, airing_status, mean_score,
+             studios, source, rating, start_date, end_date
              FROM anime ORDER BY title_romaji",
         )?;
         let rows = stmt
@@ -124,7 +146,9 @@ impl Storage {
         self.conn
             .query_row(
                 "SELECT id, anilist_id, kitsu_id, mal_id, title_romaji, title_english,
-                 title_native, synonyms, episodes, cover_url, season, year
+                 title_native, synonyms, episodes, cover_url, season, year,
+                 synopsis, genres, media_type, airing_status, mean_score,
+                 studios, source, rating, start_date, end_date
                  FROM anime WHERE mal_id = ?1",
                 params![mal_id as i64],
                 |row| Ok(row_to_anime(row)),
@@ -146,11 +170,17 @@ impl Storage {
 
         if let Some(existing) = self.get_anime_by_mal_id(mal_id)? {
             let synonyms_json = serde_json::to_string(&anime.synonyms).unwrap_or_default();
+            let genres_json = serde_json::to_string(&anime.genres).unwrap_or_default();
+            let studios_json = serde_json::to_string(&anime.studios).unwrap_or_default();
             self.conn.execute(
                 "UPDATE anime SET
                     title_romaji = ?1, title_english = ?2, title_native = ?3,
-                    synonyms = ?4, episodes = ?5, cover_url = ?6
-                 WHERE id = ?7",
+                    synonyms = ?4, episodes = ?5, cover_url = ?6,
+                    season = ?7, year = ?8,
+                    synopsis = ?9, genres = ?10, media_type = ?11,
+                    airing_status = ?12, mean_score = ?13, studios = ?14,
+                    source = ?15, rating = ?16, start_date = ?17, end_date = ?18
+                 WHERE id = ?19",
                 params![
                     anime.title.romaji,
                     anime.title.english,
@@ -158,6 +188,18 @@ impl Storage {
                     synonyms_json,
                     anime.episodes,
                     anime.cover_url,
+                    anime.season,
+                    anime.year,
+                    anime.synopsis,
+                    genres_json,
+                    anime.media_type,
+                    anime.airing_status,
+                    anime.mean_score,
+                    studios_json,
+                    anime.source,
+                    anime.rating,
+                    anime.start_date,
+                    anime.end_date,
                     existing.id,
                 ],
             )?;
@@ -198,7 +240,9 @@ impl Storage {
         let mut stmt = self.conn.prepare(
             "SELECT le.id, le.anime_id, le.status, le.watched_episodes, le.score, le.updated_at,
                     a.id, a.anilist_id, a.kitsu_id, a.mal_id, a.title_romaji, a.title_english,
-                    a.title_native, a.synonyms, a.episodes, a.cover_url, a.season, a.year
+                    a.title_native, a.synonyms, a.episodes, a.cover_url, a.season, a.year,
+                    a.synopsis, a.genres, a.media_type, a.airing_status, a.mean_score,
+                    a.studios, a.source, a.rating, a.start_date, a.end_date
              FROM library_entry le
              JOIN anime a ON le.anime_id = a.id
              WHERE le.status = ?1
@@ -221,7 +265,9 @@ impl Storage {
         let mut stmt = self.conn.prepare(
             "SELECT le.id, le.anime_id, le.status, le.watched_episodes, le.score, le.updated_at,
                     a.id, a.anilist_id, a.kitsu_id, a.mal_id, a.title_romaji, a.title_english,
-                    a.title_native, a.synonyms, a.episodes, a.cover_url, a.season, a.year
+                    a.title_native, a.synonyms, a.episodes, a.cover_url, a.season, a.year,
+                    a.synopsis, a.genres, a.media_type, a.airing_status, a.mean_score,
+                    a.studios, a.source, a.rating, a.start_date, a.end_date
              FROM library_entry le
              JOIN anime a ON le.anime_id = a.id
              ORDER BY le.updated_at DESC",
@@ -372,6 +418,36 @@ impl Storage {
     }
 }
 
+// ── Migrations ──────────────────────────────────────────────────
+
+/// Run schema migrations using `PRAGMA user_version` for version tracking.
+fn run_migrations(conn: &Connection) -> Result<(), KurozumiError> {
+    let version: i32 = conn
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .unwrap_or(0);
+
+    if version < 1 {
+        // Detect if V1 was already applied (old code didn't set user_version).
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='anime'",
+                [],
+                |row| row.get::<_, i32>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+        if !table_exists {
+            conn.execute_batch(SCHEMA_V1)?;
+        }
+        conn.pragma_update(None, "user_version", 1)?;
+    }
+    if version < 2 {
+        conn.execute_batch(SCHEMA_V2)?;
+        conn.pragma_update(None, "user_version", 2)?;
+    }
+    Ok(())
+}
+
 // ── Helpers ─────────────────────────────────────────────────────
 
 /// Parse a datetime string from SQLite (either RFC 3339 or SQLite's `datetime('now')` format).
@@ -396,6 +472,12 @@ fn row_to_anime(row: &rusqlite::Row<'_>) -> Anime {
 fn row_to_anime_at(row: &rusqlite::Row<'_>, off: usize) -> Anime {
     let synonyms_str: String = row.get(off + 7).unwrap_or_default();
     let synonyms: Vec<String> = serde_json::from_str(&synonyms_str).unwrap_or_default();
+
+    let genres_str: String = row.get(off + 13).unwrap_or_default();
+    let genres: Vec<String> = serde_json::from_str(&genres_str).unwrap_or_default();
+
+    let studios_str: String = row.get(off + 17).unwrap_or_default();
+    let studios: Vec<String> = serde_json::from_str(&studios_str).unwrap_or_default();
 
     Anime {
         id: row.get(off).unwrap_or(0),
@@ -423,6 +505,16 @@ fn row_to_anime_at(row: &rusqlite::Row<'_>, off: usize) -> Anime {
         cover_url: row.get(off + 9).unwrap_or(None),
         season: row.get(off + 10).unwrap_or(None),
         year: row.get(off + 11).unwrap_or(None),
+        synopsis: row.get(off + 12).unwrap_or(None),
+        genres,
+        media_type: row.get(off + 14).unwrap_or(None),
+        airing_status: row.get(off + 15).unwrap_or(None),
+        mean_score: row.get(off + 16).unwrap_or(None),
+        studios,
+        source: row.get(off + 18).unwrap_or(None),
+        rating: row.get(off + 19).unwrap_or(None),
+        start_date: row.get(off + 20).unwrap_or(None),
+        end_date: row.get(off + 21).unwrap_or(None),
     }
 }
 
@@ -462,6 +554,16 @@ mod tests {
             cover_url: None,
             season: Some("Fall".into()),
             year: Some(2023),
+            synopsis: None,
+            genres: vec![],
+            media_type: None,
+            airing_status: None,
+            mean_score: None,
+            studios: vec![],
+            source: None,
+            rating: None,
+            start_date: None,
+            end_date: None,
         }
     }
 

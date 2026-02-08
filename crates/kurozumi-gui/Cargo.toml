@@ -9,11 +9,11 @@ kurozumi-detect = { workspace = true }
 kurozumi-parse = { workspace = true }
 kurozumi-api = { workspace = true }
 
-iced = { version = "0.14", features = ["tokio", "tiny-skia", "advanced"] }
+iced = { version = "0.14", features = ["tokio", "tiny-skia", "advanced", "image"] }
 iced_aw = { version = "0.13", default-features = false, features = [
-    "number_input",
     "card",
     "context_menu",
+    "wrap",
 ] }
 lucide-icons = { version = "0.563", features = ["iced"] }
 dark-light = { workspace = true }
@@ -25,3 +25,4 @@ toml = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
+reqwest = { workspace = true }

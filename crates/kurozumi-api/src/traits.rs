@@ -38,6 +38,13 @@ pub struct AnimeSearchResult {
     pub title_english: Option<String>,
     pub episodes: Option<u32>,
     pub cover_url: Option<String>,
+    pub media_type: Option<String>,
+    pub status: Option<String>,
+    pub synopsis: Option<String>,
+    pub genres: Vec<String>,
+    pub mean_score: Option<f32>,
+    pub season: Option<String>,
+    pub year: Option<u32>,
 }
 
 /// An entry from a user's anime list.

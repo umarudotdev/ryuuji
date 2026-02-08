@@ -1,32 +1,77 @@
-use iced::widget::{button, column, container, row, rule, scrollable, text, text_input};
-use iced::{Alignment, Background, Border, Color, Element, Length, Task, Theme};
-use iced_aw::ContextMenu;
+use iced::widget::{button, column, container, pick_list, row, rule, scrollable, text, text_input};
+use iced::{Alignment, Element, Length, Task};
 
+use kurozumi_api::traits::AnimeSearchResult;
 use kurozumi_core::models::WatchStatus;
 use kurozumi_core::storage::LibraryRow;
 
 use crate::app;
+use crate::cover_cache::CoverCache;
 use crate::db::DbHandle;
-use crate::screen::{Action, ModalKind, Page};
+use crate::format;
+use crate::screen::{Action, ContextAction, ModalKind, Page};
 use crate::style;
 use crate::theme::{self, ColorScheme};
-use crate::widgets::detail_panel;
+use crate::widgets::{self, detail_panel, online_detail_panel};
 
-/// Actions available in the search context menu (mirrors library).
-#[derive(Debug, Clone)]
-pub enum ContextAction {
-    ChangeStatus(WatchStatus),
-    Delete,
+// ── Sort ──────────────────────────────────────────────────────────
+
+/// Sort mode for search results.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SearchSort {
+    #[default]
+    Alphabetical,
+    Score,
+    RecentlyUpdated,
 }
+
+impl SearchSort {
+    pub const ALL: &[SearchSort] = &[Self::Alphabetical, Self::Score, Self::RecentlyUpdated];
+}
+
+impl std::fmt::Display for SearchSort {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Alphabetical => write!(f, "A-Z"),
+            Self::Score => write!(f, "Score"),
+            Self::RecentlyUpdated => write!(f, "Recent"),
+        }
+    }
+}
+
+// ── Search mode ───────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SearchMode {
+    #[default]
+    Local,
+    Online,
+}
+
+// ── State ─────────────────────────────────────────────────────────
 
 /// Search screen state.
 pub struct Search {
     query: String,
-    all_entries: Vec<LibraryRow>,
+    pub all_entries: Vec<LibraryRow>,
     filtered_indices: Vec<usize>,
     loaded: bool,
-    selected_anime: Option<i64>,
+    pub selected_anime: Option<i64>,
+    pub score_input: String,
+    pub episode_input: String,
+    // Filtering & sorting
+    status_filter: Option<WatchStatus>,
+    sort: SearchSort,
+    // Online search
+    pub search_mode: SearchMode,
+    pub online_results: Vec<AnimeSearchResult>,
+    pub online_loading: bool,
+    online_error: Option<String>,
+    pub mal_authenticated: bool,
+    selected_online: Option<usize>,
 }
+
+// ── Messages ──────────────────────────────────────────────────────
 
 /// Messages handled by the Search screen.
 #[derive(Debug, Clone)]
@@ -37,11 +82,27 @@ pub enum Message {
     EpisodeChanged(i64, u32),
     StatusChanged(i64, WatchStatus),
     ScoreChanged(i64, f32),
+    ScoreInputChanged(String),
+    ScoreInputSubmitted,
+    EpisodeInputChanged(String),
+    EpisodeInputSubmitted,
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
     CancelModal,
     DbOperationDone(Result<(), String>),
+    // Filter & sort
+    StatusFilterChanged(Option<WatchStatus>),
+    SortChanged(SearchSort),
+    // Online search
+    SearchOnline,
+    OnlineResultsLoaded(Result<Vec<AnimeSearchResult>, String>),
+    BackToLocal,
+    OnlineSelected(usize),
+    AddToLibrary(usize),
+    AddedToLibrary(Result<(), String>),
 }
+
+// ── Implementation ────────────────────────────────────────────────
 
 impl Search {
     pub fn new() -> Self {
@@ -51,7 +112,22 @@ impl Search {
             filtered_indices: Vec::new(),
             loaded: false,
             selected_anime: None,
+            score_input: String::new(),
+            episode_input: String::new(),
+            status_filter: None,
+            sort: SearchSort::default(),
+            search_mode: SearchMode::Local,
+            online_results: Vec::new(),
+            online_loading: false,
+            online_error: None,
+            mal_authenticated: false,
+            selected_online: None,
         }
+    }
+
+    /// Current search query text.
+    pub fn query(&self) -> &str {
+        &self.query
     }
 
     /// Fire an async task to load all library entries.
@@ -67,19 +143,57 @@ impl Search {
         }
     }
 
-    /// Rebuild `filtered_indices` from the current query.
+    /// Rebuild `filtered_indices` from the current query and status filter, then sort.
     fn refilter(&mut self) {
         let q = self.query.to_lowercase();
-        if q.is_empty() {
-            self.filtered_indices = (0..self.all_entries.len()).collect();
-        } else {
-            self.filtered_indices = self
-                .all_entries
-                .iter()
-                .enumerate()
-                .filter(|(_, row)| matches_query(row, &q))
-                .map(|(i, _)| i)
-                .collect();
+        self.filtered_indices = self
+            .all_entries
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| {
+                // Status filter
+                if let Some(status) = self.status_filter {
+                    if row.entry.status != status {
+                        return false;
+                    }
+                }
+                // Text query
+                if !q.is_empty() && !matches_query(row, &q) {
+                    return false;
+                }
+                true
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        // Sort filtered indices
+        let entries = &self.all_entries;
+        match self.sort {
+            SearchSort::Alphabetical => {
+                self.filtered_indices.sort_by(|&a, &b| {
+                    entries[a]
+                        .anime
+                        .title
+                        .preferred()
+                        .to_lowercase()
+                        .cmp(&entries[b].anime.title.preferred().to_lowercase())
+                });
+            }
+            SearchSort::Score => {
+                self.filtered_indices.sort_by(|&a, &b| {
+                    let sa = entries[a].entry.score.unwrap_or(0.0);
+                    let sb = entries[b].entry.score.unwrap_or(0.0);
+                    sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
+            SearchSort::RecentlyUpdated => {
+                self.filtered_indices.sort_by(|&a, &b| {
+                    entries[b]
+                        .entry
+                        .updated_at
+                        .cmp(&entries[a].entry.updated_at)
+                });
+            }
         }
     }
 
@@ -88,36 +202,42 @@ impl Search {
         match msg {
             Message::QueryChanged(new_query) => {
                 self.query = new_query;
-                self.refilter();
-                // Deselect if selected anime is no longer in filtered results
-                if let Some(id) = self.selected_anime {
-                    let still_visible = self
-                        .filtered_indices
-                        .iter()
-                        .any(|&i| self.all_entries[i].anime.id == id);
-                    if !still_visible {
-                        self.selected_anime = None;
+                if self.search_mode == SearchMode::Local {
+                    self.refilter();
+                    // Deselect if selected anime is no longer in filtered results
+                    if let Some(id) = self.selected_anime {
+                        let still_visible = self
+                            .filtered_indices
+                            .iter()
+                            .any(|&i| self.all_entries[i].anime.id == id);
+                        if !still_visible {
+                            self.selected_anime = None;
+                        }
                     }
                 }
                 Action::None
             }
             Message::EntriesLoaded(result) => {
-                if let Ok(mut entries) = result {
-                    entries.sort_by(|a, b| {
-                        a.anime
-                            .title
-                            .preferred()
-                            .to_lowercase()
-                            .cmp(&b.anime.title.preferred().to_lowercase())
-                    });
+                if let Ok(entries) = result {
                     self.all_entries = entries;
                     self.loaded = true;
                     self.refilter();
+                    // Re-sync stepper text buffers to the (possibly updated) selected entry
+                    if let Some(id) = self.selected_anime {
+                        if let Some(row) = self.all_entries.iter().find(|r| r.anime.id == id) {
+                            self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
+                            self.episode_input = row.entry.watched_episodes.to_string();
+                        }
+                    }
                 }
                 Action::None
             }
             Message::AnimeSelected(id) => {
                 self.selected_anime = Some(id);
+                if let Some(row) = self.all_entries.iter().find(|r| r.anime.id == id) {
+                    self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
+                    self.episode_input = row.entry.watched_episodes.to_string();
+                }
                 Action::None
             }
             Message::EpisodeChanged(anime_id, new_ep) => {
@@ -158,6 +278,40 @@ impl Search {
                             ))
                         },
                     ));
+                }
+                Action::None
+            }
+            Message::ScoreInputChanged(val) => {
+                self.score_input = val;
+                Action::None
+            }
+            Message::ScoreInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    let score = self
+                        .score_input
+                        .parse::<f32>()
+                        .unwrap_or(0.0)
+                        .clamp(0.0, 10.0);
+                    self.score_input = format!("{score:.1}");
+                    return self.update(Message::ScoreChanged(anime_id, score), db);
+                }
+                Action::None
+            }
+            Message::EpisodeInputChanged(val) => {
+                self.episode_input = val;
+                Action::None
+            }
+            Message::EpisodeInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    let max_ep = self
+                        .all_entries
+                        .iter()
+                        .find(|r| r.anime.id == anime_id)
+                        .and_then(|r| r.anime.episodes)
+                        .unwrap_or(u32::MAX);
+                    let ep = self.episode_input.parse::<u32>().unwrap_or(0).min(max_ep);
+                    self.episode_input = ep.to_string();
+                    return self.update(Message::EpisodeChanged(anime_id, ep), db);
                 }
                 Action::None
             }
@@ -212,10 +366,82 @@ impl Search {
                 // After any DB write, reload entries.
                 self.load_entries(db)
             }
+            Message::StatusFilterChanged(filter) => {
+                self.status_filter = filter;
+                self.refilter();
+                Action::None
+            }
+            Message::SortChanged(sort) => {
+                self.sort = sort;
+                self.refilter();
+                Action::None
+            }
+            // ── Online search messages ────────────────────────────
+            Message::SearchOnline => {
+                self.search_mode = SearchMode::Online;
+                self.online_loading = true;
+                self.online_error = None;
+                self.online_results.clear();
+                self.selected_online = None;
+                // The actual MAL call is handled by app.rs
+                Action::None
+            }
+            Message::OnlineResultsLoaded(result) => {
+                self.online_loading = false;
+                match result {
+                    Ok(results) => {
+                        self.online_results = results;
+                        self.online_error = None;
+                    }
+                    Err(e) => {
+                        self.online_error = Some(e);
+                    }
+                }
+                Action::None
+            }
+            Message::BackToLocal => {
+                self.search_mode = SearchMode::Local;
+                self.selected_online = None;
+                Action::None
+            }
+            Message::OnlineSelected(idx) => {
+                self.selected_online = Some(idx);
+                Action::None
+            }
+            Message::AddToLibrary(_idx) => {
+                // Handled by app.rs which has access to DB
+                Action::None
+            }
+            Message::AddedToLibrary(result) => {
+                match result {
+                    Ok(()) => {
+                        self.search_mode = SearchMode::Local;
+                        self.selected_online = None;
+                    }
+                    Err(e) => {
+                        self.online_error = Some(e);
+                    }
+                }
+                // Reload local entries to reflect the new addition
+                self.load_entries(db)
+            }
         }
     }
 
-    pub fn view<'a>(&'a self, cs: &'a ColorScheme) -> Element<'a, Message> {
+    // ── View ──────────────────────────────────────────────────────
+
+    pub fn view<'a>(&'a self, cs: &'a ColorScheme, covers: &'a CoverCache) -> Element<'a, Message> {
+        match self.search_mode {
+            SearchMode::Local => self.view_local(cs, covers),
+            SearchMode::Online => self.view_online(cs, covers),
+        }
+    }
+
+    fn view_local<'a>(
+        &'a self,
+        cs: &'a ColorScheme,
+        covers: &'a CoverCache,
+    ) -> Element<'a, Message> {
         let search_icon = lucide_icons::iced::icon_search()
             .size(style::TEXT_BASE)
             .color(cs.on_surface_variant);
@@ -232,35 +458,33 @@ impl Search {
             .align_y(Alignment::Center)
             .padding([style::SPACE_SM, style::SPACE_LG]);
 
-        let result_count = if self.query.is_empty() {
-            format!(
-                "{} {}",
-                self.all_entries.len(),
-                if self.all_entries.len() == 1 {
-                    "entry"
-                } else {
-                    "entries"
-                }
-            )
-        } else {
-            format!(
-                "{} {}",
-                self.filtered_indices.len(),
-                if self.filtered_indices.len() == 1 {
-                    "result"
-                } else {
-                    "results"
-                }
-            )
-        };
+        // Status filter chip bar + result count + sort picker
+        let result_count = format!(
+            "{} {}",
+            self.filtered_indices.len(),
+            if self.filtered_indices.len() == 1 {
+                "result"
+            } else {
+                "results"
+            }
+        );
 
-        let count_row = container(
+        let filter_bar = row![
+            status_chip_bar(cs, self.status_filter),
             text(result_count)
                 .size(style::TEXT_XS)
                 .color(cs.outline)
-                .line_height(style::LINE_HEIGHT_LOOSE),
-        )
-        .padding([0.0, style::SPACE_LG]);
+                .line_height(style::LINE_HEIGHT_LOOSE)
+                .width(Length::Fill),
+            pick_list(SearchSort::ALL, Some(self.sort), Message::SortChanged)
+                .text_size(style::TEXT_SM)
+                .padding([style::SPACE_SM, style::SPACE_MD])
+                .style(theme::pick_list_style(cs))
+                .menu_style(theme::pick_list_menu_style(cs)),
+        ]
+        .spacing(style::SPACE_SM)
+        .align_y(Alignment::Center)
+        .padding([style::SPACE_XS, style::SPACE_LG]);
 
         let list: Element<'_, Message> = if !self.loaded {
             container(
@@ -274,7 +498,7 @@ impl Search {
             .center_x(Length::Fill)
             .into()
         } else if self.filtered_indices.is_empty() {
-            let msg = if self.query.is_empty() {
+            let msg = if self.query.is_empty() && self.status_filter.is_none() {
                 "Your library is empty."
             } else {
                 "No matching anime found."
@@ -293,7 +517,16 @@ impl Search {
             let items: Vec<Element<'a, Message>> = self
                 .filtered_indices
                 .iter()
-                .map(|&i| search_list_item(cs, &self.all_entries[i], self.selected_anime))
+                .map(|&i| {
+                    widgets::anime_list_item(
+                        cs,
+                        &self.all_entries[i],
+                        self.selected_anime,
+                        covers,
+                        Message::AnimeSelected,
+                        Message::ContextAction,
+                    )
+                })
                 .collect();
 
             scrollable(
@@ -301,11 +534,21 @@ impl Search {
                     .spacing(style::SPACE_XXS)
                     .padding([style::SPACE_XS, style::SPACE_LG]),
             )
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(6)
+                    .scroller_width(4)
+                    .margin(2),
+            ))
+            .style(theme::overlay_scrollbar(cs))
             .height(Length::Fill)
             .into()
         };
 
-        let content = column![header, count_row, rule::horizontal(1), list]
+        // Online search prompt
+        let mal_prompt = self.mal_search_prompt(cs);
+
+        let content = column![header, filter_bar, rule::horizontal(1), list, mal_prompt]
             .spacing(0)
             .width(Length::Fill)
             .height(Length::Fill);
@@ -319,6 +562,13 @@ impl Search {
                     move |s| Message::StatusChanged(anime_id, s),
                     move |v| Message::ScoreChanged(anime_id, v),
                     move |ep| Message::EpisodeChanged(anime_id, ep),
+                    &self.score_input,
+                    Message::ScoreInputChanged,
+                    Message::ScoreInputSubmitted,
+                    &self.episode_input,
+                    Message::EpisodeInputChanged,
+                    Message::EpisodeInputSubmitted,
+                    covers,
                 );
                 return row![
                     container(content).width(Length::FillPortion(3)),
@@ -337,7 +587,182 @@ impl Search {
             .height(Length::Fill)
             .into()
     }
+
+    /// Render the "Search MAL" call-to-action at the bottom of local results.
+    fn mal_search_prompt(&self, cs: &ColorScheme) -> Element<'_, Message> {
+        if self.query.trim().is_empty() {
+            return container(text("").size(1)).height(Length::Shrink).into();
+        }
+
+        let inner: Element<'_, Message> = if self.mal_authenticated {
+            let label = format!("Search MAL for \"{}\"", self.query.trim());
+            button(
+                row![
+                    lucide_icons::iced::icon_globe()
+                        .size(style::TEXT_SM)
+                        .center(),
+                    text(label)
+                        .size(style::TEXT_SM)
+                        .line_height(style::LINE_HEIGHT_NORMAL),
+                ]
+                .spacing(style::SPACE_SM)
+                .align_y(Alignment::Center),
+            )
+            .padding([style::SPACE_SM, style::SPACE_XL])
+            .on_press(Message::SearchOnline)
+            .style(theme::ghost_button(cs))
+            .into()
+        } else {
+            text("Log in to MAL in Settings to search online")
+                .size(style::TEXT_XS)
+                .color(cs.outline)
+                .line_height(style::LINE_HEIGHT_LOOSE)
+                .into()
+        };
+
+        container(inner)
+            .padding([style::SPACE_SM, style::SPACE_LG])
+            .width(Length::Fill)
+            .center_x(Length::Fill)
+            .into()
+    }
+
+    // ── Online view ───────────────────────────────────────────────
+
+    fn view_online<'a>(
+        &'a self,
+        cs: &'a ColorScheme,
+        covers: &'a CoverCache,
+    ) -> Element<'a, Message> {
+        // Header: back button + "MAL Results"
+        let back = button(
+            row![
+                lucide_icons::iced::icon_arrow_left()
+                    .size(style::TEXT_SM)
+                    .center(),
+                text("Back to library")
+                    .size(style::TEXT_SM)
+                    .line_height(style::LINE_HEIGHT_NORMAL),
+            ]
+            .spacing(style::SPACE_XS)
+            .align_y(Alignment::Center),
+        )
+        .padding([style::SPACE_SM, style::SPACE_MD])
+        .on_press(Message::BackToLocal)
+        .style(theme::ghost_button(cs));
+
+        let title_text = format!("MAL results for \"{}\"", self.query.trim());
+        let header = row![
+            back,
+            text(title_text)
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE)
+                .width(Length::Fill),
+        ]
+        .spacing(style::SPACE_SM)
+        .align_y(Alignment::Center)
+        .padding([style::SPACE_SM, style::SPACE_LG]);
+
+        // Content area
+        let body: Element<'_, Message> = if self.online_loading {
+            container(
+                text("Searching...")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            )
+            .padding(style::SPACE_3XL)
+            .width(Length::Fill)
+            .center_x(Length::Fill)
+            .into()
+        } else if let Some(err) = &self.online_error {
+            container(
+                column![
+                    text(err.as_str())
+                        .size(style::TEXT_SM)
+                        .color(cs.error)
+                        .line_height(style::LINE_HEIGHT_NORMAL),
+                    button(text("Retry").size(style::TEXT_SM))
+                        .padding([style::SPACE_SM, style::SPACE_XL])
+                        .on_press(Message::SearchOnline)
+                        .style(theme::ghost_button(cs)),
+                ]
+                .spacing(style::SPACE_MD)
+                .align_x(Alignment::Center),
+            )
+            .padding(style::SPACE_3XL)
+            .width(Length::Fill)
+            .center_x(Length::Fill)
+            .into()
+        } else if self.online_results.is_empty() {
+            container(
+                text("No results found.")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            )
+            .padding(style::SPACE_3XL)
+            .width(Length::Fill)
+            .center_x(Length::Fill)
+            .into()
+        } else {
+            let items: Vec<Element<'a, Message>> = self
+                .online_results
+                .iter()
+                .enumerate()
+                .map(|(idx, result)| {
+                    online_list_item(cs, result, idx, self.selected_online, covers)
+                })
+                .collect();
+
+            scrollable(
+                column(items)
+                    .spacing(style::SPACE_XXS)
+                    .padding([style::SPACE_XS, style::SPACE_LG]),
+            )
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(6)
+                    .scroller_width(4)
+                    .margin(2),
+            ))
+            .style(theme::overlay_scrollbar(cs))
+            .height(Length::Fill)
+            .into()
+        };
+
+        let content = column![header, rule::horizontal(1), body]
+            .spacing(0)
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        // Show detail panel for selected online result
+        if let Some(idx) = self.selected_online {
+            if let Some(result) = self.online_results.get(idx) {
+                let cover_key = online_cover_key(result.service_id);
+                let detail =
+                    online_detail_panel(cs, result, Message::AddToLibrary(idx), covers, cover_key);
+                return row![
+                    container(content).width(Length::FillPortion(3)),
+                    rule::vertical(1),
+                    container(detail)
+                        .width(Length::FillPortion(2))
+                        .height(Length::Fill),
+                ]
+                .height(Length::Fill)
+                .into();
+            }
+        }
+
+        container(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
 }
+
+// ── Helper functions ──────────────────────────────────────────────
 
 /// Check if a library row matches the search query (case-insensitive substring).
 fn matches_query(row: &LibraryRow, query: &str) -> bool {
@@ -370,170 +795,145 @@ fn matches_query(row: &LibraryRow, query: &str) -> bool {
     false
 }
 
-/// A single search result list item with context menu.
-fn search_list_item<'a>(
-    cs: &'a ColorScheme,
-    lib_row: &'a LibraryRow,
-    selected: Option<i64>,
-) -> Element<'a, Message> {
-    let title = lib_row.anime.title.preferred();
-    let progress = match lib_row.anime.episodes {
-        Some(total) => format!("{} / {}", lib_row.entry.watched_episodes, total),
-        None => format!("{}", lib_row.entry.watched_episodes),
-    };
+/// Status filter chip bar with "All" option.
+fn status_chip_bar(cs: &ColorScheme, active: Option<WatchStatus>) -> Element<'static, Message> {
+    let mut chips: Vec<Element<'_, Message>> = Vec::with_capacity(6);
 
-    let is_selected = selected == Some(lib_row.anime.id);
-    let anime_id = lib_row.anime.id;
-    let status_col = theme::status_color(cs, lib_row.entry.status);
-
-    let status_label = text(lib_row.entry.status.as_str())
-        .size(style::TEXT_XS)
-        .color(cs.on_surface_variant)
-        .line_height(style::LINE_HEIGHT_LOOSE);
-
-    let status_bar = container(text("").size(1))
-        .width(Length::Fixed(3.0))
-        .height(Length::Fill)
-        .style(theme::status_bar_accent(status_col));
-
-    let content = row![
-        status_bar,
-        text(title)
-            .size(style::TEXT_BASE)
-            .line_height(style::LINE_HEIGHT_NORMAL)
-            .width(Length::Fill),
-        status_label,
-        text(progress)
-            .size(style::TEXT_SM)
-            .color(cs.on_surface_variant)
-            .line_height(style::LINE_HEIGHT_LOOSE),
-    ]
-    .spacing(style::SPACE_SM)
-    .align_y(Alignment::Center);
-
-    let base = button(content)
-        .width(Length::Fill)
-        .padding([style::SPACE_SM, style::SPACE_MD])
-        .on_press(Message::AnimeSelected(anime_id))
-        .style(theme::list_item(is_selected, cs));
-
-    let primary = cs.primary;
-    let on_primary = cs.on_primary;
-    let on_surface = cs.on_surface;
-    let error = cs.error;
-    let on_error = cs.on_error;
-    let menu_bg = cs.surface_container_high;
-    let menu_border = cs.outline;
-    let menu_item = move |label: &'a str, msg: Message| -> Element<'a, Message> {
-        button(
-            text(label)
-                .size(style::TEXT_SM)
+    // "All" chip
+    let is_all = active.is_none();
+    let all_chip = {
+        let mut chip_content = row![].spacing(style::SPACE_XXS).align_y(Alignment::Center);
+        if is_all {
+            chip_content = chip_content.push(lucide_icons::iced::icon_check().size(style::TEXT_XS));
+        }
+        chip_content = chip_content.push(
+            text("All")
+                .size(style::TEXT_XS)
                 .line_height(style::LINE_HEIGHT_LOOSE),
-        )
+        );
+        button(container(chip_content).center_y(Length::Fill))
+            .height(Length::Fixed(style::CHIP_HEIGHT))
+            .padding([style::SPACE_XS, style::SPACE_MD])
+            .on_press(Message::StatusFilterChanged(None))
+            .style(theme::filter_chip(is_all, cs))
+    };
+    chips.push(all_chip.into());
+
+    // Status chips
+    for &status in WatchStatus::ALL {
+        let is_selected = active == Some(status);
+        let label = match status {
+            WatchStatus::PlanToWatch => "Plan".to_string(),
+            other => other.as_str().to_string(),
+        };
+        let mut chip_content = row![].spacing(style::SPACE_XXS).align_y(Alignment::Center);
+        if is_selected {
+            chip_content = chip_content.push(lucide_icons::iced::icon_check().size(style::TEXT_XS));
+        }
+        chip_content = chip_content.push(
+            text(label)
+                .size(style::TEXT_XS)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+
+        chips.push(
+            button(container(chip_content).center_y(Length::Fill))
+                .height(Length::Fixed(style::CHIP_HEIGHT))
+                .padding([style::SPACE_XS, style::SPACE_MD])
+                .on_press(Message::StatusFilterChanged(Some(status)))
+                .style(theme::filter_chip(is_selected, cs))
+                .into(),
+        );
+    }
+
+    row(chips).spacing(style::SPACE_XS).into()
+}
+
+/// Compute a cover cache key for an online result (negative to avoid colliding with local IDs).
+pub fn online_cover_key(service_id: u64) -> i64 {
+    -(service_id as i64)
+}
+
+/// A single online search result list item.
+fn online_list_item<'a>(
+    cs: &'a ColorScheme,
+    result: &'a AnimeSearchResult,
+    idx: usize,
+    selected: Option<usize>,
+    covers: &'a CoverCache,
+) -> Element<'a, Message> {
+    let is_selected = selected == Some(idx);
+    let cover_key = online_cover_key(result.service_id);
+
+    let thumb = widgets::rounded_cover(
+        cs,
+        covers,
+        cover_key,
+        style::THUMB_WIDTH,
+        style::THUMB_HEIGHT,
+        style::RADIUS_SM,
+    );
+
+    // Title + metadata
+    let mut info_col = column![text(result.title.as_str())
+        .size(style::TEXT_BASE)
+        .font(style::FONT_HEADING)
+        .line_height(style::LINE_HEIGHT_NORMAL)]
+    .spacing(style::SPACE_XXS);
+
+    let mut meta_parts: Vec<String> = Vec::new();
+    if let Some(mt) = &result.media_type {
+        meta_parts.push(format::media_type(mt));
+    }
+    if let Some(year) = result.year {
+        meta_parts.push(year.to_string());
+    }
+    let genre_str: String = result
+        .genres
+        .iter()
+        .take(3)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    if !genre_str.is_empty() {
+        meta_parts.push(genre_str);
+    }
+    if !meta_parts.is_empty() {
+        info_col = info_col.push(
+            text(meta_parts.join("  \u{00B7}  "))
+                .size(style::TEXT_XS)
+                .color(cs.outline)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+    }
+
+    // Episode count + score on the right
+    let mut right_col = column![].spacing(style::SPACE_XXS).align_x(Alignment::End);
+    if let Some(eps) = result.episodes {
+        right_col = right_col.push(
+            text(format!("{eps} eps"))
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+    }
+    if let Some(score) = result.mean_score {
+        right_col = right_col.push(
+            text(format!("\u{2605} {score:.2}"))
+                .size(style::TEXT_XS)
+                .color(cs.primary)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+    }
+
+    let content = row![thumb, info_col.width(Length::Fill), right_col,]
+        .spacing(style::SPACE_SM)
+        .align_y(Alignment::Center);
+
+    button(content)
         .width(Length::Fill)
         .padding([style::SPACE_XS, style::SPACE_MD])
-        .on_press(msg)
-        .style(move |_theme: &Theme, status| {
-            let (bg, tc) = match status {
-                button::Status::Hovered => (Some(Background::Color(primary)), on_primary),
-                _ => (None, on_surface),
-            };
-            button::Style {
-                background: bg,
-                text_color: tc,
-                border: Border {
-                    radius: style::RADIUS_SM.into(),
-                    ..Border::default()
-                },
-                ..Default::default()
-            }
-        })
+        .on_press(Message::OnlineSelected(idx))
+        .style(theme::list_item(is_selected, cs))
         .into()
-    };
-
-    ContextMenu::new(base, move || {
-        container(
-            column![
-                menu_item(
-                    "Watching",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::Watching),
-                    ),
-                ),
-                menu_item(
-                    "Completed",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::Completed),
-                    ),
-                ),
-                menu_item(
-                    "On Hold",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::OnHold),
-                    ),
-                ),
-                menu_item(
-                    "Dropped",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::Dropped),
-                    ),
-                ),
-                menu_item(
-                    "Plan to Watch",
-                    Message::ContextAction(
-                        anime_id,
-                        ContextAction::ChangeStatus(WatchStatus::PlanToWatch),
-                    ),
-                ),
-                rule::horizontal(1),
-                button(
-                    text("Delete")
-                        .size(style::TEXT_SM)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                )
-                .width(Length::Fill)
-                .padding([style::SPACE_XS, style::SPACE_MD])
-                .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
-                .style(move |_theme: &Theme, status| {
-                    let (bg, tc) = match status {
-                        button::Status::Hovered => (Some(Background::Color(error)), on_error),
-                        _ => (None, error),
-                    };
-                    button::Style {
-                        background: bg,
-                        text_color: tc,
-                        border: Border {
-                            radius: style::RADIUS_SM.into(),
-                            ..Border::default()
-                        },
-                        ..Default::default()
-                    }
-                }),
-            ]
-            .spacing(style::SPACE_XXS)
-            .width(Length::Fixed(160.0)),
-        )
-        .style(move |_theme: &Theme| container::Style {
-            background: Some(Background::Color(menu_bg)),
-            border: Border {
-                color: menu_border,
-                width: 1.0,
-                radius: style::RADIUS_MD.into(),
-            },
-            shadow: iced::Shadow {
-                color: Color::BLACK,
-                offset: iced::Vector::new(0.0, 4.0),
-                blur_radius: 16.0,
-            },
-            ..Default::default()
-        })
-        .padding(style::SPACE_XS)
-        .into()
-    })
-    .style(theme::aw_context_menu_style(cs))
-    .into()
 }

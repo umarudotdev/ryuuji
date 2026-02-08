@@ -36,24 +36,36 @@ kurozumi-api     kurozumi-parse  (anime filename tokenizer + parser)
 
 ## Key Architecture Patterns
 
-**Detection → Recognition Pipeline:** Every N seconds, `detect_players()` → `parse(filename)` → `process_detection()` (orchestrator) → 3-pass title matching (exact → normalized → fuzzy via Skim at 60% threshold) → SQLite update. This is the core data flow.
+**Detection → Recognition Pipeline:** Every N seconds, `detect_players()` → `parse(filename)` → `process_detection()` (orchestrator) → 3-pass title matching (exact → normalized → fuzzy via Skim at 60% threshold) → SQLite update. This is the core data flow. The orchestrator also checks the embedded anime-relations database (`anime-relations.txt`) for cross-season episode redirects (e.g., continuous episode numbering → per-season numbering).
 
-**Actor-based DB Access** (`kurozumi-gui/src/db.rs`): `DbHandle` wraps a Tokio MPSC channel to run all SQLite ops on a dedicated thread, keeping I/O off the Iced render thread.
+**GUI Message Flow (unidirectional):** Screen `Message` → screen `update()` → `Action` enum → app `handle_action()` → state change. Screens never mutate app state directly. Key `Action` variants: `NavigateTo(Page)`, `RefreshLibrary`, `ShowModal(ModalKind)`, `RunTask(Task<app::Message>)`. Async work (DB ops, network) goes through `Action::RunTask` which hands an `iced::Task` to the runtime — screens themselves are synchronous.
 
-**Recognition Cache** (`kurozumi-core/src/recognition.rs`): In-memory index with 4-level lookup (query cache → exact → normalized → fuzzy). Bounded LRU cache (64 entries). Auto-populates on first call; invalidate when DB changes.
+**Actor-based DB Access** (`kurozumi-gui/src/db.rs`): `DbHandle` wraps a Tokio MPSC channel to a dedicated OS thread (not a tokio task) that owns `Storage`, `RecognitionCache`, and `RelationDatabase`. Uses `blocking_recv()`. Operations use oneshot channels for responses. Cache is invalidated after `AddedToLibrary` outcomes and bulk MAL imports.
+
+**Recognition Cache** (`kurozumi-core/src/recognition.rs`): 4-level waterfall lookup: (1) LRU query cache (64 entries) → (2) exact HashMap → (3) normalized HashMap (lowercase/trim/ascii-fold) → (4) fuzzy via `SkimMatcherV2` at 60% threshold. Auto-populates indices from DB on first call; full invalidation clears all levels and forces repopulation.
+
+**Subscriptions** (`kurozumi-gui/src/subscription.rs`): 3 concurrent Iced subscriptions composed via `subscription::subscriptions()`: (1) detection tick at configurable interval (`config.general.detection_interval`), (2) window resize/move events for geometry persistence to `~/.local/share/kurozumi/window.json`, (3) OS appearance polling every 5s (only when `ThemeMode::System` is active).
 
 **Screen Architecture** (`kurozumi-gui/src/screen/`): Each screen has its own state struct, message enum, and `update()` method. Screens return `Action` enums that the app router in `app.rs` dispatches.
 
-**Theme System** (`kurozumi-gui/src/theme/`): Embedded dark/light TOML themes in `assets/themes/`. User themes from `~/.config/kurozumi/themes/`. System appearance auto-detection polls every 5 seconds.
+**Modal Pattern:** App-level `modal_state: Option<ModalKind>` wraps the main view. Screens request modals via `Action::ShowModal(...)`, confirmation routes back to originating screen. Add new dialog types by extending `ModalKind` enum.
+
+**Theme System** (`kurozumi-gui/src/theme/`): 3-tier theme discovery — embedded TOML themes (`assets/themes/`), user themes from `~/.config/kurozumi/themes/`, and OS system appearance. Config stores both `appearance.theme` (name) and `appearance.mode` (Dark/Light/System). `ColorScheme` has 30+ semantic tokens; `build_theme()` maps these to Iced's 6-color `Palette`.
+
+**Design Tokens** (`kurozumi-gui/src/style.rs`): All spacing/typography/layout uses compile-time constants on a 4px grid (`SPACE_XXS` through `SPACE_3XL`). Layout constants: `NAV_RAIL_WIDTH`, `STATUS_BAR_HEIGHT`, `COVER_WIDTH`/`COVER_HEIGHT`. No magic numbers in view code.
+
+**Player Database** (`kurozumi-detect/src/player_db.rs`): Player definitions are data-driven via embedded `data/players.toml`. Each player specifies `executables`, `mpris_identities`, `window_classes`, `title_patterns` (regex capture groups). Adding new player support is config, not code. User overrides via `merge_user()`.
 
 ## Conventions
 
 - Error types: `<CrateName>Error` with `thiserror`. Central `KurozumiError` in `kurozumi-core/error.rs` wraps all subsystems
 - Config: TOML at `~/.config/kurozumi/kurozumi.toml` with compile-time embedded defaults from `config/default.toml`
-- Database: SQLite with WAL + foreign keys. Schema in `migrations/001_initial.sql`, auto-migrated on first run
+- Database: SQLite with WAL + foreign keys. Schema in `migrations/`. Auto-migrated on first run. All library queries return `LibraryRow` (pre-joined `Anime` + `LibraryEntry`) to avoid N+1 patterns
+- Workspace deps: All shared dependencies declared in root `Cargo.toml` `[workspace.dependencies]`, crates use `dep = { workspace = true }`
 - Icons: Lucide icon font (not Unicode symbols)
-- UI font: Geist Sans/Mono (variable, embedded)
+- UI font: Geist Sans/Mono (variable, embedded as bytes via `include_bytes!`)
 - Platform dispatch: `kurozumi-detect/src/platform/mod.rs` uses `#[cfg(target_os)]` to select Linux/Windows impl
+- Testing: All tests use `Storage::open_memory()` for in-memory SQLite. No integration test directory — all tests are unit tests within module files
 
 ## MAL Integration Details
 
@@ -61,7 +73,7 @@ OAuth2 PKCE with plain method; localhost redirect listener on port 19742. User m
 
 ## Stubs / Not Yet Implemented
 
-AniList GraphQL client, Kitsu JSON:API client, Discord Rich Presence, system tray integration, service sync orchestration (push/pull), conflict resolution, cover image display, notifications. Dependencies for AniList (`graphql_client`) are already in Cargo.toml.
+AniList GraphQL client, Kitsu JSON:API client, Discord Rich Presence, system tray integration, service sync orchestration (push/pull), conflict resolution, notifications. Dependencies for AniList (`graphql_client`) are already in Cargo.toml.
 
 ## Docs
 
