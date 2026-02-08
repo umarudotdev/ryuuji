@@ -2,7 +2,7 @@ use reqwest::Client;
 
 use super::auth;
 use super::error::MalError;
-use super::types::{MalListResponse, MalSearchResponse};
+use super::types::{MalAnimeListItem, MalListResponse, MalSearchResponse};
 use crate::traits::{AnimeSearchResult, AnimeService, UserListEntry};
 
 const BASE_URL: &str = "https://api.myanimelist.net";
@@ -39,6 +39,43 @@ impl MalClient {
                 message: body,
             })
         }
+    }
+
+    /// Fetch the authenticated user's full anime list with all MAL-specific fields.
+    ///
+    /// Unlike the trait method `get_user_list()`, this preserves the raw MAL types
+    /// including alternative titles, synonyms, and cover art.
+    pub async fn get_user_list_full(&self) -> Result<Vec<MalAnimeListItem>, MalError> {
+        let mut items = Vec::new();
+        let mut url = format!(
+            "{BASE_URL}/v2/users/@me/animelist\
+             ?fields=list_status,alternative_titles,num_episodes,main_picture\
+             &limit=100&nsfw=true"
+        );
+
+        loop {
+            let resp = self
+                .http
+                .get(&url)
+                .header("Authorization", self.auth_header())
+                .send()
+                .await?;
+
+            let resp = Self::check_response(resp).await?;
+            let page: MalListResponse = resp
+                .json()
+                .await
+                .map_err(|e| MalError::Parse(e.to_string()))?;
+
+            items.extend(page.data);
+
+            match page.paging.next {
+                Some(next_url) => url = next_url,
+                None => break,
+            }
+        }
+
+        Ok(items)
     }
 }
 
@@ -80,37 +117,11 @@ impl AnimeService for MalClient {
     }
 
     async fn get_user_list(&self) -> Result<Vec<UserListEntry>, MalError> {
-        let mut entries = Vec::new();
-        let mut url =
-            format!("{BASE_URL}/v2/users/@me/animelist?fields=list_status,alternative_titles,num_episodes,main_picture&limit=100&nsfw=true");
-
-        loop {
-            let resp = self
-                .http
-                .get(&url)
-                .header("Authorization", self.auth_header())
-                .send()
-                .await?;
-
-            let resp = Self::check_response(resp).await?;
-            let page: MalListResponse = resp
-                .json()
-                .await
-                .map_err(|e| MalError::Parse(e.to_string()))?;
-
-            entries.extend(
-                page.data
-                    .into_iter()
-                    .map(|item| item.into_user_list_entry()),
-            );
-
-            match page.paging.next {
-                Some(next_url) => url = next_url,
-                None => break,
-            }
-        }
-
-        Ok(entries)
+        let items = self.get_user_list_full().await?;
+        Ok(items
+            .into_iter()
+            .map(|item| item.into_user_list_entry())
+            .collect())
     }
 
     async fn update_progress(&self, anime_id: u64, episode: u32) -> Result<(), MalError> {

@@ -1,5 +1,6 @@
-use iced::widget::{button, column, container, pick_list, row, text, text_input, toggler};
+use iced::widget::{button, column, pick_list, row, text, text_input, toggler};
 use iced::{Alignment, Element, Length};
+use iced_aw::Card;
 
 use kurozumi_core::config::{AppConfig, ThemeMode};
 
@@ -177,9 +178,10 @@ impl Settings {
     pub fn view<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
         let heading = text("Settings").size(style::TEXT_2XL);
 
-        let appearance_card = settings_card(
-            cs,
-            "Appearance",
+        let appearance_card: Element<'_, Message> = Card::new(
+            text("Appearance")
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
             column![
                 row![
                     text("Theme").size(style::TEXT_BASE).width(Length::Fill),
@@ -207,11 +209,17 @@ impl Settings {
                 .spacing(style::SPACE_MD),
             ]
             .spacing(style::SPACE_MD),
-        );
+        )
+        .width(Length::Fill)
+        .padding_head(style::SPACE_MD.into())
+        .padding_body(style::SPACE_LG.into())
+        .style(theme::aw_card_style(cs))
+        .into();
 
-        let detection_card = settings_card(
-            cs,
-            "Detection",
+        let detection_card: Element<'_, Message> = Card::new(
+            text("Detection")
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
             column![row![
                 text("Detection interval (seconds)")
                     .size(style::TEXT_BASE)
@@ -225,11 +233,17 @@ impl Settings {
             ]
             .align_y(Alignment::Center)
             .spacing(style::SPACE_MD),],
-        );
+        )
+        .width(Length::Fill)
+        .padding_head(style::SPACE_MD.into())
+        .padding_body(style::SPACE_LG.into())
+        .style(theme::aw_card_style(cs))
+        .into();
 
-        let library_card = settings_card(
-            cs,
-            "Library",
+        let library_card: Element<'_, Message> = Card::new(
+            text("Library")
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
             column![
                 toggler(self.auto_update)
                     .label("Auto-update progress from detected playback")
@@ -243,7 +257,12 @@ impl Settings {
                     .spacing(style::SPACE_SM),
             ]
             .spacing(style::SPACE_MD),
-        );
+        )
+        .width(Length::Fill)
+        .padding_head(style::SPACE_MD.into())
+        .padding_body(style::SPACE_LG.into())
+        .style(theme::aw_card_style(cs))
+        .into();
 
         let mut mal_content = column![toggler(self.mal_enabled)
             .label("Enable MAL sync")
@@ -305,7 +324,17 @@ impl Settings {
             }
         }
 
-        let mal_card = settings_card(cs, "MyAnimeList", mal_content);
+        let mal_card: Element<'_, Message> = Card::new(
+            text("MyAnimeList")
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
+            mal_content,
+        )
+        .width(Length::Fill)
+        .padding_head(style::SPACE_MD.into())
+        .padding_body(style::SPACE_LG.into())
+        .style(theme::aw_card_style(cs))
+        .into();
 
         let mut footer = row![button(text("Save Settings").size(style::TEXT_SM))
             .padding([style::SPACE_SM, style::SPACE_XL])
@@ -337,25 +366,4 @@ impl Settings {
 
         iced::widget::scrollable(page).height(Length::Fill).into()
     }
-}
-
-/// Helper: wrap content in a labeled card container.
-fn settings_card<'a>(
-    cs: &ColorScheme,
-    label: &'a str,
-    content: impl Into<Element<'a, Message>>,
-) -> Element<'a, Message> {
-    container(
-        column![
-            text(label)
-                .size(style::TEXT_SM)
-                .color(cs.on_surface_variant),
-            content.into(),
-        ]
-        .spacing(style::SPACE_MD),
-    )
-    .style(theme::card(cs))
-    .padding(style::SPACE_LG)
-    .width(Length::Fill)
-    .into()
 }

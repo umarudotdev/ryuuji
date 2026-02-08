@@ -293,42 +293,53 @@ impl Kurozumi {
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| "Not logged in to MAL".to_string())?;
 
-                // Fetch user's anime list from MAL.
-                use kurozumi_api::traits::AnimeService;
+                // Fetch user's full anime list from MAL (with all title variants).
                 let client = kurozumi_api::mal::MalClient::new(client_id, token);
-                let mal_entries = client.get_user_list().await.map_err(|e| e.to_string())?;
+                let mal_items = client
+                    .get_user_list_full()
+                    .await
+                    .map_err(|e| e.to_string())?;
 
-                // Map MAL entries to local types.
-                let batch: Vec<(Anime, Option<LibraryEntry>)> = mal_entries
+                // Map MAL items directly to local types, preserving all title data.
+                let batch: Vec<(Anime, Option<LibraryEntry>)> = mal_items
                     .into_iter()
-                    .map(|entry| {
+                    .map(|item| {
+                        let alt = &item.node.alternative_titles;
                         let anime = Anime {
                             id: 0,
                             ids: AnimeIds {
                                 anilist: None,
                                 kitsu: None,
-                                mal: Some(entry.service_id),
+                                mal: Some(item.node.id),
                             },
                             title: AnimeTitle {
-                                romaji: Some(entry.title),
-                                english: None,
-                                native: None,
+                                romaji: Some(item.node.title.clone()),
+                                english: alt.as_ref().and_then(|a| a.en.clone()),
+                                native: alt.as_ref().and_then(|a| a.ja.clone()),
                             },
-                            synonyms: vec![],
-                            episodes: entry.total_episodes,
-                            cover_url: None,
+                            synonyms: alt
+                                .as_ref()
+                                .and_then(|a| a.synonyms.clone())
+                                .unwrap_or_default(),
+                            episodes: item.node.num_episodes,
+                            cover_url: item
+                                .node
+                                .main_picture
+                                .as_ref()
+                                .and_then(|p| p.medium.clone()),
                             season: None,
                             year: None,
                         };
 
-                        let status = WatchStatus::from_db_str(&entry.status)
-                            .unwrap_or(WatchStatus::Watching);
+                        let status_str = item.list_status.status.as_deref().unwrap_or("watching");
+                        let status =
+                            WatchStatus::from_db_str(status_str).unwrap_or(WatchStatus::Watching);
                         let library_entry = LibraryEntry {
                             id: 0,
                             anime_id: 0, // will be set by DB actor
                             status,
-                            watched_episodes: entry.watched_episodes,
-                            score: entry.score,
+                            watched_episodes: item.list_status.num_episodes_watched.unwrap_or(0),
+                            score: item.list_status.score.map(|s| s as f32),
                             updated_at: Utc::now(),
                         };
 

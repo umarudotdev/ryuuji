@@ -1,5 +1,6 @@
-use iced::widget::{button, column, container, pick_list, row, rule, scrollable, text, text_input};
+use iced::widget::{button, column, container, pick_list, row, rule, scrollable, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Task, Theme};
+use iced_aw::ContextMenu;
 
 use kurozumi_core::models::WatchStatus;
 use kurozumi_core::storage::LibraryRow;
@@ -9,7 +10,7 @@ use crate::db::DbHandle;
 use crate::screen::{Action, ModalKind};
 use crate::style;
 use crate::theme::{self, ColorScheme};
-use crate::widgets::context_menu::context_menu;
+use crate::widgets::detail_panel;
 
 /// Sort mode for library list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -32,14 +33,6 @@ impl std::fmt::Display for LibrarySort {
     }
 }
 
-/// Library view mode: grid (cover cards) or list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum LibraryViewMode {
-    #[default]
-    Grid,
-    List,
-}
-
 /// Actions available in the library context menu.
 #[derive(Debug, Clone)]
 pub enum ContextAction {
@@ -53,8 +46,6 @@ pub struct Library {
     pub entries: Vec<LibraryRow>,
     pub selected_anime: Option<i64>,
     pub sort: LibrarySort,
-    pub view_mode: LibraryViewMode,
-    pub score_input: String,
 }
 
 /// Messages handled by the Library screen.
@@ -62,13 +53,10 @@ pub struct Library {
 pub enum Message {
     TabChanged(WatchStatus),
     AnimeSelected(i64),
-    EpisodeIncrement(i64),
-    EpisodeDecrement(i64),
+    EpisodeChanged(i64, u32),
     StatusChanged(i64, WatchStatus),
-    ScoreInputChanged(String),
-    ScoreSubmitted(i64),
+    ScoreChanged(i64, f32),
     SortChanged(LibrarySort),
-    ViewModeToggled,
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
     CancelModal,
@@ -84,8 +72,6 @@ impl Library {
             entries: Vec::new(),
             selected_anime: None,
             sort: LibrarySort::default(),
-            view_mode: LibraryViewMode::default(),
-            score_input: String::new(),
         }
     }
 
@@ -99,45 +85,18 @@ impl Library {
             }
             Message::AnimeSelected(id) => {
                 self.selected_anime = Some(id);
-                if let Some(row) = self.entries.iter().find(|r| r.anime.id == id) {
-                    self.score_input = row
-                        .entry
-                        .score
-                        .map(|s| format!("{s:.0}"))
-                        .unwrap_or_default();
-                }
                 Action::None
             }
-            Message::EpisodeIncrement(anime_id) => {
+            Message::EpisodeChanged(anime_id, new_ep) => {
                 if let Some(db) = db {
-                    if let Some(entry) = self.entries.iter().find(|r| r.anime.id == anime_id) {
-                        let new_ep = entry.entry.watched_episodes + 1;
-                        let db = db.clone();
-                        return Action::RunTask(Task::perform(
-                            async move {
-                                let _ = db.update_episode_count(anime_id, new_ep).await;
-                                let _ = db.record_watch(anime_id, new_ep).await;
-                            },
-                            |_| app::Message::Library(Message::DbOperationDone(Ok(()))),
-                        ));
-                    }
-                }
-                Action::None
-            }
-            Message::EpisodeDecrement(anime_id) => {
-                if let Some(db) = db {
-                    if let Some(entry) = self.entries.iter().find(|r| r.anime.id == anime_id) {
-                        if entry.entry.watched_episodes > 0 {
-                            let new_ep = entry.entry.watched_episodes - 1;
-                            let db = db.clone();
-                            return Action::RunTask(Task::perform(
-                                async move {
-                                    let _ = db.update_episode_count(anime_id, new_ep).await;
-                                },
-                                |_| app::Message::Library(Message::DbOperationDone(Ok(()))),
-                            ));
-                        }
-                    }
+                    let db = db.clone();
+                    return Action::RunTask(Task::perform(
+                        async move {
+                            let _ = db.update_episode_count(anime_id, new_ep).await;
+                            let _ = db.record_watch(anime_id, new_ep).await;
+                        },
+                        |_| app::Message::Library(Message::DbOperationDone(Ok(()))),
+                    ));
                 }
                 Action::None
             }
@@ -155,37 +114,23 @@ impl Library {
                 }
                 Action::None
             }
-            Message::ScoreInputChanged(val) => {
-                self.score_input = val;
-                Action::None
-            }
-            Message::ScoreSubmitted(anime_id) => {
+            Message::ScoreChanged(anime_id, score) => {
                 if let Some(db) = db {
-                    if let Ok(score) = self.score_input.parse::<f32>() {
-                        let score = score.clamp(0.0, 10.0);
-                        let db = db.clone();
-                        return Action::RunTask(Task::perform(
-                            async move { db.update_library_score(anime_id, score).await },
-                            |r| {
-                                app::Message::Library(Message::DbOperationDone(
-                                    r.map_err(|e| e.to_string()),
-                                ))
-                            },
-                        ));
-                    }
+                    let db = db.clone();
+                    return Action::RunTask(Task::perform(
+                        async move { db.update_library_score(anime_id, score).await },
+                        |r| {
+                            app::Message::Library(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    ));
                 }
                 Action::None
             }
             Message::SortChanged(sort) => {
                 self.sort = sort;
                 self.refresh_task(db)
-            }
-            Message::ViewModeToggled => {
-                self.view_mode = match self.view_mode {
-                    LibraryViewMode::Grid => LibraryViewMode::List,
-                    LibraryViewMode::List => LibraryViewMode::Grid,
-                };
-                Action::None
             }
             Message::ContextAction(anime_id, action) => match action {
                 ContextAction::ChangeStatus(new_status) => {
@@ -290,21 +235,12 @@ impl Library {
             }
         );
 
-        let view_icon = match self.view_mode {
-            LibraryViewMode::Grid => lucide_icons::iced::icon_list(),
-            LibraryViewMode::List => lucide_icons::iced::icon_layout_grid(),
-        };
-
         let header = row![
             chip_bar(cs, self.tab),
             text(count_text)
                 .size(style::TEXT_XS)
                 .color(cs.outline)
                 .width(Length::Fill),
-            button(view_icon.size(style::TEXT_BASE))
-                .padding([style::SPACE_XS, style::SPACE_SM])
-                .on_press(Message::ViewModeToggled)
-                .style(theme::ghost_button(cs)),
             pick_list(LibrarySort::ALL, Some(self.sort), |s| {
                 Message::SortChanged(s)
             })
@@ -327,60 +263,19 @@ impl Library {
             .center_x(Length::Fill)
             .into()
         } else {
-            match self.view_mode {
-                LibraryViewMode::List => {
-                    let items: Vec<Element<'a, Message>> = self
-                        .entries
-                        .iter()
-                        .map(|r| anime_list_item(cs, r, self.selected_anime))
-                        .collect();
+            let items: Vec<Element<'a, Message>> = self
+                .entries
+                .iter()
+                .map(|r| anime_list_item(cs, r, self.selected_anime))
+                .collect();
 
-                    scrollable(
-                        column(items)
-                            .spacing(style::SPACE_XXS)
-                            .padding([style::SPACE_XS, style::SPACE_LG]),
-                    )
-                    .height(Length::Fill)
-                    .into()
-                }
-                LibraryViewMode::Grid => {
-                    let mut cards: Vec<Element<'a, Message>> = self
-                        .entries
-                        .iter()
-                        .map(|r| grid_card(cs, r, self.selected_anime))
-                        .collect();
-
-                    let mut grid_rows: Vec<Element<'a, Message>> = Vec::new();
-                    let mut drain = cards.drain(..);
-                    loop {
-                        let mut grid_row = row![].spacing(style::SPACE_MD);
-                        let mut count = 0;
-                        for _ in 0..style::GRID_COLUMNS {
-                            if let Some(card) = drain.next() {
-                                grid_row = grid_row.push(card);
-                                count += 1;
-                            }
-                        }
-                        if count == 0 {
-                            break;
-                        }
-                        for _ in count..style::GRID_COLUMNS {
-                            grid_row = grid_row.push(
-                                container(text("")).width(Length::Fixed(style::GRID_CARD_WIDTH)),
-                            );
-                        }
-                        grid_rows.push(grid_row.into());
-                    }
-
-                    scrollable(
-                        column(grid_rows)
-                            .spacing(style::SPACE_MD)
-                            .padding([style::SPACE_SM, style::SPACE_LG]),
-                    )
-                    .height(Length::Fill)
-                    .into()
-                }
-            }
+            scrollable(
+                column(items)
+                    .spacing(style::SPACE_XXS)
+                    .padding([style::SPACE_XS, style::SPACE_LG]),
+            )
+            .height(Length::Fill)
+            .into()
         };
 
         let content = column![header, rule::horizontal(1), list]
@@ -390,9 +285,18 @@ impl Library {
 
         if let Some(anime_id) = self.selected_anime {
             if let Some(lib_row) = self.entries.iter().find(|r| r.anime.id == anime_id) {
-                let detail = anime_detail(cs, lib_row, &self.score_input);
+                let anime_id = lib_row.anime.id;
+                let detail = detail_panel(
+                    cs,
+                    lib_row,
+                    move |s| Message::StatusChanged(anime_id, s),
+                    move |v| Message::ScoreChanged(anime_id, v),
+                    move |ep| Message::EpisodeChanged(anime_id, ep),
+                );
                 return row![
-                    container(content).width(Length::FillPortion(3)),
+                    container(content)
+                        .width(Length::FillPortion(3))
+                        .height(Length::Fill),
                     rule::vertical(1),
                     container(detail)
                         .width(Length::FillPortion(2))
@@ -437,57 +341,6 @@ fn chip_bar(cs: &ColorScheme, active: WatchStatus) -> Element<'static, Message> 
         .collect();
 
     row(chips).spacing(style::SPACE_XS).into()
-}
-
-/// A single anime grid card.
-fn grid_card<'a>(
-    cs: &ColorScheme,
-    lib_row: &'a LibraryRow,
-    selected: Option<i64>,
-) -> Element<'a, Message> {
-    let title = lib_row.anime.title.preferred();
-    let progress = match lib_row.anime.episodes {
-        Some(total) => format!("{} / {}", lib_row.entry.watched_episodes, total),
-        None => format!("{}", lib_row.entry.watched_episodes),
-    };
-    let is_selected = selected == Some(lib_row.anime.id);
-    let anime_id = lib_row.anime.id;
-    let status_col = theme::status_color(cs, lib_row.entry.status);
-
-    let status_bar = container(text("").size(1))
-        .width(Length::Fill)
-        .height(Length::Fixed(3.0))
-        .style(theme::status_bar_accent(status_col));
-
-    let cover = container(
-        text("\u{1F3AC}")
-            .size(style::TEXT_3XL)
-            .color(cs.outline)
-            .center(),
-    )
-    .width(Length::Fill)
-    .height(Length::Fixed(style::GRID_COVER_HEIGHT))
-    .center_x(Length::Fill)
-    .center_y(Length::Fill)
-    .style(theme::grid_cover_placeholder(cs));
-
-    let info = column![
-        text(title).size(style::TEXT_SM).width(Length::Fill),
-        text(progress)
-            .size(style::TEXT_XS)
-            .color(cs.on_surface_variant),
-    ]
-    .spacing(style::SPACE_XXS)
-    .padding([style::SPACE_SM, style::SPACE_SM]);
-
-    let card_content = column![status_bar, cover, info];
-
-    button(card_content)
-        .width(Length::Fixed(style::GRID_CARD_WIDTH))
-        .padding(0)
-        .on_press(Message::AnimeSelected(anime_id))
-        .style(theme::grid_card(is_selected, cs))
-        .into()
 }
 
 /// A single anime list item with context menu.
@@ -557,7 +410,7 @@ fn anime_list_item<'a>(
             .into()
     };
 
-    context_menu(base, move || {
+    ContextMenu::new(base, move || {
         container(
             column![
                 menu_item(
@@ -599,7 +452,7 @@ fn anime_list_item<'a>(
                 button(text("Delete").size(style::TEXT_SM))
                     .width(Length::Fill)
                     .padding([style::SPACE_XS, style::SPACE_MD])
-                    .on_press(Message::ContextAction(anime_id, ContextAction::Delete,))
+                    .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
                     .style(move |_theme: &Theme, status| {
                         let (bg, tc) = match status {
                             button::Status::Hovered => (Some(Background::Color(error)), on_error),
@@ -636,122 +489,6 @@ fn anime_list_item<'a>(
         .padding(style::SPACE_XS)
         .into()
     })
-}
-
-/// Detail panel for the selected anime.
-fn anime_detail<'a>(
-    cs: &ColorScheme,
-    lib_row: &'a LibraryRow,
-    score_input: &str,
-) -> Element<'a, Message> {
-    let anime = &lib_row.anime;
-    let entry = &lib_row.entry;
-
-    let cover = container(
-        text("\u{1F3AC}")
-            .size(style::TEXT_3XL)
-            .color(cs.outline)
-            .center(),
-    )
-    .width(Length::Fixed(style::COVER_WIDTH))
-    .height(Length::Fixed(style::COVER_HEIGHT))
-    .center_x(Length::Fixed(style::COVER_WIDTH))
-    .center_y(Length::Fixed(style::COVER_HEIGHT))
-    .style(theme::cover_placeholder(cs));
-
-    let mut title_section =
-        column![text(anime.title.preferred()).size(style::TEXT_XL),].spacing(style::SPACE_XS);
-
-    if let Some(english) = &anime.title.english {
-        if Some(english.as_str()) != anime.title.romaji.as_deref() {
-            title_section = title_section.push(
-                text(english.as_str())
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),
-            );
-        }
-    }
-
-    let mut meta_parts: Vec<String> = Vec::new();
-    if let Some(season) = &anime.season {
-        meta_parts.push(season.clone());
-    }
-    if let Some(year) = anime.year {
-        meta_parts.push(year.to_string());
-    }
-    if !meta_parts.is_empty() {
-        title_section = title_section.push(
-            text(meta_parts.join(" "))
-                .size(style::TEXT_SM)
-                .color(cs.outline),
-        );
-    }
-
-    let anime_id = anime.id;
-    let status_card = container(
-        column![
-            text("Status")
-                .size(style::TEXT_XS)
-                .color(cs.on_surface_variant),
-            pick_list(WatchStatus::ALL, Some(entry.status), move |s| {
-                Message::StatusChanged(anime_id, s)
-            })
-            .text_size(style::TEXT_SM)
-            .padding([style::SPACE_XS, style::SPACE_SM]),
-            text("Score")
-                .size(style::TEXT_XS)
-                .color(cs.on_surface_variant),
-            row![text_input("0-10", score_input)
-                .on_input(|v| Message::ScoreInputChanged(v))
-                .on_submit(Message::ScoreSubmitted(anime_id))
-                .size(style::TEXT_SM)
-                .padding([style::SPACE_XS, style::SPACE_SM])
-                .width(Length::Fixed(80.0))
-                .style(theme::text_input_style(cs)),]
-            .spacing(style::SPACE_SM)
-            .align_y(Alignment::Center),
-        ]
-        .spacing(style::SPACE_SM),
-    )
-    .style(theme::card(cs))
-    .padding(style::SPACE_LG)
-    .width(Length::Fill);
-
-    let ep_text = match anime.episodes {
-        Some(total) => format!("Episode {} / {}", entry.watched_episodes, total),
-        None => format!("Episode {}", entry.watched_episodes),
-    };
-
-    let progress_card = container(
-        column![
-            text(ep_text).size(style::TEXT_BASE),
-            row![
-                button(lucide_icons::iced::icon_minus().size(style::TEXT_SM))
-                    .on_press(Message::EpisodeDecrement(anime_id))
-                    .style(theme::control_button(cs))
-                    .padding([style::SPACE_XS, style::SPACE_LG]),
-                button(lucide_icons::iced::icon_plus().size(style::TEXT_SM))
-                    .on_press(Message::EpisodeIncrement(anime_id))
-                    .style(theme::control_button(cs))
-                    .padding([style::SPACE_XS, style::SPACE_LG]),
-            ]
-            .spacing(style::SPACE_SM),
-        ]
-        .spacing(style::SPACE_SM),
-    )
-    .style(theme::card(cs))
-    .padding(style::SPACE_LG)
-    .width(Length::Fill);
-
-    let detail = column![
-        row![cover, title_section]
-            .spacing(style::SPACE_LG)
-            .align_y(Alignment::Start),
-        status_card,
-        progress_card,
-    ]
-    .spacing(style::SPACE_LG)
-    .padding(style::SPACE_LG);
-
-    scrollable(detail).height(Length::Fill).into()
+    .style(theme::aw_context_menu_style(cs))
+    .into()
 }
