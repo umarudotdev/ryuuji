@@ -2,12 +2,15 @@ use iced::widget::{button, column, container, row, text};
 use iced::window;
 use iced::{Alignment, Element, Length, Subscription, Task, Theme};
 
+use chrono::Utc;
 use kurozumi_core::config::AppConfig;
-use kurozumi_core::models::DetectedMedia;
+use kurozumi_core::models::{
+    Anime, AnimeIds, AnimeTitle, DetectedMedia, LibraryEntry, WatchStatus,
+};
 use kurozumi_core::orchestrator::UpdateOutcome;
 
 use crate::db::DbHandle;
-use crate::screen::{library, now_playing, settings, Action, ModalKind, Page};
+use crate::screen::{library, now_playing, search, settings, Action, ModalKind, Page};
 use crate::style;
 use crate::subscription;
 use kurozumi_core::config::ThemeMode;
@@ -25,6 +28,7 @@ pub struct Kurozumi {
     // Screens
     now_playing: now_playing::NowPlaying,
     library: library::Library,
+    search: search::Search,
     settings: settings::Settings,
     // App-level chrome
     modal_state: Option<ModalKind>,
@@ -53,6 +57,7 @@ impl Default for Kurozumi {
             current_theme,
             now_playing: now_playing::NowPlaying::new(),
             library: library::Library::new(),
+            search: search::Search::new(),
             settings: settings_screen,
             modal_state: None,
             status_message: "Ready".into(),
@@ -72,12 +77,24 @@ pub enum Message {
     WindowEvent(window::Event),
     NowPlaying(now_playing::Message),
     Library(library::Message),
+    Search(search::Message),
     Settings(settings::Message),
 }
 
 impl Kurozumi {
     pub fn new() -> (Self, Task<Message>) {
-        (Self::default(), Task::none())
+        let app = Self::default();
+        // Check if MAL token exists on startup.
+        let task = if let Some(db) = &app.db {
+            let db = db.clone();
+            Task::perform(
+                async move { db.get_mal_token().await.ok().flatten().is_some() },
+                |has_token| Message::Settings(settings::Message::MalTokenChecked(has_token)),
+            )
+        } else {
+            Task::none()
+        };
+        (app, task)
     }
 
     pub fn title(&self) -> String {
@@ -90,6 +107,10 @@ impl Kurozumi {
                 self.page = page;
                 if page == Page::Library {
                     let action = self.library.refresh_task(self.db.as_ref());
+                    return self.handle_action(action);
+                }
+                if page == Page::Search {
+                    let action = self.search.load_entries(self.db.as_ref());
                     return self.handle_action(action);
                 }
                 Task::none()
@@ -143,6 +164,10 @@ impl Kurozumi {
                     let action = self.library.refresh_task(self.db.as_ref());
                     return self.handle_action(action);
                 }
+                if self.page == Page::Search {
+                    let action = self.search.load_entries(self.db.as_ref());
+                    return self.handle_action(action);
+                }
                 Task::none()
             }
             Message::AppearanceChanged(mode) => {
@@ -177,18 +202,145 @@ impl Kurozumi {
                 let action = self.library.update(msg, self.db.as_ref());
                 self.handle_action(action)
             }
-            Message::Settings(msg) => {
-                let action = self.settings.update(msg, &mut self.config);
-                // Sync theme from settings if changed.
-                let wanted = &self.settings.selected_theme;
-                if wanted != &self.current_theme.name {
-                    if let Some(new_theme) = theme::find_theme(wanted) {
-                        self.current_theme = new_theme;
-                    }
-                }
+            Message::Search(msg) => {
+                let action = self.search.update(msg, self.db.as_ref());
                 self.handle_action(action)
             }
+            Message::Settings(ref msg) => {
+                // Intercept MAL actions that need async work before delegating.
+                match msg {
+                    settings::Message::MalLogin => {
+                        // Update settings state first.
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        // Spawn the OAuth flow.
+                        self.spawn_mal_login()
+                    }
+                    settings::Message::MalImport => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        // Spawn the import flow.
+                        self.spawn_mal_import()
+                    }
+                    _ => {
+                        let msg = msg.clone();
+                        let action = self.settings.update(msg, &mut self.config);
+                        // Sync theme from settings if changed.
+                        let wanted = &self.settings.selected_theme;
+                        if wanted != &self.current_theme.name {
+                            if let Some(new_theme) = theme::find_theme(wanted) {
+                                self.current_theme = new_theme;
+                            }
+                        }
+                        self.handle_action(action)
+                    }
+                }
+            }
         }
+    }
+
+    /// Spawn the MAL OAuth login flow as an async task.
+    fn spawn_mal_login(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let client_id = self.settings.mal_client_id.trim().to_string();
+        if client_id.is_empty() {
+            return Task::none();
+        }
+
+        Task::perform(
+            async move {
+                // Run the OAuth PKCE flow (opens browser, waits for redirect).
+                let token_resp = kurozumi_api::mal::auth::authorize(&client_id)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                // Save tokens to DB.
+                let expires_at = token_resp
+                    .expires_in
+                    .map(|secs| (Utc::now() + chrono::Duration::seconds(secs as i64)).to_rfc3339());
+                db.save_mal_token(
+                    token_resp.access_token,
+                    token_resp.refresh_token,
+                    expires_at,
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+
+                Ok(())
+            },
+            |result| Message::Settings(settings::Message::MalLoginResult(result)),
+        )
+    }
+
+    /// Spawn the MAL library import flow as an async task.
+    fn spawn_mal_import(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let client_id = self.settings.mal_client_id.trim().to_string();
+        if client_id.is_empty() {
+            return Task::none();
+        }
+
+        Task::perform(
+            async move {
+                // Load token from DB.
+                let token = db
+                    .get_mal_token()
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Not logged in to MAL".to_string())?;
+
+                // Fetch user's anime list from MAL.
+                use kurozumi_api::traits::AnimeService;
+                let client = kurozumi_api::mal::MalClient::new(client_id, token);
+                let mal_entries = client.get_user_list().await.map_err(|e| e.to_string())?;
+
+                // Map MAL entries to local types.
+                let batch: Vec<(Anime, Option<LibraryEntry>)> = mal_entries
+                    .into_iter()
+                    .map(|entry| {
+                        let anime = Anime {
+                            id: 0,
+                            ids: AnimeIds {
+                                anilist: None,
+                                kitsu: None,
+                                mal: Some(entry.service_id),
+                            },
+                            title: AnimeTitle {
+                                romaji: Some(entry.title),
+                                english: None,
+                                native: None,
+                            },
+                            synonyms: vec![],
+                            episodes: entry.total_episodes,
+                            cover_url: None,
+                            season: None,
+                            year: None,
+                        };
+
+                        let status = WatchStatus::from_db_str(&entry.status)
+                            .unwrap_or(WatchStatus::Watching);
+                        let library_entry = LibraryEntry {
+                            id: 0,
+                            anime_id: 0, // will be set by DB actor
+                            status,
+                            watched_episodes: entry.watched_episodes,
+                            score: entry.score,
+                            updated_at: Utc::now(),
+                        };
+
+                        (anime, Some(library_entry))
+                    })
+                    .collect();
+
+                // Bulk upsert into DB.
+                db.mal_import_batch(batch).await.map_err(|e| e.to_string())
+            },
+            |result| Message::Settings(settings::Message::MalImportResult(result)),
+        )
     }
 
     /// Interpret an Action returned by a screen.
@@ -229,17 +381,7 @@ impl Kurozumi {
                 .view(cs, &self.status_message)
                 .map(Message::NowPlaying),
             Page::Library => self.library.view(cs).map(Message::Library),
-            Page::Search => container(
-                column![
-                    text("Search")
-                        .size(style::TEXT_XL)
-                        .color(cs.on_surface_variant),
-                    text("Coming soon").size(style::TEXT_SM).color(cs.outline),
-                ]
-                .spacing(style::SPACE_SM),
-            )
-            .padding(style::SPACE_XL)
-            .into(),
+            Page::Search => self.search.view(cs).map(Message::Search),
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
@@ -255,11 +397,13 @@ impl Kurozumi {
         // Wrap in modal if one is active.
         if let Some(modal_kind) = &self.modal_state {
             let modal_content = self.build_modal_content(cs, modal_kind);
-            crate::widgets::modal(
-                main,
-                modal_content,
-                Message::Library(library::Message::CancelModal),
-            )
+            let dismiss_msg = match modal_kind {
+                ModalKind::ConfirmDelete { source, .. } => match source {
+                    Page::Search => Message::Search(search::Message::CancelModal),
+                    _ => Message::Library(library::Message::CancelModal),
+                },
+            };
+            crate::widgets::modal(main, modal_content, dismiss_msg)
         } else {
             main
         }
@@ -282,8 +426,21 @@ impl Kurozumi {
         kind: &'a ModalKind,
     ) -> Element<'a, Message> {
         match kind {
-            ModalKind::ConfirmDelete { anime_id, title } => {
+            ModalKind::ConfirmDelete {
+                anime_id,
+                title,
+                source,
+            } => {
                 let anime_id = *anime_id;
+                let source = *source;
+                let cancel_msg = match source {
+                    Page::Search => Message::Search(search::Message::CancelModal),
+                    _ => Message::Library(library::Message::CancelModal),
+                };
+                let confirm_msg = match source {
+                    Page::Search => Message::Search(search::Message::ConfirmDelete(anime_id)),
+                    _ => Message::Library(library::Message::ConfirmDelete(anime_id)),
+                };
                 container(
                     column![
                         text("Remove from library?").size(style::TEXT_LG),
@@ -296,13 +453,11 @@ impl Kurozumi {
                         row![
                             button(text("Cancel").size(style::TEXT_SM))
                                 .padding([style::SPACE_SM, style::SPACE_XL])
-                                .on_press(Message::Library(library::Message::CancelModal))
+                                .on_press(cancel_msg)
                                 .style(theme::ghost_button(cs)),
                             button(text("Delete").size(style::TEXT_SM))
                                 .padding([style::SPACE_SM, style::SPACE_XL])
-                                .on_press(Message::Library(library::Message::ConfirmDelete(
-                                    anime_id
-                                )))
+                                .on_press(confirm_msg)
                                 .style(theme::danger_button(cs)),
                         ]
                         .spacing(style::SPACE_SM),

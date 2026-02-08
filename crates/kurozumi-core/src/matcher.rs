@@ -92,7 +92,7 @@ fn best_fuzzy_score(matcher: &SkimMatcherV2, query: &str, anime: &Anime) -> i64 
 }
 
 /// Collect all title strings for an anime (romaji, english, native, synonyms).
-fn all_titles(anime: &Anime) -> Vec<&str> {
+pub fn all_titles(anime: &Anime) -> Vec<&str> {
     let mut titles = Vec::new();
     if let Some(r) = &anime.title.romaji {
         titles.push(r.as_str());
@@ -110,7 +110,7 @@ fn all_titles(anime: &Anime) -> Vec<&str> {
 }
 
 /// Normalize a title for comparison: lowercase, strip non-alphanumeric except spaces.
-fn normalize(s: &str) -> String {
+pub fn normalize(s: &str) -> String {
     s.to_lowercase()
         .chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace())

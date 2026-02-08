@@ -82,7 +82,7 @@ impl AnimeService for MalClient {
     async fn get_user_list(&self) -> Result<Vec<UserListEntry>, MalError> {
         let mut entries = Vec::new();
         let mut url =
-            format!("{BASE_URL}/v2/users/@me/animelist?fields=list_status&limit=100&nsfw=true");
+            format!("{BASE_URL}/v2/users/@me/animelist?fields=list_status,alternative_titles,num_episodes,main_picture&limit=100&nsfw=true");
 
         loop {
             let resp = self

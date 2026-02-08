@@ -3,8 +3,9 @@ use tracing::{debug, info, warn};
 
 use crate::config::AppConfig;
 use crate::error::KurozumiError;
-use crate::matcher::{self, MatchResult};
+use crate::matcher::MatchResult;
 use crate::models::{DetectedMedia, LibraryEntry, WatchStatus};
+use crate::recognition::RecognitionCache;
 use crate::storage::Storage;
 
 /// Outcome of processing a detection event.
@@ -27,6 +28,7 @@ pub fn process_detection(
     detected: &DetectedMedia,
     storage: &Storage,
     config: &AppConfig,
+    cache: &mut RecognitionCache,
 ) -> Result<UpdateOutcome, KurozumiError> {
     let title = match &detected.anime_title {
         Some(t) => t,
@@ -47,9 +49,8 @@ pub fn process_detection(
         }
     };
 
-    // Try to match against all known anime in the DB.
-    let all_anime = storage.all_anime()?;
-    let match_result = matcher::match_title(title, &all_anime);
+    // Try to match against all known anime using the recognition cache.
+    let match_result = cache.recognize(title, storage);
 
     match match_result {
         MatchResult::Matched(anime) | MatchResult::Fuzzy(anime, _) => {
@@ -121,10 +122,11 @@ mod tests {
     use super::*;
     use crate::models::{Anime, AnimeIds, AnimeTitle};
 
-    fn setup() -> (Storage, AppConfig) {
+    fn setup() -> (Storage, AppConfig, RecognitionCache) {
         let storage = Storage::open_memory().unwrap();
         let config = AppConfig::default();
-        (storage, config)
+        let cache = RecognitionCache::new();
+        (storage, config, cache)
     }
 
     fn insert_frieren(storage: &Storage) -> i64 {
@@ -159,10 +161,15 @@ mod tests {
 
     #[test]
     fn test_adds_to_library_on_first_detection() {
-        let (storage, config) = setup();
+        let (storage, config, mut cache) = setup();
         insert_frieren(&storage);
 
-        let result = process_detection(&detected("Sousou no Frieren", 1), &storage, &config);
+        let result = process_detection(
+            &detected("Sousou no Frieren", 1),
+            &storage,
+            &config,
+            &mut cache,
+        );
         match result.unwrap() {
             UpdateOutcome::AddedToLibrary { episode, .. } => assert_eq!(episode, 1),
             other => panic!("Expected AddedToLibrary, got {other:?}"),
@@ -175,14 +182,25 @@ mod tests {
 
     #[test]
     fn test_updates_progress() {
-        let (storage, config) = setup();
+        let (storage, config, mut cache) = setup();
         let anime_id = insert_frieren(&storage);
 
         // First detection creates entry.
-        process_detection(&detected("Sousou no Frieren", 3), &storage, &config).unwrap();
+        process_detection(
+            &detected("Sousou no Frieren", 3),
+            &storage,
+            &config,
+            &mut cache,
+        )
+        .unwrap();
 
         // Second detection with higher episode updates.
-        let result = process_detection(&detected("Sousou no Frieren", 5), &storage, &config);
+        let result = process_detection(
+            &detected("Sousou no Frieren", 5),
+            &storage,
+            &config,
+            &mut cache,
+        );
         match result.unwrap() {
             UpdateOutcome::Updated { episode, .. } => assert_eq!(episode, 5),
             other => panic!("Expected Updated, got {other:?}"),
@@ -197,13 +215,24 @@ mod tests {
 
     #[test]
     fn test_already_current() {
-        let (storage, config) = setup();
+        let (storage, config, mut cache) = setup();
         insert_frieren(&storage);
 
-        process_detection(&detected("Sousou no Frieren", 5), &storage, &config).unwrap();
+        process_detection(
+            &detected("Sousou no Frieren", 5),
+            &storage,
+            &config,
+            &mut cache,
+        )
+        .unwrap();
 
         // Same episode again.
-        let result = process_detection(&detected("Sousou no Frieren", 5), &storage, &config);
+        let result = process_detection(
+            &detected("Sousou no Frieren", 5),
+            &storage,
+            &config,
+            &mut cache,
+        );
         assert!(matches!(
             result.unwrap(),
             UpdateOutcome::AlreadyCurrent { .. }
@@ -212,9 +241,10 @@ mod tests {
 
     #[test]
     fn test_unrecognized() {
-        let (storage, config) = setup();
+        let (storage, config, mut cache) = setup();
         // DB is empty, so nothing matches.
-        let result = process_detection(&detected("Unknown Anime", 1), &storage, &config);
+        let result =
+            process_detection(&detected("Unknown Anime", 1), &storage, &config, &mut cache);
         assert!(matches!(
             result.unwrap(),
             UpdateOutcome::Unrecognized { .. }

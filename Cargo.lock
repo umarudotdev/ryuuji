@@ -2283,9 +2283,11 @@ dependencies = [
 name = "kurozumi-gui"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "dark-light",
  "directories",
  "iced",
+ "kurozumi-api",
  "kurozumi-core",
  "kurozumi-detect",
  "kurozumi-parse",

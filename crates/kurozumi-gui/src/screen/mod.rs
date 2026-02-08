@@ -1,5 +1,6 @@
 pub mod library;
 pub mod now_playing;
+pub mod search;
 pub mod settings;
 
 use iced::Task;
@@ -41,5 +42,9 @@ pub enum Action {
 /// What kind of modal is currently shown.
 #[derive(Debug, Clone)]
 pub enum ModalKind {
-    ConfirmDelete { anime_id: i64, title: String },
+    ConfirmDelete {
+        anime_id: i64,
+        title: String,
+        source: Page,
+    },
 }
