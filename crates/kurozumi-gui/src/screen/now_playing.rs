@@ -2,27 +2,44 @@ use iced::widget::{center, column, container, row, text};
 use iced::{Alignment, Element, Length};
 
 use kurozumi_core::models::DetectedMedia;
+use kurozumi_core::orchestrator::UpdateOutcome;
 
-use crate::app::Message;
 use crate::style;
 use crate::theme::{self, ColorScheme};
 
-/// Render the "Now Playing" page.
-pub fn view<'a>(
-    cs: &ColorScheme,
-    detected: &'a Option<DetectedMedia>,
-    status: &'a str,
-) -> Element<'a, Message> {
-    let content: Element<'a, Message> = match detected {
-        Some(media) => playing_card(cs, media, status),
-        None => empty_state(cs),
-    };
+/// Now Playing screen state.
+pub struct NowPlaying {
+    pub detected: Option<DetectedMedia>,
+    pub last_outcome: Option<UpdateOutcome>,
+}
 
-    container(content)
-        .padding(style::SPACE_XL)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+/// Messages handled by the Now Playing screen.
+#[derive(Debug, Clone)]
+pub enum Message {
+    // Currently no screen-specific interactions.
+    // Detection results are handled at the app level.
+}
+
+impl NowPlaying {
+    pub fn new() -> Self {
+        Self {
+            detected: None,
+            last_outcome: None,
+        }
+    }
+
+    pub fn view<'a>(&'a self, cs: &ColorScheme, status: &'a str) -> Element<'a, Message> {
+        let content: Element<'a, Message> = match &self.detected {
+            Some(media) => playing_card(cs, media, status),
+            None => empty_state(cs),
+        };
+
+        container(content)
+            .padding(style::SPACE_XL)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    }
 }
 
 /// Card layout for active playback.
@@ -51,7 +68,6 @@ fn playing_card<'a>(
     }
     let meta_line = meta_parts.join("  \u{00B7}  ");
 
-    // Main info card with generous padding
     let info_card = container(
         column![
             text(title).size(style::TEXT_3XL),
@@ -70,7 +86,6 @@ fn playing_card<'a>(
 
     let mut page = column![info_card].spacing(style::SPACE_LG);
 
-    // Status message (only if non-empty).
     if !status.is_empty() {
         let status_color = if status.starts_with("Error") {
             cs.error

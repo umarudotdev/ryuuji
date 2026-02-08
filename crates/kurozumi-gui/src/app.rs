@@ -1,114 +1,62 @@
 use iced::widget::{button, column, container, row, text};
+use iced::window;
 use iced::{Alignment, Element, Length, Subscription, Task, Theme};
 
 use kurozumi_core::config::AppConfig;
-use kurozumi_core::models::{DetectedMedia, WatchStatus};
-use kurozumi_core::orchestrator::{self, UpdateOutcome};
-use kurozumi_core::storage::{LibraryRow, Storage};
+use kurozumi_core::models::DetectedMedia;
+use kurozumi_core::orchestrator::UpdateOutcome;
 
-use crate::pages;
-use crate::pages::settings::SettingsState;
+use crate::db::DbHandle;
+use crate::screen::{library, now_playing, settings, Action, ModalKind, Page};
 use crate::style;
 use crate::subscription;
-use crate::theme::{self, ColorScheme, ThemeMode};
+use kurozumi_core::config::ThemeMode;
 
-/// Which page is currently displayed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Page {
-    #[default]
-    NowPlaying,
-    Library,
-    Search,
-    Settings,
-}
+use crate::theme::{self, ColorScheme, KurozumiTheme};
+use crate::window_state::WindowState;
 
-/// Sort mode for library list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum LibrarySort {
-    #[default]
-    Alphabetical,
-    RecentlyUpdated,
-}
-
-impl LibrarySort {
-    pub const ALL: &[LibrarySort] = &[Self::Alphabetical, Self::RecentlyUpdated];
-}
-
-impl std::fmt::Display for LibrarySort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Alphabetical => write!(f, "A-Z"),
-            Self::RecentlyUpdated => write!(f, "Recent"),
-        }
-    }
-}
-
-/// Library view mode: grid (cover cards) or list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum LibraryViewMode {
-    #[default]
-    Grid,
-    List,
-}
-
-/// Application state.
+/// Application state — slim router that delegates to screens.
 pub struct Kurozumi {
     page: Page,
     config: AppConfig,
-    storage: Option<Storage>,
+    db: Option<DbHandle>,
     // Theme
-    theme_mode: ThemeMode,
-    colors: ColorScheme,
-    // Now Playing state
-    detected: Option<DetectedMedia>,
-    last_outcome: Option<UpdateOutcome>,
-    // Library state
-    library_tab: WatchStatus,
-    library_entries: Vec<LibraryRow>,
-    selected_anime: Option<i64>,
-    library_sort: LibrarySort,
-    library_view_mode: LibraryViewMode,
-    score_input: String,
-    // Settings state
-    settings: SettingsState,
-    // Modal state
+    current_theme: KurozumiTheme,
+    // Screens
+    now_playing: now_playing::NowPlaying,
+    library: library::Library,
+    settings: settings::Settings,
+    // App-level chrome
     modal_state: Option<ModalKind>,
-    // Status bar
     status_message: String,
+    // Window persistence
+    window_state: WindowState,
 }
 
 impl Default for Kurozumi {
     fn default() -> Self {
         let config = AppConfig::load().unwrap_or_default();
-        let settings = SettingsState::from_config(&config);
-        let storage = AppConfig::ensure_db_path()
+        let settings_screen = settings::Settings::from_config(&config);
+        let db = AppConfig::ensure_db_path()
             .ok()
-            .and_then(|path| {
-                Storage::open(&path)
-                    .map_err(|e| tracing::error!("Failed to open database: {e}"))
-                    .ok()
-            });
+            .and_then(|path| DbHandle::open(&path));
 
-        let theme_mode = ThemeMode::default();
-        let colors = ColorScheme::for_mode(theme_mode);
+        // Resolve initial theme from config.
+        let theme_name = config.appearance.theme.as_str();
+        let current_theme = theme::find_theme(theme_name)
+            .unwrap_or_else(|| KurozumiTheme::for_mode(config.appearance.mode));
 
         Self {
             page: Page::default(),
             config,
-            storage,
-            theme_mode,
-            colors,
-            detected: None,
-            last_outcome: None,
-            library_tab: WatchStatus::Watching,
-            library_entries: Vec::new(),
-            selected_anime: None,
-            library_sort: LibrarySort::default(),
-            library_view_mode: LibraryViewMode::default(),
-            score_input: String::new(),
-            settings,
+            db,
+            current_theme,
+            now_playing: now_playing::NowPlaying::new(),
+            library: library::Library::new(),
+            settings: settings_screen,
             modal_state: None,
             status_message: "Ready".into(),
+            window_state: WindowState::load(),
         }
     }
 }
@@ -119,50 +67,12 @@ pub enum Message {
     NavigateTo(Page),
     DetectionTick,
     DetectionResult(Option<DetectedMedia>),
-    Library(LibraryMsg),
-    Settings(SettingsMsg),
-}
-
-/// Library page messages.
-#[derive(Debug, Clone)]
-pub enum LibraryMsg {
-    TabChanged(WatchStatus),
-    AnimeSelected(i64),
-    EpisodeIncrement(i64),
-    EpisodeDecrement(i64),
-    StatusChanged(i64, WatchStatus),
-    ScoreInputChanged(String),
-    ScoreSubmitted(i64),
-    SortChanged(LibrarySort),
-    ViewModeToggled,
-    ContextAction(i64, ContextAction),
-    ConfirmDelete(i64),
-    CancelModal,
-}
-
-/// Actions available in the library context menu.
-#[derive(Debug, Clone)]
-pub enum ContextAction {
-    ChangeStatus(WatchStatus),
-    Delete,
-}
-
-/// What kind of modal is currently shown.
-#[derive(Debug, Clone)]
-pub enum ModalKind {
-    ConfirmDelete { anime_id: i64, title: String },
-}
-
-/// Settings page messages.
-#[derive(Debug, Clone)]
-pub enum SettingsMsg {
-    IntervalChanged(String),
-    AutoUpdateToggled(bool),
-    ConfirmUpdateToggled(bool),
-    MalEnabledToggled(bool),
-    MalClientIdChanged(String),
-    ThemeModeChanged(ThemeMode),
-    Save,
+    DetectionProcessed(Result<UpdateOutcome, String>),
+    AppearanceChanged(ThemeMode),
+    WindowEvent(window::Event),
+    NowPlaying(now_playing::Message),
+    Library(library::Message),
+    Settings(settings::Message),
 }
 
 impl Kurozumi {
@@ -179,7 +89,8 @@ impl Kurozumi {
             Message::NavigateTo(page) => {
                 self.page = page;
                 if page == Page::Library {
-                    self.refresh_library();
+                    let action = self.library.refresh_task(self.db.as_ref());
+                    return self.handle_action(action);
                 }
                 Task::none()
             }
@@ -187,191 +98,133 @@ impl Kurozumi {
                 Task::perform(detect_and_parse(), Message::DetectionResult)
             }
             Message::DetectionResult(media) => {
-                self.detected = media.clone();
-                if let (Some(storage), Some(detected)) = (&self.storage, &media) {
-                    match orchestrator::process_detection(detected, storage, &self.config) {
-                        Ok(outcome) => {
-                            self.status_message = match &outcome {
-                                UpdateOutcome::Updated { anime_title, episode } => {
-                                    format!("Updated {anime_title} to ep {episode}")
-                                }
-                                UpdateOutcome::AddedToLibrary { anime_title, episode } => {
-                                    format!("Added {anime_title} (ep {episode}) to library")
-                                }
-                                UpdateOutcome::AlreadyCurrent { .. } => self.status_message.clone(),
-                                UpdateOutcome::Unrecognized { raw_title } => {
-                                    format!("Unrecognized: {raw_title}")
-                                }
-                                UpdateOutcome::NothingPlaying => self.status_message.clone(),
-                            };
-                            self.last_outcome = Some(outcome);
-                        }
-                        Err(e) => {
-                            self.status_message = format!("Error: {e}");
-                        }
-                    }
-                    if self.page == Page::Library {
-                        self.refresh_library();
-                    }
+                self.now_playing.detected = media.clone();
+                if let (Some(db), Some(detected)) = (&self.db, media) {
+                    let db = db.clone();
+                    let config = self.config.clone();
+                    return Task::perform(
+                        async move {
+                            db.process_detection(detected, config)
+                                .await
+                                .map_err(|e| e.to_string())
+                        },
+                        Message::DetectionProcessed,
+                    );
                 }
                 Task::none()
             }
-            Message::Library(msg) => self.handle_library(msg),
-            Message::Settings(msg) => self.handle_settings(msg),
-        }
-    }
-
-    fn handle_library(&mut self, msg: LibraryMsg) -> Task<Message> {
-        match msg {
-            LibraryMsg::TabChanged(status) => {
-                self.library_tab = status;
-                self.selected_anime = None;
-                self.refresh_library();
-            }
-            LibraryMsg::AnimeSelected(id) => {
-                self.selected_anime = Some(id);
-                // Pre-fill score input from existing entry.
-                if let Some(row) = self.library_entries.iter().find(|r| r.anime.id == id) {
-                    self.score_input = row
-                        .entry
-                        .score
-                        .map(|s| format!("{s:.0}"))
-                        .unwrap_or_default();
-                }
-            }
-            LibraryMsg::EpisodeIncrement(anime_id) => {
-                if let Some(storage) = &self.storage {
-                    if let Some(entry) = self
-                        .library_entries
-                        .iter()
-                        .find(|r| r.anime.id == anime_id)
-                    {
-                        let new_ep = entry.entry.watched_episodes + 1;
-                        let _ = storage.update_episode_count(anime_id, new_ep);
-                        let _ = storage.record_watch(anime_id, new_ep);
-                        self.refresh_library();
+            Message::DetectionProcessed(result) => {
+                match result {
+                    Ok(outcome) => {
+                        self.status_message = match &outcome {
+                            UpdateOutcome::Updated { anime_title, episode } => {
+                                format!("Updated {anime_title} to ep {episode}")
+                            }
+                            UpdateOutcome::AddedToLibrary { anime_title, episode } => {
+                                format!("Added {anime_title} (ep {episode}) to library")
+                            }
+                            UpdateOutcome::AlreadyCurrent { .. } => self.status_message.clone(),
+                            UpdateOutcome::Unrecognized { raw_title } => {
+                                format!("Unrecognized: {raw_title}")
+                            }
+                            UpdateOutcome::NothingPlaying => self.status_message.clone(),
+                        };
+                        self.now_playing.last_outcome = Some(outcome);
                     }
-                }
-            }
-            LibraryMsg::EpisodeDecrement(anime_id) => {
-                if let Some(storage) = &self.storage {
-                    if let Some(entry) = self
-                        .library_entries
-                        .iter()
-                        .find(|r| r.anime.id == anime_id)
-                    {
-                        if entry.entry.watched_episodes > 0 {
-                            let new_ep = entry.entry.watched_episodes - 1;
-                            let _ = storage.update_episode_count(anime_id, new_ep);
-                            self.refresh_library();
-                        }
-                    }
-                }
-            }
-            LibraryMsg::StatusChanged(anime_id, new_status) => {
-                if let Some(storage) = &self.storage {
-                    let _ = storage.update_library_status(anime_id, new_status);
-                    self.refresh_library();
-                }
-            }
-            LibraryMsg::ScoreInputChanged(val) => {
-                self.score_input = val;
-            }
-            LibraryMsg::ScoreSubmitted(anime_id) => {
-                if let Some(storage) = &self.storage {
-                    if let Ok(score) = self.score_input.parse::<f32>() {
-                        let score = score.clamp(0.0, 10.0);
-                        let _ = storage.update_library_score(anime_id, score);
-                        self.refresh_library();
-                    }
-                }
-            }
-            LibraryMsg::SortChanged(sort) => {
-                self.library_sort = sort;
-                self.refresh_library();
-            }
-            LibraryMsg::ViewModeToggled => {
-                self.library_view_mode = match self.library_view_mode {
-                    LibraryViewMode::Grid => LibraryViewMode::List,
-                    LibraryViewMode::List => LibraryViewMode::Grid,
-                };
-            }
-            LibraryMsg::ContextAction(anime_id, action) => match action {
-                ContextAction::ChangeStatus(new_status) => {
-                    if let Some(storage) = &self.storage {
-                        let _ = storage.update_library_status(anime_id, new_status);
-                        self.refresh_library();
-                    }
-                }
-                ContextAction::Delete => {
-                    let title = self
-                        .library_entries
-                        .iter()
-                        .find(|r| r.anime.id == anime_id)
-                        .map(|r| r.anime.title.preferred().to_string())
-                        .unwrap_or_else(|| "this anime".into());
-                    self.modal_state =
-                        Some(ModalKind::ConfirmDelete { anime_id, title });
-                }
-            },
-            LibraryMsg::ConfirmDelete(anime_id) => {
-                if let Some(storage) = &self.storage {
-                    let _ = storage.delete_library_entry(anime_id);
-                    self.modal_state = None;
-                    if self.selected_anime == Some(anime_id) {
-                        self.selected_anime = None;
-                    }
-                    self.refresh_library();
-                    self.status_message = "Entry removed from library.".into();
-                }
-            }
-            LibraryMsg::CancelModal => {
-                self.modal_state = None;
-            }
-        }
-        Task::none()
-    }
-
-    fn handle_settings(&mut self, msg: SettingsMsg) -> Task<Message> {
-        match msg {
-            SettingsMsg::IntervalChanged(val) => self.settings.interval_input = val,
-            SettingsMsg::AutoUpdateToggled(val) => self.settings.auto_update = val,
-            SettingsMsg::ConfirmUpdateToggled(val) => self.settings.confirm_update = val,
-            SettingsMsg::MalEnabledToggled(val) => self.settings.mal_enabled = val,
-            SettingsMsg::MalClientIdChanged(val) => self.settings.mal_client_id = val,
-            SettingsMsg::ThemeModeChanged(mode) => {
-                self.theme_mode = mode;
-                self.colors = ColorScheme::for_mode(mode);
-                self.settings.theme_mode = mode;
-            }
-            SettingsMsg::Save => {
-                self.settings.apply_to_config(&mut self.config);
-                match self.config.save() {
-                    Ok(()) => self.settings.status_message = "Settings saved.".into(),
                     Err(e) => {
-                        self.settings.status_message = format!("Save failed: {e}");
+                        self.status_message = format!("Error: {e}");
                     }
                 }
+                if self.page == Page::Library {
+                    let action = self.library.refresh_task(self.db.as_ref());
+                    return self.handle_action(action);
+                }
+                Task::none()
+            }
+            Message::AppearanceChanged(mode) => {
+                // System theme changed — pick the matching default theme.
+                let target = KurozumiTheme::for_mode(mode);
+                if target.name != self.current_theme.name {
+                    self.current_theme = target;
+                }
+                Task::none()
+            }
+            Message::WindowEvent(event) => {
+                match event {
+                    window::Event::Resized(size) => {
+                        self.window_state.width = size.width;
+                        self.window_state.height = size.height;
+                        self.window_state.save();
+                    }
+                    window::Event::Moved(pos) => {
+                        self.window_state.x = pos.x;
+                        self.window_state.y = pos.y;
+                        self.window_state.save();
+                    }
+                    _ => {}
+                }
+                Task::none()
+            }
+            Message::NowPlaying(_msg) => {
+                // NowPlaying has no interactive messages yet.
+                Task::none()
+            }
+            Message::Library(msg) => {
+                let action = self.library.update(msg, self.db.as_ref());
+                self.handle_action(action)
+            }
+            Message::Settings(msg) => {
+                let action = self.settings.update(msg, &mut self.config);
+                // Sync theme from settings if changed.
+                let wanted = &self.settings.selected_theme;
+                if wanted != &self.current_theme.name {
+                    if let Some(new_theme) = theme::find_theme(wanted) {
+                        self.current_theme = new_theme;
+                    }
+                }
+                self.handle_action(action)
             }
         }
-        Task::none()
+    }
+
+    /// Interpret an Action returned by a screen.
+    fn handle_action(&mut self, action: Action) -> Task<Message> {
+        match action {
+            Action::None => Task::none(),
+            Action::NavigateTo(page) => {
+                self.page = page;
+                Task::none()
+            }
+            Action::RefreshLibrary => {
+                let action = self.library.refresh_task(self.db.as_ref());
+                self.handle_action(action)
+            }
+            Action::SetStatus(msg) => {
+                self.status_message = msg;
+                Task::none()
+            }
+            Action::ShowModal(kind) => {
+                self.modal_state = Some(kind);
+                Task::none()
+            }
+            Action::DismissModal => {
+                self.modal_state = None;
+                Task::none()
+            }
+            Action::RunTask(task) => task,
+        }
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let cs = &self.colors;
+        let cs = &self.current_theme.colors;
         let nav = self.nav_rail(cs);
 
         let page_content: Element<'_, Message> = match self.page {
-            Page::NowPlaying => pages::now_playing::view(cs, &self.detected, &self.status_message),
-            Page::Library => pages::library::view(
-                cs,
-                self.library_tab,
-                &self.library_entries,
-                self.selected_anime,
-                self.library_sort,
-                &self.score_input,
-                self.library_view_mode,
-            ),
+            Page::NowPlaying => self
+                .now_playing
+                .view(cs, &self.status_message)
+                .map(Message::NowPlaying),
+            Page::Library => self.library.view(cs).map(Message::Library),
             Page::Search => container(
                 column![
                     text("Search").size(style::TEXT_XL).color(cs.on_surface_variant),
@@ -383,7 +236,7 @@ impl Kurozumi {
             )
             .padding(style::SPACE_XL)
             .into(),
-            Page::Settings => pages::settings::view(cs, &self.settings),
+            Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
         let status_bar = container(
@@ -403,18 +256,21 @@ impl Kurozumi {
         // Wrap in modal if one is active.
         if let Some(modal_kind) = &self.modal_state {
             let modal_content = self.build_modal_content(cs, modal_kind);
-            crate::widgets::modal(main, modal_content, Message::Library(LibraryMsg::CancelModal))
+            crate::widgets::modal(main, modal_content, Message::Library(library::Message::CancelModal))
         } else {
             main
         }
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        subscription::detection_tick(self.config.general.detection_interval.max(1))
+        subscription::subscriptions(
+            self.config.general.detection_interval.max(1),
+            self.config.appearance.mode,
+        )
     }
 
     pub fn theme(&self) -> Theme {
-        theme::build_theme(&self.colors)
+        self.current_theme.iced_theme()
     }
 
     fn build_modal_content<'a>(&self, cs: &ColorScheme, kind: &'a ModalKind) -> Element<'a, Message> {
@@ -434,11 +290,11 @@ impl Kurozumi {
                         row![
                             button(text("Cancel").size(style::TEXT_SM))
                                 .padding([style::SPACE_SM, style::SPACE_XL])
-                                .on_press(Message::Library(LibraryMsg::CancelModal))
+                                .on_press(Message::Library(library::Message::CancelModal))
                                 .style(theme::ghost_button(cs)),
                             button(text("Delete").size(style::TEXT_SM))
                                 .padding([style::SPACE_SM, style::SPACE_XL])
-                                .on_press(Message::Library(LibraryMsg::ConfirmDelete(anime_id)))
+                                .on_press(Message::Library(library::Message::ConfirmDelete(anime_id)))
                                 .style(theme::danger_button(cs)),
                         ]
                         .spacing(style::SPACE_SM),
@@ -499,31 +355,6 @@ impl Kurozumi {
             .style(theme::nav_rail_bg(cs))
             .height(Length::Fill)
             .into()
-    }
-
-    fn refresh_library(&mut self) {
-        if let Some(storage) = &self.storage {
-            let mut entries = storage
-                .get_library_by_status(self.library_tab)
-                .unwrap_or_default();
-
-            match self.library_sort {
-                LibrarySort::Alphabetical => {
-                    entries.sort_by(|a, b| {
-                        a.anime
-                            .title
-                            .preferred()
-                            .to_lowercase()
-                            .cmp(&b.anime.title.preferred().to_lowercase())
-                    });
-                }
-                LibrarySort::RecentlyUpdated => {
-                    entries.sort_by(|a, b| b.entry.updated_at.cmp(&a.entry.updated_at));
-                }
-            }
-
-            self.library_entries = entries;
-        }
     }
 }
 
