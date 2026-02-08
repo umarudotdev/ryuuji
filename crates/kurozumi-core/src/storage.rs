@@ -5,9 +5,12 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::error::KurozumiError;
 use crate::models::{Anime, AnimeIds, AnimeTitle, LibraryEntry, WatchStatus};
+use crate::torrent::filter::{FilterAction, MatchMode, TorrentFilter};
+use crate::torrent::models::TorrentFeed;
 
 const SCHEMA_V1: &str = include_str!("../../../migrations/001_initial.sql");
 const SCHEMA_V2: &str = include_str!("../../../migrations/002_add_anime_metadata.sql");
+const SCHEMA_V3: &str = include_str!("../../../migrations/003_torrent_tables.sql");
 
 /// Token record: (access_token, refresh_token, expires_at).
 pub type TokenRecord = (String, Option<String>, Option<String>);
@@ -24,10 +27,18 @@ pub struct LibraryRow {
     pub anime: Anime,
 }
 
-/// A watch history record.
+/// A watch history record (raw, without anime data).
 #[derive(Debug, Clone)]
 pub struct WatchHistoryRow {
     pub anime_id: i64,
+    pub episode: u32,
+    pub watched_at: DateTime<Utc>,
+}
+
+/// A watch history record joined with anime data for display.
+#[derive(Debug, Clone)]
+pub struct HistoryRow {
+    pub anime: Anime,
     pub episode: u32,
     pub watched_at: DateTime<Utc>,
 }
@@ -375,6 +386,33 @@ impl Storage {
         Ok(rows)
     }
 
+    /// Get recent watch history joined with anime data.
+    pub fn get_watch_history(&self, limit: u32) -> Result<Vec<HistoryRow>, KurozumiError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT a.id, a.anilist_id, a.kitsu_id, a.mal_id, a.title_romaji, a.title_english,
+                    a.title_native, a.synonyms, a.episodes, a.cover_url, a.season, a.year,
+                    a.synopsis, a.genres, a.media_type, a.airing_status, a.mean_score,
+                    a.studios, a.source, a.rating, a.start_date, a.end_date,
+                    wh.episode, wh.watched_at
+             FROM watch_history wh
+             JOIN anime a ON wh.anime_id = a.id
+             ORDER BY wh.watched_at DESC, wh.id DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt
+            .query_map(params![limit], |row| {
+                let watched_at_str: String = row.get(23)?;
+                Ok(HistoryRow {
+                    anime: row_to_anime_at(row, 0),
+                    episode: row.get(22)?,
+                    watched_at: parse_datetime(&watched_at_str),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
     // ── Auth Tokens ─────────────────────────────────────────────
 
     /// Store an auth token for a service.
@@ -416,6 +454,189 @@ impl Storage {
             .optional()
             .map_err(Into::into)
     }
+
+    // ── Torrent Feeds ────────────────────────────────────────────
+
+    /// Get all torrent feed sources.
+    pub fn get_torrent_feeds(&self) -> Result<Vec<TorrentFeed>, KurozumiError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, url, enabled, last_checked FROM torrent_feed ORDER BY name",
+        )?;
+        let rows = stmt
+            .query_map([], |row| {
+                let last_checked_str: Option<String> = row.get(4)?;
+                Ok(TorrentFeed {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    url: row.get(2)?,
+                    enabled: row.get::<_, i32>(3)? != 0,
+                    last_checked: last_checked_str.map(|s| parse_datetime(&s)),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    /// Insert or update a torrent feed. Returns the row ID.
+    pub fn upsert_torrent_feed(&self, feed: &TorrentFeed) -> Result<i64, KurozumiError> {
+        if feed.id > 0 {
+            self.conn.execute(
+                "UPDATE torrent_feed SET name = ?1, url = ?2, enabled = ?3, last_checked = ?4
+                 WHERE id = ?5",
+                params![
+                    feed.name,
+                    feed.url,
+                    feed.enabled as i32,
+                    feed.last_checked.map(|d| d.to_rfc3339()),
+                    feed.id,
+                ],
+            )?;
+            Ok(feed.id)
+        } else {
+            self.conn.execute(
+                "INSERT INTO torrent_feed (name, url, enabled, last_checked)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    feed.name,
+                    feed.url,
+                    feed.enabled as i32,
+                    feed.last_checked.map(|d| d.to_rfc3339()),
+                ],
+            )?;
+            Ok(self.conn.last_insert_rowid())
+        }
+    }
+
+    /// Delete a torrent feed by ID.
+    pub fn delete_torrent_feed(&self, id: i64) -> Result<(), KurozumiError> {
+        self.conn
+            .execute("DELETE FROM torrent_feed WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    // ── Torrent Filters ──────────────────────────────────────────
+
+    /// Get all torrent filters.
+    pub fn get_torrent_filters(&self) -> Result<Vec<TorrentFilter>, KurozumiError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, enabled, priority, match_mode, action, conditions
+             FROM torrent_filter ORDER BY priority, name",
+        )?;
+        let rows = stmt
+            .query_map([], |row| {
+                let conditions_json: String = row.get(6)?;
+                let match_mode_str: String = row.get(4)?;
+                let action_str: String = row.get(5)?;
+                Ok(TorrentFilter {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    enabled: row.get::<_, i32>(2)? != 0,
+                    priority: row.get(3)?,
+                    match_mode: match match_mode_str.as_str() {
+                        "any" => MatchMode::Any,
+                        _ => MatchMode::All,
+                    },
+                    action: match action_str.as_str() {
+                        "select" => FilterAction::Select,
+                        "prefer" => FilterAction::Prefer,
+                        _ => FilterAction::Discard,
+                    },
+                    conditions: serde_json::from_str(&conditions_json).unwrap_or_default(),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    /// Insert or update a torrent filter. Returns the row ID.
+    pub fn upsert_torrent_filter(&self, filter: &TorrentFilter) -> Result<i64, KurozumiError> {
+        let conditions_json = serde_json::to_string(&filter.conditions).unwrap_or_default();
+        let match_mode_str = match filter.match_mode {
+            MatchMode::All => "all",
+            MatchMode::Any => "any",
+        };
+        let action_str = match filter.action {
+            FilterAction::Discard => "discard",
+            FilterAction::Select => "select",
+            FilterAction::Prefer => "prefer",
+        };
+
+        if filter.id > 0 {
+            self.conn.execute(
+                "UPDATE torrent_filter SET name = ?1, enabled = ?2, priority = ?3,
+                 match_mode = ?4, action = ?5, conditions = ?6 WHERE id = ?7",
+                params![
+                    filter.name,
+                    filter.enabled as i32,
+                    filter.priority,
+                    match_mode_str,
+                    action_str,
+                    conditions_json,
+                    filter.id,
+                ],
+            )?;
+            Ok(filter.id)
+        } else {
+            self.conn.execute(
+                "INSERT INTO torrent_filter (name, enabled, priority, match_mode, action, conditions)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    filter.name,
+                    filter.enabled as i32,
+                    filter.priority,
+                    match_mode_str,
+                    action_str,
+                    conditions_json,
+                ],
+            )?;
+            Ok(self.conn.last_insert_rowid())
+        }
+    }
+
+    /// Delete a torrent filter by ID.
+    pub fn delete_torrent_filter(&self, id: i64) -> Result<(), KurozumiError> {
+        self.conn
+            .execute("DELETE FROM torrent_filter WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    // ── Torrent Archive ──────────────────────────────────────────
+
+    /// Check if a torrent GUID is in the archive.
+    pub fn is_torrent_archived(&self, guid: &str) -> Result<bool, KurozumiError> {
+        let count: i32 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM torrent_archive WHERE item_guid = ?1",
+                params![guid],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        Ok(count > 0)
+    }
+
+    /// Add a torrent to the archive (prevents re-download).
+    pub fn archive_torrent(
+        &self,
+        guid: &str,
+        title: &str,
+        action: &str,
+    ) -> Result<(), KurozumiError> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO torrent_archive (item_guid, title, action)
+             VALUES (?1, ?2, ?3)",
+            params![guid, title, action],
+        )?;
+        Ok(())
+    }
+
+    /// Clear the entire torrent archive.
+    pub fn clear_torrent_archive(&self) -> Result<(), KurozumiError> {
+        self.conn.execute("DELETE FROM torrent_archive", [])?;
+        Ok(())
+    }
 }
 
 // ── Migrations ──────────────────────────────────────────────────
@@ -444,6 +665,10 @@ fn run_migrations(conn: &Connection) -> Result<(), KurozumiError> {
     if version < 2 {
         conn.execute_batch(SCHEMA_V2)?;
         conn.pragma_update(None, "user_version", 2)?;
+    }
+    if version < 3 {
+        conn.execute_batch(SCHEMA_V3)?;
+        conn.pragma_update(None, "user_version", 3)?;
     }
     Ok(())
 }

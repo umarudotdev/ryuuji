@@ -16,6 +16,8 @@ pub struct AppConfig {
     pub discord: DiscordConfig,
     #[serde(default)]
     pub appearance: AppearanceConfig,
+    #[serde(default)]
+    pub torrent: TorrentConfig,
 }
 
 /// Appearance / theme settings.
@@ -94,6 +96,29 @@ pub struct MalConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscordConfig {
     pub enabled: bool,
+}
+
+/// Torrent feature configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TorrentConfig {
+    pub enabled: bool,
+    /// Auto-check interval in minutes; 0 = disabled.
+    pub auto_check_interval: u64,
+    /// Download directory for .torrent files.
+    pub download_dir: Option<String>,
+    /// Path to external torrent client.
+    pub torrent_client: Option<String>,
+}
+
+impl Default for TorrentConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            auto_check_interval: 0,
+            download_dir: None,
+            torrent_client: None,
+        }
+    }
 }
 
 impl AppConfig {

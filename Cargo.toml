@@ -42,6 +42,10 @@ dark-light = "2"
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }
 
+# RSS & URL
+rss = "2"
+url = "2"
+
 # Internal crates
 kurozumi-core = { path = "crates/kurozumi-core" }
 kurozumi-detect = { path = "crates/kurozumi-detect" }

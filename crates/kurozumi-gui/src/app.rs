@@ -12,7 +12,9 @@ use kurozumi_core::storage::LibraryRow;
 
 use crate::cover_cache::{self, CoverCache, CoverState};
 use crate::db::DbHandle;
-use crate::screen::{library, now_playing, search, settings, Action, ModalKind, Page};
+use crate::screen::{
+    history, library, now_playing, search, settings, torrents, Action, ModalKind, Page,
+};
 use crate::style;
 use crate::subscription;
 use kurozumi_core::config::ThemeMode;
@@ -30,7 +32,9 @@ pub struct Kurozumi {
     // Screens
     now_playing: now_playing::NowPlaying,
     library: library::Library,
+    history: history::History,
     search: search::Search,
+    torrents: torrents::Torrents,
     settings: settings::Settings,
     // Cover images
     cover_cache: CoverCache,
@@ -61,7 +65,9 @@ impl Default for Kurozumi {
             current_theme,
             now_playing: now_playing::NowPlaying::new(),
             library: library::Library::new(),
+            history: history::History::new(),
             search: search::Search::new(),
+            torrents: torrents::Torrents::new(),
             settings: settings_screen,
             cover_cache: CoverCache::default(),
             modal_state: None,
@@ -86,7 +92,10 @@ pub enum Message {
     WindowEvent(window::Event),
     NowPlaying(now_playing::Message),
     Library(library::Message),
+    History(history::Message),
     Search(search::Message),
+    Torrents(torrents::Message),
+    TorrentTick,
     Settings(settings::Message),
 }
 
@@ -118,9 +127,20 @@ impl Kurozumi {
                     let action = self.library.refresh_task(self.db.as_ref());
                     return self.handle_action(action);
                 }
+                if page == Page::History {
+                    let action = self.history.load_history(self.db.as_ref());
+                    return self.handle_action(action);
+                }
                 if page == Page::Search {
                     self.search.mal_authenticated = self.settings.mal_authenticated;
                     let action = self.search.load_entries(self.db.as_ref());
+                    return self.handle_action(action);
+                }
+                if page == Page::Torrents {
+                    let action = self.torrents.update(
+                        torrents::Message::TabChanged(self.torrents.tab),
+                        self.db.as_ref(),
+                    );
                     return self.handle_action(action);
                 }
                 if page == Page::Settings {
@@ -225,12 +245,9 @@ impl Kurozumi {
                 }
                 follow_up
             }
-            Message::AppearanceChanged(mode) => {
-                // System theme changed — pick the matching default theme.
-                let target = KurozumiTheme::for_mode(mode);
-                if target.name != self.current_theme.name {
-                    self.current_theme = target;
-                }
+            Message::AppearanceChanged(_mode) => {
+                // OS appearance changed — re-resolve theme for System mode.
+                self.sync_theme();
                 Task::none()
             }
             Message::WindowEvent(event) => {
@@ -261,6 +278,19 @@ impl Kurozumi {
                     cover_task
                 }
             },
+            Message::History(msg) => {
+                let action = self.history.update(msg);
+                let action_task = self.handle_action(action);
+                // Batch-request covers for history entries.
+                let info: Vec<(i64, Option<String>)> = self
+                    .history
+                    .entries
+                    .iter()
+                    .map(|e| (e.anime.id, e.anime.cover_url.clone()))
+                    .collect();
+                let batch_covers = self.batch_request_covers(info);
+                Task::batch([action_task, batch_covers])
+            }
             Message::Library(msg) => {
                 // Request cover for newly selected anime.
                 let cover_task = match &msg {
@@ -352,6 +382,14 @@ impl Kurozumi {
                 let batch_covers = self.batch_request_covers(info);
                 Task::batch([cover_task, action_task, batch_covers])
             }
+            Message::Torrents(msg) => {
+                let action = self.torrents.update(msg, self.db.as_ref());
+                self.handle_action(action)
+            }
+            Message::TorrentTick => {
+                let action = self.torrents.refresh_feeds(self.db.as_ref());
+                self.handle_action(action)
+            }
             Message::Settings(ref msg) => {
                 // Intercept async actions before delegating to settings.
                 match msg {
@@ -373,13 +411,7 @@ impl Kurozumi {
                     _ => {
                         let msg = msg.clone();
                         let action = self.settings.update(msg, &mut self.config);
-                        // Sync theme from settings if changed.
-                        let wanted = &self.settings.selected_theme;
-                        if wanted != &self.current_theme.name {
-                            if let Some(new_theme) = theme::find_theme(wanted) {
-                                self.current_theme = new_theme;
-                            }
-                        }
+                        self.sync_theme();
                         self.handle_action(action)
                     }
                 }
@@ -731,7 +763,12 @@ impl Kurozumi {
                 .library
                 .view(cs, &self.cover_cache)
                 .map(Message::Library),
+            Page::History => self
+                .history
+                .view(cs, &self.cover_cache)
+                .map(Message::History),
             Page::Search => self.search.view(cs, &self.cover_cache).map(Message::Search),
+            Page::Torrents => self.torrents.view(cs).map(Message::Torrents),
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
@@ -767,11 +804,40 @@ impl Kurozumi {
         subscription::subscriptions(
             self.config.general.detection_interval.max(1),
             self.config.appearance.mode,
+            self.config.torrent.enabled,
+            self.config.torrent.auto_check_interval,
         )
     }
 
     pub fn theme(&self) -> Theme {
         self.current_theme.iced_theme()
+    }
+
+    /// Resolve the current theme from the config's theme name + mode.
+    ///
+    /// Called after any settings change that might affect appearance.
+    /// Tries the named theme first; if it doesn't match the active mode
+    /// (or doesn't exist), falls back to the default for the mode.
+    fn sync_theme(&mut self) {
+        let mode = self.config.appearance.mode;
+        let target_mode = match mode {
+            ThemeMode::System => match dark_light::detect() {
+                Ok(dark_light::Mode::Light) => ThemeMode::Light,
+                _ => ThemeMode::Dark,
+            },
+            other => other,
+        };
+
+        // If the named theme exists and matches the target mode, use it.
+        if let Some(named) = theme::find_theme(&self.config.appearance.theme) {
+            if named.kind == target_mode {
+                self.current_theme = named;
+                return;
+            }
+        }
+
+        // Otherwise pick the default for the target mode.
+        self.current_theme = KurozumiTheme::for_mode(target_mode);
     }
 
     fn build_modal_content<'a>(
@@ -857,7 +923,9 @@ impl Kurozumi {
             column![
                 nav_item(icons::icon_play(), "Playing", Page::NowPlaying),
                 nav_item(icons::icon_library(), "Library", Page::Library),
+                nav_item(icons::icon_clock(), "History", Page::History),
                 nav_item(icons::icon_search(), "Search", Page::Search),
+                nav_item(icons::icon_download(), "Torrents", Page::Torrents),
             ]
             .spacing(style::SPACE_XS)
             .align_x(Alignment::Center),

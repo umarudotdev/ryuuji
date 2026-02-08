@@ -45,6 +45,9 @@ pub struct Settings {
     pub mal_authenticated: bool,
     pub mal_status: String,
     pub mal_busy: bool,
+    // Torrents
+    pub torrent_enabled: bool,
+    pub torrent_interval_input: String,
     // Integrations
     pub discord_enabled: bool,
     // Data
@@ -79,6 +82,10 @@ pub enum Message {
     MalImport,
     MalImportResult(Result<usize, String>),
     MalTokenChecked(bool),
+    // Torrents
+    TorrentEnabledToggled(bool),
+    TorrentIntervalChanged(String),
+    TorrentIntervalSubmitted,
     // Integrations
     DiscordEnabledToggled(bool),
     // Data
@@ -109,6 +116,8 @@ impl Settings {
             mal_authenticated: false,
             mal_status: String::new(),
             mal_busy: false,
+            torrent_enabled: config.torrent.enabled,
+            torrent_interval_input: config.torrent.auto_check_interval.to_string(),
             discord_enabled: config.discord.enabled,
             library_stats: None,
             export_status: String::new(),
@@ -239,6 +248,29 @@ impl Settings {
                 Action::None
             }
 
+            // ── Torrents ──────────────────────────────────────────
+            Message::TorrentEnabledToggled(val) => {
+                self.torrent_enabled = val;
+                config.torrent.enabled = val;
+                let _ = config.save();
+                Action::None
+            }
+            Message::TorrentIntervalChanged(val) => {
+                self.torrent_interval_input = val;
+                Action::None
+            }
+            Message::TorrentIntervalSubmitted => {
+                let interval = self
+                    .torrent_interval_input
+                    .parse::<u64>()
+                    .unwrap_or(config.torrent.auto_check_interval)
+                    .clamp(0, 1440);
+                self.torrent_interval_input = interval.to_string();
+                config.torrent.auto_check_interval = interval;
+                let _ = config.save();
+                Action::None
+            }
+
             // ── Integrations ────────────────────────────────────
             Message::DiscordEnabledToggled(val) => {
                 self.discord_enabled = val;
@@ -316,6 +348,7 @@ impl Settings {
             self.general_card(cs),
             self.library_card(cs),
             self.services_card(cs),
+            self.torrent_card(cs),
             self.integrations_card(cs),
             self.data_card(cs),
             self.about_card(cs),
@@ -562,6 +595,50 @@ impl Settings {
                         .line_height(style::LINE_HEIGHT_LOOSE),
                 );
             }
+        }
+
+        container(content)
+            .style(theme::card(cs))
+            .padding(style::SPACE_LG)
+            .width(Length::Fill)
+            .into()
+    }
+
+    fn torrent_card<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
+        let mut content = column![
+            text("Torrents")
+                .size(style::TEXT_XS)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+            toggler(self.torrent_enabled)
+                .label("Enable torrent RSS feature")
+                .text_size(style::TEXT_BASE)
+                .on_toggle(Message::TorrentEnabledToggled)
+                .spacing(style::SPACE_SM)
+                .size(22.0)
+                .style(theme::toggler_style(cs)),
+        ]
+        .spacing(style::SPACE_SM);
+
+        if self.torrent_enabled {
+            content = content.push(
+                row![
+                    text("Auto-check interval (minutes, 0 = off)")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    text_input("0", &self.torrent_interval_input)
+                        .on_input(Message::TorrentIntervalChanged)
+                        .on_submit(Message::TorrentIntervalSubmitted)
+                        .size(style::TEXT_SM)
+                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .width(Length::Fixed(80.0))
+                        .style(theme::text_input_style(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_MD),
+            );
         }
 
         container(content)
