@@ -217,6 +217,43 @@ impl Storage {
         Ok(())
     }
 
+    /// Update just the status for a library entry.
+    pub fn update_library_status(
+        &self,
+        anime_id: i64,
+        status: WatchStatus,
+    ) -> Result<(), KurozumiError> {
+        self.conn.execute(
+            "UPDATE library_entry SET status = ?1, updated_at = ?2
+             WHERE anime_id = ?3",
+            params![status.as_db_str(), Utc::now().to_rfc3339(), anime_id],
+        )?;
+        Ok(())
+    }
+
+    /// Update just the score for a library entry.
+    pub fn update_library_score(
+        &self,
+        anime_id: i64,
+        score: f32,
+    ) -> Result<(), KurozumiError> {
+        self.conn.execute(
+            "UPDATE library_entry SET score = ?1, updated_at = ?2
+             WHERE anime_id = ?3",
+            params![score, Utc::now().to_rfc3339(), anime_id],
+        )?;
+        Ok(())
+    }
+
+    /// Delete a library entry by anime ID.
+    pub fn delete_library_entry(&self, anime_id: i64) -> Result<(), KurozumiError> {
+        self.conn.execute(
+            "DELETE FROM library_entry WHERE anime_id = ?1",
+            params![anime_id],
+        )?;
+        Ok(())
+    }
+
     // ── Watch History ───────────────────────────────────────────
 
     /// Record an episode watch.
