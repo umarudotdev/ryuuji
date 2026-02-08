@@ -113,6 +113,10 @@ impl Kurozumi {
                     let action = self.search.load_entries(self.db.as_ref());
                     return self.handle_action(action);
                 }
+                if page == Page::Settings {
+                    let action = self.settings.load_stats(self.db.as_ref());
+                    return self.handle_action(action);
+                }
                 Task::none()
             }
             Message::DetectionTick => Task::perform(detect_and_parse(), Message::DetectionResult),
@@ -207,20 +211,22 @@ impl Kurozumi {
                 self.handle_action(action)
             }
             Message::Settings(ref msg) => {
-                // Intercept MAL actions that need async work before delegating.
+                // Intercept async actions before delegating to settings.
                 match msg {
                     settings::Message::MalLogin => {
-                        // Update settings state first.
                         let msg = msg.clone();
                         self.settings.update(msg, &mut self.config);
-                        // Spawn the OAuth flow.
                         self.spawn_mal_login()
                     }
                     settings::Message::MalImport => {
                         let msg = msg.clone();
                         self.settings.update(msg, &mut self.config);
-                        // Spawn the import flow.
                         self.spawn_mal_import()
+                    }
+                    settings::Message::ExportLibrary => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_library_export()
                     }
                     _ => {
                         let msg = msg.clone();
@@ -351,6 +357,29 @@ impl Kurozumi {
                 db.mal_import_batch(batch).await.map_err(|e| e.to_string())
             },
             |result| Message::Settings(settings::Message::MalImportResult(result)),
+        )
+    }
+
+    /// Spawn a library JSON export as an async task.
+    fn spawn_library_export(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+
+        Task::perform(
+            async move {
+                let rows = db.get_all_library().await.map_err(|e| e.to_string())?;
+                let json = serde_json::to_string_pretty(&rows).map_err(|e| e.to_string())?;
+
+                let data_dir = AppConfig::db_path()
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| std::path::PathBuf::from("."));
+                let export_path = data_dir.join("kurozumi-export.json");
+                std::fs::write(&export_path, json).map_err(|e| e.to_string())?;
+                Ok(export_path.display().to_string())
+            },
+            |result| Message::Settings(settings::Message::ExportResult(result)),
         )
     }
 
