@@ -13,11 +13,23 @@ use crate::storage::Storage;
 #[derive(Debug, Clone)]
 pub enum UpdateOutcome {
     /// Episode progress was updated.
-    Updated { anime_title: String, episode: u32 },
+    Updated {
+        anime_id: i64,
+        anime_title: String,
+        episode: u32,
+    },
     /// Already at this episode or beyond — no update needed.
-    AlreadyCurrent { anime_title: String, episode: u32 },
+    AlreadyCurrent {
+        anime_id: i64,
+        anime_title: String,
+        episode: u32,
+    },
     /// Anime was recognized but no library entry exists yet — created one.
-    AddedToLibrary { anime_title: String, episode: u32 },
+    AddedToLibrary {
+        anime_id: i64,
+        anime_title: String,
+        episode: u32,
+    },
     /// Could not match the detected title to any known anime.
     Unrecognized { raw_title: String },
     /// Nothing is currently playing.
@@ -94,12 +106,14 @@ pub fn process_detection(
                             storage.record_watch(target_anime_id, target_episode)?;
                             info!(title = %anime_title, episode = target_episode, "Updated progress");
                             Ok(UpdateOutcome::Updated {
+                                anime_id: target_anime_id,
                                 anime_title,
                                 episode: target_episode,
                             })
                         } else {
                             debug!(title = %anime_title, episode = target_episode, "Auto-update disabled");
                             Ok(UpdateOutcome::AlreadyCurrent {
+                                anime_id: target_anime_id,
                                 anime_title,
                                 episode: target_episode,
                             })
@@ -112,6 +126,7 @@ pub fn process_detection(
                             "Already at or past this episode"
                         );
                         Ok(UpdateOutcome::AlreadyCurrent {
+                            anime_id: target_anime_id,
                             anime_title,
                             episode: target_episode,
                         })
@@ -131,6 +146,7 @@ pub fn process_detection(
                     storage.record_watch(target_anime_id, target_episode)?;
                     info!(title = %anime_title, episode = target_episode, "Added to library");
                     Ok(UpdateOutcome::AddedToLibrary {
+                        anime_id: target_anime_id,
                         anime_title,
                         episode: target_episode,
                     })

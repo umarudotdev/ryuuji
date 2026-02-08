@@ -74,6 +74,10 @@ enum DbCommand {
         entries: Vec<(Anime, Option<LibraryEntry>)>,
         reply: oneshot::Sender<Result<usize, KurozumiError>>,
     },
+    GetLibraryRow {
+        anime_id: i64,
+        reply: oneshot::Sender<Result<Option<LibraryRow>, KurozumiError>>,
+    },
 }
 
 #[allow(dead_code)]
@@ -220,6 +224,17 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
+    /// Fetch a single library row (anime + entry) by anime ID.
+    pub async fn get_library_row(
+        &self,
+        anime_id: i64,
+    ) -> Result<Option<LibraryRow>, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::GetLibraryRow { anime_id, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
     /// Import a batch of anime + optional library entries from MAL.
     /// Returns the number of anime upserted.
     pub async fn mal_import_batch(
@@ -313,6 +328,18 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
             }
             DbCommand::GetMalToken { reply } => {
                 let _ = reply.send(storage.get_token("mal"));
+            }
+            DbCommand::GetLibraryRow { anime_id, reply } => {
+                let result = match storage.get_anime(anime_id) {
+                    Ok(Some(anime)) => match storage.get_library_entry_for_anime(anime_id) {
+                        Ok(Some(entry)) => Ok(Some(LibraryRow { anime, entry })),
+                        Ok(None) => Ok(None),
+                        Err(e) => Err(e),
+                    },
+                    Ok(None) => Ok(None),
+                    Err(e) => Err(e),
+                };
+                let _ = reply.send(result);
             }
             DbCommand::MalImportBatch { entries, reply } => {
                 let mut count = 0usize;
