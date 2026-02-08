@@ -14,7 +14,7 @@ pub struct Storage {
 }
 
 /// A library entry joined with its anime data for display.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct LibraryRow {
     pub entry: LibraryEntry,
     pub anime: Anime,
@@ -142,7 +142,6 @@ impl Storage {
             .expect("upsert_anime_by_mal_id requires a MAL ID");
 
         if let Some(existing) = self.get_anime_by_mal_id(mal_id)? {
-            // Update existing row.
             let synonyms_json = serde_json::to_string(&anime.synonyms).unwrap_or_default();
             self.conn.execute(
                 "UPDATE anime SET

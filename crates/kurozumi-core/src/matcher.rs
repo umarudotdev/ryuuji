@@ -47,7 +47,6 @@ pub fn match_title(query: &str, candidates: &[Anime]) -> MatchResult {
     let mut best_anime: Option<&Anime> = None;
     let mut max_possible: i64 = 1;
 
-    // Get a reference score by matching query against itself.
     if let Some(self_score) = matcher.fuzzy_match(&normalized_query, &normalized_query) {
         max_possible = self_score.max(1);
     }
