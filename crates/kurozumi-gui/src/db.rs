@@ -14,7 +14,8 @@ use kurozumi_core::models::{Anime, DetectedMedia, LibraryEntry, WatchStatus};
 use kurozumi_core::orchestrator::{self, UpdateOutcome};
 use kurozumi_core::recognition::RecognitionCache;
 use kurozumi_core::relations::RelationDatabase;
-use kurozumi_core::storage::{LibraryRow, Storage};
+use kurozumi_core::storage::{HistoryRow, LibraryRow, Storage};
+use kurozumi_core::torrent::{TorrentFeed, TorrentFilter, TorrentItem};
 
 /// Cloneable handle to the DB actor thread.
 #[derive(Clone)]
@@ -77,6 +78,50 @@ enum DbCommand {
     GetLibraryRow {
         anime_id: i64,
         reply: oneshot::Sender<Result<Option<LibraryRow>, KurozumiError>>,
+    },
+    GetWatchHistory {
+        limit: u32,
+        reply: oneshot::Sender<Result<Vec<HistoryRow>, KurozumiError>>,
+    },
+    // ── Torrent commands ─────────────────────────────────────────
+    GetTorrentFeeds {
+        reply: oneshot::Sender<Result<Vec<TorrentFeed>, KurozumiError>>,
+    },
+    UpsertTorrentFeed {
+        feed: TorrentFeed,
+        reply: oneshot::Sender<Result<i64, KurozumiError>>,
+    },
+    DeleteTorrentFeed {
+        id: i64,
+        reply: oneshot::Sender<Result<(), KurozumiError>>,
+    },
+    GetTorrentFilters {
+        reply: oneshot::Sender<Result<Vec<TorrentFilter>, KurozumiError>>,
+    },
+    UpsertTorrentFilter {
+        filter: TorrentFilter,
+        reply: oneshot::Sender<Result<i64, KurozumiError>>,
+    },
+    DeleteTorrentFilter {
+        id: i64,
+        reply: oneshot::Sender<Result<(), KurozumiError>>,
+    },
+    IsTorrentArchived {
+        guid: String,
+        reply: oneshot::Sender<Result<bool, KurozumiError>>,
+    },
+    ArchiveTorrent {
+        guid: String,
+        title: String,
+        action: String,
+        reply: oneshot::Sender<Result<(), KurozumiError>>,
+    },
+    ClearTorrentArchive {
+        reply: oneshot::Sender<Result<(), KurozumiError>>,
+    },
+    MatchTorrentItems {
+        items: Vec<TorrentItem>,
+        reply: oneshot::Sender<Vec<TorrentItem>>,
     },
 }
 
@@ -235,6 +280,104 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
+    pub async fn get_watch_history(&self, limit: u32) -> Result<Vec<HistoryRow>, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::GetWatchHistory { limit, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    // ── Torrent handle methods ────────────────────────────────────
+
+    pub async fn get_torrent_feeds(&self) -> Result<Vec<TorrentFeed>, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::GetTorrentFeeds { reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn upsert_torrent_feed(&self, feed: TorrentFeed) -> Result<i64, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::UpsertTorrentFeed { feed, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn delete_torrent_feed(&self, id: i64) -> Result<(), KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::DeleteTorrentFeed { id, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn get_torrent_filters(&self) -> Result<Vec<TorrentFilter>, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::GetTorrentFilters { reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn upsert_torrent_filter(
+        &self,
+        filter: TorrentFilter,
+    ) -> Result<i64, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self
+            .tx
+            .send(DbCommand::UpsertTorrentFilter { filter, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn delete_torrent_filter(&self, id: i64) -> Result<(), KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self
+            .tx
+            .send(DbCommand::DeleteTorrentFilter { id, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn is_torrent_archived(&self, guid: String) -> Result<bool, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self
+            .tx
+            .send(DbCommand::IsTorrentArchived { guid, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn archive_torrent(
+        &self,
+        guid: String,
+        title: String,
+        action: String,
+    ) -> Result<(), KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::ArchiveTorrent {
+            guid,
+            title,
+            action,
+            reply,
+        });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn clear_torrent_archive(&self) -> Result<(), KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::ClearTorrentArchive { reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    /// Run title matching on torrent items using the actor's recognition cache.
+    pub async fn match_torrent_items(&self, items: Vec<TorrentItem>) -> Vec<TorrentItem> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::MatchTorrentItems { items, reply });
+        rx.await.unwrap_or_default()
+    }
+
     /// Import a batch of anime + optional library entries from MAL.
     /// Returns the number of anime upserted.
     pub async fn mal_import_batch(
@@ -340,6 +483,50 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                     Err(e) => Err(e),
                 };
                 let _ = reply.send(result);
+            }
+            DbCommand::GetWatchHistory { limit, reply } => {
+                let _ = reply.send(storage.get_watch_history(limit));
+            }
+            // ── Torrent commands ───────────────────────────────────
+            DbCommand::GetTorrentFeeds { reply } => {
+                let _ = reply.send(storage.get_torrent_feeds());
+            }
+            DbCommand::UpsertTorrentFeed { feed, reply } => {
+                let _ = reply.send(storage.upsert_torrent_feed(&feed));
+            }
+            DbCommand::DeleteTorrentFeed { id, reply } => {
+                let _ = reply.send(storage.delete_torrent_feed(id));
+            }
+            DbCommand::GetTorrentFilters { reply } => {
+                let _ = reply.send(storage.get_torrent_filters());
+            }
+            DbCommand::UpsertTorrentFilter { filter, reply } => {
+                let _ = reply.send(storage.upsert_torrent_filter(&filter));
+            }
+            DbCommand::DeleteTorrentFilter { id, reply } => {
+                let _ = reply.send(storage.delete_torrent_filter(id));
+            }
+            DbCommand::IsTorrentArchived { guid, reply } => {
+                let _ = reply.send(storage.is_torrent_archived(&guid));
+            }
+            DbCommand::ArchiveTorrent {
+                guid,
+                title,
+                action,
+                reply,
+            } => {
+                let _ = reply.send(storage.archive_torrent(&guid, &title, &action));
+            }
+            DbCommand::ClearTorrentArchive { reply } => {
+                let _ = reply.send(storage.clear_torrent_archive());
+            }
+            DbCommand::MatchTorrentItems { mut items, reply } => {
+                kurozumi_core::torrent::matcher::match_torrent_items(
+                    &mut items,
+                    &storage,
+                    &mut cache,
+                );
+                let _ = reply.send(items);
             }
             DbCommand::MalImportBatch { entries, reply } => {
                 let mut count = 0usize;

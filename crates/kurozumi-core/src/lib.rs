@@ -6,3 +6,4 @@ pub mod orchestrator;
 pub mod recognition;
 pub mod relations;
 pub mod storage;
+pub mod torrent;

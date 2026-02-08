@@ -1,7 +1,9 @@
+pub mod history;
 pub mod library;
 pub mod now_playing;
 pub mod search;
 pub mod settings;
+pub mod torrents;
 
 use iced::Task;
 
@@ -15,7 +17,9 @@ pub enum Page {
     #[default]
     NowPlaying,
     Library,
+    History,
     Search,
+    Torrents,
     Settings,
 }
 

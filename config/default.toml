@@ -33,3 +33,9 @@ mode = "dark"
 [discord]
 # Enable Discord Rich Presence.
 enabled = false
+
+[torrent]
+# Enable torrent RSS feature.
+enabled = false
+# Auto-check interval in minutes (0 = disabled).
+auto_check_interval = 0

@@ -22,4 +22,7 @@ pub enum KurozumiError {
 
     #[error("relation error: {0}")]
     Relation(String),
+
+    #[error("torrent error: {0}")]
+    Torrent(String),
 }
