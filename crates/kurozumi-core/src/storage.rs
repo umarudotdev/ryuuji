@@ -116,6 +116,55 @@ impl Storage {
         Ok(rows)
     }
 
+    /// Get an anime by its MAL ID.
+    pub fn get_anime_by_mal_id(&self, mal_id: u64) -> Result<Option<Anime>, KurozumiError> {
+        self.conn
+            .query_row(
+                "SELECT id, anilist_id, kitsu_id, mal_id, title_romaji, title_english,
+                 title_native, synonyms, episodes, cover_url, season, year
+                 FROM anime WHERE mal_id = ?1",
+                params![mal_id as i64],
+                |row| Ok(row_to_anime(row)),
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    /// Insert or update an anime keyed by MAL ID.
+    ///
+    /// If an anime with the same `mal_id` already exists, update its titles,
+    /// synonyms, episodes, and cover. Otherwise insert a new row.
+    /// Returns the local database ID.
+    pub fn upsert_anime_by_mal_id(&self, anime: &Anime) -> Result<i64, KurozumiError> {
+        let mal_id = anime
+            .ids
+            .mal
+            .expect("upsert_anime_by_mal_id requires a MAL ID");
+
+        if let Some(existing) = self.get_anime_by_mal_id(mal_id)? {
+            // Update existing row.
+            let synonyms_json = serde_json::to_string(&anime.synonyms).unwrap_or_default();
+            self.conn.execute(
+                "UPDATE anime SET
+                    title_romaji = ?1, title_english = ?2, title_native = ?3,
+                    synonyms = ?4, episodes = ?5, cover_url = ?6
+                 WHERE id = ?7",
+                params![
+                    anime.title.romaji,
+                    anime.title.english,
+                    anime.title.native,
+                    synonyms_json,
+                    anime.episodes,
+                    anime.cover_url,
+                    existing.id,
+                ],
+            )?;
+            Ok(existing.id)
+        } else {
+            self.insert_anime(anime)
+        }
+    }
+
     // ── Library Entry CRUD ──────────────────────────────────────
 
     /// Insert or update a library entry.

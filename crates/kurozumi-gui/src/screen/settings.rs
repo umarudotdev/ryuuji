@@ -18,6 +18,12 @@ pub struct Settings {
     pub selected_mode: ThemeMode,
     pub available_theme_names: Vec<String>,
     pub status_message: String,
+    /// Whether we believe MAL is authenticated (token exists in DB).
+    pub mal_authenticated: bool,
+    /// Status feedback for MAL operations.
+    pub mal_status: String,
+    /// Whether a MAL operation is in progress.
+    pub mal_busy: bool,
 }
 
 /// Messages handled by the Settings screen.
@@ -31,6 +37,12 @@ pub enum Message {
     ThemeChanged(String),
     ModeChanged(ThemeMode),
     Save,
+    // MAL actions
+    MalLogin,
+    MalLoginResult(Result<(), String>),
+    MalImport,
+    MalImportResult(Result<usize, String>),
+    MalTokenChecked(bool),
 }
 
 impl Settings {
@@ -48,6 +60,9 @@ impl Settings {
             selected_mode: config.appearance.mode,
             available_theme_names: theme_names,
             status_message: String::new(),
+            mal_authenticated: false,
+            mal_status: String::new(),
+            mal_busy: false,
         }
     }
 
@@ -116,6 +131,46 @@ impl Settings {
                     }
                 }
             }
+            Message::MalLogin => {
+                self.mal_busy = true;
+                self.mal_status = "Opening browser for MAL login...".into();
+                Action::None // app.rs handles the async task
+            }
+            Message::MalLoginResult(result) => {
+                self.mal_busy = false;
+                match result {
+                    Ok(()) => {
+                        self.mal_authenticated = true;
+                        self.mal_status = "Logged in to MAL.".into();
+                    }
+                    Err(e) => {
+                        self.mal_status = format!("Login failed: {e}");
+                    }
+                }
+                Action::None
+            }
+            Message::MalImport => {
+                self.mal_busy = true;
+                self.mal_status = "Importing anime list from MAL...".into();
+                Action::None // app.rs handles the async task
+            }
+            Message::MalImportResult(result) => {
+                self.mal_busy = false;
+                match result {
+                    Ok(count) => {
+                        self.mal_status = format!("Imported {count} anime from MAL.");
+                        Action::RefreshLibrary
+                    }
+                    Err(e) => {
+                        self.mal_status = format!("Import failed: {e}");
+                        Action::None
+                    }
+                }
+            }
+            Message::MalTokenChecked(has_token) => {
+                self.mal_authenticated = has_token;
+                Action::None
+            }
         }
     }
 
@@ -162,7 +217,7 @@ impl Settings {
                     .size(style::TEXT_BASE)
                     .width(Length::Fill),
                 text_input("5", &self.interval_input)
-                    .on_input(|v| Message::IntervalChanged(v))
+                    .on_input(Message::IntervalChanged)
                     .size(style::TEXT_SM)
                     .padding([style::SPACE_XS, style::SPACE_SM])
                     .width(Length::Fixed(80.0))
@@ -179,12 +234,12 @@ impl Settings {
                 toggler(self.auto_update)
                     .label("Auto-update progress from detected playback")
                     .text_size(style::TEXT_BASE)
-                    .on_toggle(|v| Message::AutoUpdateToggled(v))
+                    .on_toggle(Message::AutoUpdateToggled)
                     .spacing(style::SPACE_SM),
                 toggler(self.confirm_update)
                     .label("Confirm before updating")
                     .text_size(style::TEXT_BASE)
-                    .on_toggle(|v| Message::ConfirmUpdateToggled(v))
+                    .on_toggle(Message::ConfirmUpdateToggled)
                     .spacing(style::SPACE_SM),
             ]
             .spacing(style::SPACE_MD),
@@ -193,7 +248,7 @@ impl Settings {
         let mut mal_content = column![toggler(self.mal_enabled)
             .label("Enable MAL sync")
             .text_size(style::TEXT_BASE)
-            .on_toggle(|v| Message::MalEnabledToggled(v))
+            .on_toggle(Message::MalEnabledToggled)
             .spacing(style::SPACE_SM),]
         .spacing(style::SPACE_MD);
 
@@ -202,7 +257,7 @@ impl Settings {
                 row![
                     text("Client ID").size(style::TEXT_BASE).width(Length::Fill),
                     text_input("your-client-id", &self.mal_client_id)
-                        .on_input(|v| Message::MalClientIdChanged(v))
+                        .on_input(Message::MalClientIdChanged)
                         .size(style::TEXT_SM)
                         .padding([style::SPACE_XS, style::SPACE_SM])
                         .width(Length::Fixed(240.0))
@@ -211,6 +266,43 @@ impl Settings {
                 .align_y(Alignment::Center)
                 .spacing(style::SPACE_MD),
             );
+
+            // Show MAL action buttons when client ID is present.
+            if !self.mal_client_id.trim().is_empty() {
+                let mut actions = row![].spacing(style::SPACE_SM);
+
+                if !self.mal_authenticated {
+                    let mut login_btn = button(text("Login to MAL").size(style::TEXT_SM))
+                        .padding([style::SPACE_SM, style::SPACE_XL])
+                        .style(theme::primary_button(cs));
+                    if !self.mal_busy {
+                        login_btn = login_btn.on_press(Message::MalLogin);
+                    }
+                    actions = actions.push(login_btn);
+                } else {
+                    let mut import_btn = button(text("Import Library").size(style::TEXT_SM))
+                        .padding([style::SPACE_SM, style::SPACE_XL])
+                        .style(theme::primary_button(cs));
+                    if !self.mal_busy {
+                        import_btn = import_btn.on_press(Message::MalImport);
+                    }
+                    actions = actions.push(import_btn);
+                }
+
+                mal_content = mal_content.push(actions);
+            }
+
+            // Status message for MAL operations.
+            if !self.mal_status.is_empty() {
+                let color =
+                    if self.mal_status.contains("failed") || self.mal_status.contains("Error") {
+                        cs.error
+                    } else {
+                        cs.status_completed
+                    };
+                mal_content =
+                    mal_content.push(text(&self.mal_status).size(style::TEXT_SM).color(color));
+            }
         }
 
         let mal_card = settings_card(cs, "MyAnimeList", mal_content);

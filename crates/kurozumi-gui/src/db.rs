@@ -10,8 +10,9 @@ use tokio::sync::{mpsc, oneshot};
 
 use kurozumi_core::config::AppConfig;
 use kurozumi_core::error::KurozumiError;
-use kurozumi_core::models::{DetectedMedia, WatchStatus};
+use kurozumi_core::models::{Anime, DetectedMedia, LibraryEntry, WatchStatus};
 use kurozumi_core::orchestrator::{self, UpdateOutcome};
+use kurozumi_core::recognition::RecognitionCache;
 use kurozumi_core::storage::{LibraryRow, Storage};
 
 /// Cloneable handle to the DB actor thread.
@@ -58,6 +59,19 @@ enum DbCommand {
         detected: DetectedMedia,
         config: AppConfig,
         reply: oneshot::Sender<Result<UpdateOutcome, KurozumiError>>,
+    },
+    SaveMalToken {
+        token: String,
+        refresh: Option<String>,
+        expires_at: Option<String>,
+        reply: oneshot::Sender<Result<(), KurozumiError>>,
+    },
+    GetMalToken {
+        reply: oneshot::Sender<Result<Option<String>, KurozumiError>>,
+    },
+    MalImportBatch {
+        entries: Vec<(Anime, Option<LibraryEntry>)>,
+        reply: oneshot::Sender<Result<usize, KurozumiError>>,
     },
 }
 
@@ -180,10 +194,48 @@ impl DbHandle {
         rx.await
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
+
+    pub async fn save_mal_token(
+        &self,
+        token: String,
+        refresh: Option<String>,
+        expires_at: Option<String>,
+    ) -> Result<(), KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::SaveMalToken {
+            token,
+            refresh,
+            expires_at,
+            reply,
+        });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn get_mal_token(&self) -> Result<Option<String>, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::GetMalToken { reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
+
+    /// Import a batch of anime + optional library entries from MAL.
+    /// Returns the number of anime upserted.
+    pub async fn mal_import_batch(
+        &self,
+        entries: Vec<(Anime, Option<LibraryEntry>)>,
+    ) -> Result<usize, KurozumiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::MalImportBatch { entries, reply });
+        rx.await
+            .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
+    }
 }
 
 /// Run the actor loop on a dedicated thread.
 fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
+    let mut cache = RecognitionCache::new();
+
     // Block the thread waiting for commands. We use blocking_recv because
     // this thread has no tokio runtime — it's a plain OS thread.
     while let Some(cmd) = rx.blocking_recv() {
@@ -230,9 +282,61 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                 config,
                 reply,
             } => {
-                let _ = reply.send(orchestrator::process_detection(
-                    &detected, &storage, &config,
+                let result =
+                    orchestrator::process_detection(&detected, &storage, &config, &mut cache);
+                // Invalidate cache when new anime is added to the library,
+                // so the next detection tick picks up the new entry.
+                if let Ok(UpdateOutcome::AddedToLibrary { .. }) = &result {
+                    cache.invalidate();
+                }
+                let _ = reply.send(result);
+            }
+            DbCommand::SaveMalToken {
+                token,
+                refresh,
+                expires_at,
+                reply,
+            } => {
+                let _ = reply.send(storage.save_token(
+                    "mal",
+                    &token,
+                    refresh.as_deref(),
+                    expires_at.as_deref(),
                 ));
+            }
+            DbCommand::GetMalToken { reply } => {
+                let _ = reply.send(storage.get_token("mal"));
+            }
+            DbCommand::MalImportBatch { entries, reply } => {
+                let mut count = 0usize;
+                let mut err: Option<KurozumiError> = None;
+
+                for (anime, library_entry) in &entries {
+                    match storage.upsert_anime_by_mal_id(anime) {
+                        Ok(anime_id) => {
+                            count += 1;
+                            if let Some(entry) = library_entry {
+                                let mut entry = entry.clone();
+                                entry.anime_id = anime_id;
+                                if let Err(e) = storage.upsert_library_entry(&entry) {
+                                    tracing::warn!("Failed to upsert library entry: {e}");
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to upsert anime: {e}");
+                            err = Some(e);
+                        }
+                    }
+                }
+
+                // Invalidate recognition cache after bulk import.
+                cache.invalidate();
+
+                let _ = reply.send(match err {
+                    Some(e) if count == 0 => Err(e),
+                    _ => Ok(count),
+                });
             }
         }
     }

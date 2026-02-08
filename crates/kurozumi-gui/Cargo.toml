@@ -7,6 +7,7 @@ edition.workspace = true
 kurozumi-core = { workspace = true }
 kurozumi-detect = { workspace = true }
 kurozumi-parse = { workspace = true }
+kurozumi-api = { workspace = true }
 
 iced = { version = "0.14", features = ["tokio", "tiny-skia", "advanced"] }
 lucide-icons = { version = "0.563", features = ["iced"] }
@@ -18,3 +19,4 @@ tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }

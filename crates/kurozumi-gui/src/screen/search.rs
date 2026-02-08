@@ -6,100 +6,122 @@ use kurozumi_core::storage::LibraryRow;
 
 use crate::app;
 use crate::db::DbHandle;
-use crate::screen::{Action, ModalKind};
+use crate::screen::{Action, ModalKind, Page};
 use crate::style;
 use crate::theme::{self, ColorScheme};
 use crate::widgets::context_menu::context_menu;
 
-/// Sort mode for library list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum LibrarySort {
-    #[default]
-    Alphabetical,
-    RecentlyUpdated,
-}
-
-impl LibrarySort {
-    pub const ALL: &[LibrarySort] = &[Self::Alphabetical, Self::RecentlyUpdated];
-}
-
-impl std::fmt::Display for LibrarySort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Alphabetical => write!(f, "A-Z"),
-            Self::RecentlyUpdated => write!(f, "Recent"),
-        }
-    }
-}
-
-/// Library view mode: grid (cover cards) or list.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum LibraryViewMode {
-    #[default]
-    Grid,
-    List,
-}
-
-/// Actions available in the library context menu.
+/// Actions available in the search context menu (mirrors library).
 #[derive(Debug, Clone)]
 pub enum ContextAction {
     ChangeStatus(WatchStatus),
     Delete,
 }
 
-/// Library screen state.
-pub struct Library {
-    pub tab: WatchStatus,
-    pub entries: Vec<LibraryRow>,
-    pub selected_anime: Option<i64>,
-    pub sort: LibrarySort,
-    pub view_mode: LibraryViewMode,
-    pub score_input: String,
+/// Search screen state.
+pub struct Search {
+    query: String,
+    all_entries: Vec<LibraryRow>,
+    filtered_indices: Vec<usize>,
+    loaded: bool,
+    selected_anime: Option<i64>,
+    score_input: String,
 }
 
-/// Messages handled by the Library screen.
+/// Messages handled by the Search screen.
 #[derive(Debug, Clone)]
 pub enum Message {
-    TabChanged(WatchStatus),
+    QueryChanged(String),
+    EntriesLoaded(Result<Vec<LibraryRow>, String>),
     AnimeSelected(i64),
     EpisodeIncrement(i64),
     EpisodeDecrement(i64),
     StatusChanged(i64, WatchStatus),
     ScoreInputChanged(String),
     ScoreSubmitted(i64),
-    SortChanged(LibrarySort),
-    ViewModeToggled,
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
     CancelModal,
-    // Async result messages (errors stringified for Clone)
-    LibraryRefreshed(Result<Vec<LibraryRow>, String>),
     DbOperationDone(Result<(), String>),
 }
 
-impl Library {
+impl Search {
     pub fn new() -> Self {
         Self {
-            tab: WatchStatus::Watching,
-            entries: Vec::new(),
+            query: String::new(),
+            all_entries: Vec::new(),
+            filtered_indices: Vec::new(),
+            loaded: false,
             selected_anime: None,
-            sort: LibrarySort::default(),
-            view_mode: LibraryViewMode::default(),
             score_input: String::new(),
         }
     }
 
-    /// Handle a library message, returning an Action for the app router.
+    /// Fire an async task to load all library entries.
+    pub fn load_entries(&self, db: Option<&DbHandle>) -> Action {
+        if let Some(db) = db {
+            let db = db.clone();
+            Action::RunTask(Task::perform(
+                async move { db.get_all_library().await },
+                |r| app::Message::Search(Message::EntriesLoaded(r.map_err(|e| e.to_string()))),
+            ))
+        } else {
+            Action::None
+        }
+    }
+
+    /// Rebuild `filtered_indices` from the current query.
+    fn refilter(&mut self) {
+        let q = self.query.to_lowercase();
+        if q.is_empty() {
+            self.filtered_indices = (0..self.all_entries.len()).collect();
+        } else {
+            self.filtered_indices = self
+                .all_entries
+                .iter()
+                .enumerate()
+                .filter(|(_, row)| matches_query(row, &q))
+                .map(|(i, _)| i)
+                .collect();
+        }
+    }
+
+    /// Handle a search message, returning an Action for the app router.
     pub fn update(&mut self, msg: Message, db: Option<&DbHandle>) -> Action {
         match msg {
-            Message::TabChanged(status) => {
-                self.tab = status;
-                self.selected_anime = None;
-                self.refresh_task(db)
+            Message::QueryChanged(new_query) => {
+                self.query = new_query;
+                self.refilter();
+                // Deselect if selected anime is no longer in filtered results
+                if let Some(id) = self.selected_anime {
+                    let still_visible = self
+                        .filtered_indices
+                        .iter()
+                        .any(|&i| self.all_entries[i].anime.id == id);
+                    if !still_visible {
+                        self.selected_anime = None;
+                    }
+                }
+                Action::None
+            }
+            Message::EntriesLoaded(result) => {
+                if let Ok(mut entries) = result {
+                    entries.sort_by(|a, b| {
+                        a.anime
+                            .title
+                            .preferred()
+                            .to_lowercase()
+                            .cmp(&b.anime.title.preferred().to_lowercase())
+                    });
+                    self.all_entries = entries;
+                    self.loaded = true;
+                    self.refilter();
+                }
+                Action::None
             }
             Message::AnimeSelected(id) => {
                 self.selected_anime = Some(id);
-                if let Some(row) = self.entries.iter().find(|r| r.anime.id == id) {
+                if let Some(row) = self.all_entries.iter().find(|r| r.anime.id == id) {
                     self.score_input = row
                         .entry
                         .score
@@ -110,7 +132,7 @@ impl Library {
             }
             Message::EpisodeIncrement(anime_id) => {
                 if let Some(db) = db {
-                    if let Some(entry) = self.entries.iter().find(|r| r.anime.id == anime_id) {
+                    if let Some(entry) = self.all_entries.iter().find(|r| r.anime.id == anime_id) {
                         let new_ep = entry.entry.watched_episodes + 1;
                         let db = db.clone();
                         return Action::RunTask(Task::perform(
@@ -118,7 +140,7 @@ impl Library {
                                 let _ = db.update_episode_count(anime_id, new_ep).await;
                                 let _ = db.record_watch(anime_id, new_ep).await;
                             },
-                            |_| app::Message::Library(Message::DbOperationDone(Ok(()))),
+                            |_| app::Message::Search(Message::DbOperationDone(Ok(()))),
                         ));
                     }
                 }
@@ -126,7 +148,7 @@ impl Library {
             }
             Message::EpisodeDecrement(anime_id) => {
                 if let Some(db) = db {
-                    if let Some(entry) = self.entries.iter().find(|r| r.anime.id == anime_id) {
+                    if let Some(entry) = self.all_entries.iter().find(|r| r.anime.id == anime_id) {
                         if entry.entry.watched_episodes > 0 {
                             let new_ep = entry.entry.watched_episodes - 1;
                             let db = db.clone();
@@ -134,7 +156,7 @@ impl Library {
                                 async move {
                                     let _ = db.update_episode_count(anime_id, new_ep).await;
                                 },
-                                |_| app::Message::Library(Message::DbOperationDone(Ok(()))),
+                                |_| app::Message::Search(Message::DbOperationDone(Ok(()))),
                             ));
                         }
                     }
@@ -147,7 +169,7 @@ impl Library {
                     return Action::RunTask(Task::perform(
                         async move { db.update_library_status(anime_id, new_status).await },
                         |r| {
-                            app::Message::Library(Message::DbOperationDone(
+                            app::Message::Search(Message::DbOperationDone(
                                 r.map_err(|e| e.to_string()),
                             ))
                         },
@@ -167,24 +189,13 @@ impl Library {
                         return Action::RunTask(Task::perform(
                             async move { db.update_library_score(anime_id, score).await },
                             |r| {
-                                app::Message::Library(Message::DbOperationDone(
+                                app::Message::Search(Message::DbOperationDone(
                                     r.map_err(|e| e.to_string()),
                                 ))
                             },
                         ));
                     }
                 }
-                Action::None
-            }
-            Message::SortChanged(sort) => {
-                self.sort = sort;
-                self.refresh_task(db)
-            }
-            Message::ViewModeToggled => {
-                self.view_mode = match self.view_mode {
-                    LibraryViewMode::Grid => LibraryViewMode::List,
-                    LibraryViewMode::List => LibraryViewMode::Grid,
-                };
                 Action::None
             }
             Message::ContextAction(anime_id, action) => match action {
@@ -194,7 +205,7 @@ impl Library {
                         return Action::RunTask(Task::perform(
                             async move { db.update_library_status(anime_id, new_status).await },
                             |r| {
-                                app::Message::Library(Message::DbOperationDone(
+                                app::Message::Search(Message::DbOperationDone(
                                     r.map_err(|e| e.to_string()),
                                 ))
                             },
@@ -204,7 +215,7 @@ impl Library {
                 }
                 ContextAction::Delete => {
                     let title = self
-                        .entries
+                        .all_entries
                         .iter()
                         .find(|r| r.anime.id == anime_id)
                         .map(|r| r.anime.title.preferred().to_string())
@@ -212,7 +223,7 @@ impl Library {
                     Action::ShowModal(ModalKind::ConfirmDelete {
                         anime_id,
                         title,
-                        source: super::Page::Library,
+                        source: Page::Search,
                     })
                 }
             },
@@ -225,7 +236,7 @@ impl Library {
                     return Action::RunTask(Task::perform(
                         async move { db.delete_library_entry(anime_id).await },
                         |r| {
-                            app::Message::Library(Message::DbOperationDone(
+                            app::Message::Search(Message::DbOperationDone(
                                 r.map_err(|e| e.to_string()),
                             ))
                         },
@@ -234,163 +245,100 @@ impl Library {
                 Action::None
             }
             Message::CancelModal => Action::DismissModal,
-            Message::LibraryRefreshed(result) => {
-                if let Ok(mut entries) = result {
-                    self.sort_entries(&mut entries);
-                    self.entries = entries;
-                }
-                Action::None
-            }
             Message::DbOperationDone(_result) => {
-                // After any DB write, refresh the library.
-                self.refresh_task(db)
-            }
-        }
-    }
-
-    /// Build a task that fetches fresh library entries from the DB.
-    pub fn refresh_task(&self, db: Option<&DbHandle>) -> Action {
-        if let Some(db) = db {
-            let db = db.clone();
-            let tab = self.tab;
-            Action::RunTask(Task::perform(
-                async move { db.get_library_by_status(tab).await },
-                |r| app::Message::Library(Message::LibraryRefreshed(r.map_err(|e| e.to_string()))),
-            ))
-        } else {
-            Action::None
-        }
-    }
-
-    fn sort_entries(&self, entries: &mut Vec<LibraryRow>) {
-        match self.sort {
-            LibrarySort::Alphabetical => {
-                entries.sort_by(|a, b| {
-                    a.anime
-                        .title
-                        .preferred()
-                        .to_lowercase()
-                        .cmp(&b.anime.title.preferred().to_lowercase())
-                });
-            }
-            LibrarySort::RecentlyUpdated => {
-                entries.sort_by(|a, b| b.entry.updated_at.cmp(&a.entry.updated_at));
+                // After any DB write, reload entries.
+                self.load_entries(db)
             }
         }
     }
 
     pub fn view<'a>(&'a self, cs: &'a ColorScheme) -> Element<'a, Message> {
-        let count_text = format!(
-            "{} {}",
-            self.entries.len(),
-            if self.entries.len() == 1 {
-                "entry"
-            } else {
-                "entries"
-            }
-        );
+        let search_icon = lucide_icons::iced::icon_search()
+            .size(style::TEXT_BASE)
+            .color(cs.on_surface_variant);
 
-        let view_icon = match self.view_mode {
-            LibraryViewMode::Grid => lucide_icons::iced::icon_list(),
-            LibraryViewMode::List => lucide_icons::iced::icon_layout_grid(),
+        let search_input = text_input("Search library...", &self.query)
+            .on_input(Message::QueryChanged)
+            .size(style::TEXT_BASE)
+            .padding([style::SPACE_SM, style::SPACE_MD])
+            .width(Length::Fill)
+            .style(theme::text_input_style(cs));
+
+        let header = row![search_icon, search_input]
+            .spacing(style::SPACE_SM)
+            .align_y(Alignment::Center)
+            .padding([style::SPACE_SM, style::SPACE_LG]);
+
+        let result_count = if self.query.is_empty() {
+            format!(
+                "{} {}",
+                self.all_entries.len(),
+                if self.all_entries.len() == 1 {
+                    "entry"
+                } else {
+                    "entries"
+                }
+            )
+        } else {
+            format!(
+                "{} {}",
+                self.filtered_indices.len(),
+                if self.filtered_indices.len() == 1 {
+                    "result"
+                } else {
+                    "results"
+                }
+            )
         };
 
-        let header = row![
-            chip_bar(cs, self.tab),
-            text(count_text)
-                .size(style::TEXT_XS)
-                .color(cs.outline)
-                .width(Length::Fill),
-            button(view_icon.size(style::TEXT_BASE))
-                .padding([style::SPACE_XS, style::SPACE_SM])
-                .on_press(Message::ViewModeToggled)
-                .style(theme::ghost_button(cs)),
-            pick_list(LibrarySort::ALL, Some(self.sort), |s| {
-                Message::SortChanged(s)
-            })
-            .text_size(style::TEXT_SM)
-            .padding([style::SPACE_XS, style::SPACE_SM]),
-        ]
-        .spacing(style::SPACE_SM)
-        .align_y(Alignment::Center)
-        .padding([style::SPACE_SM, style::SPACE_LG]);
+        let count_row = container(text(result_count).size(style::TEXT_XS).color(cs.outline))
+            .padding([0.0, style::SPACE_LG]);
 
-        let list: Element<'_, Message> = if self.entries.is_empty() {
+        let list: Element<'_, Message> = if !self.loaded {
             container(
-                column![text("No anime in this list.")
+                text("Loading...")
                     .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),]
-                .align_x(Alignment::Center),
+                    .color(cs.on_surface_variant),
             )
             .padding(style::SPACE_3XL)
             .width(Length::Fill)
             .center_x(Length::Fill)
             .into()
+        } else if self.filtered_indices.is_empty() {
+            let msg = if self.query.is_empty() {
+                "Your library is empty."
+            } else {
+                "No matching anime found."
+            };
+            container(text(msg).size(style::TEXT_SM).color(cs.on_surface_variant))
+                .padding(style::SPACE_3XL)
+                .width(Length::Fill)
+                .center_x(Length::Fill)
+                .into()
         } else {
-            match self.view_mode {
-                LibraryViewMode::List => {
-                    let items: Vec<Element<'a, Message>> = self
-                        .entries
-                        .iter()
-                        .map(|r| anime_list_item(cs, r, self.selected_anime))
-                        .collect();
+            let items: Vec<Element<'a, Message>> = self
+                .filtered_indices
+                .iter()
+                .map(|&i| search_list_item(cs, &self.all_entries[i], self.selected_anime))
+                .collect();
 
-                    scrollable(
-                        column(items)
-                            .spacing(style::SPACE_XXS)
-                            .padding([style::SPACE_XS, style::SPACE_LG]),
-                    )
-                    .height(Length::Fill)
-                    .into()
-                }
-                LibraryViewMode::Grid => {
-                    let mut cards: Vec<Element<'a, Message>> = self
-                        .entries
-                        .iter()
-                        .map(|r| grid_card(cs, r, self.selected_anime))
-                        .collect();
-
-                    let mut grid_rows: Vec<Element<'a, Message>> = Vec::new();
-                    let mut drain = cards.drain(..);
-                    loop {
-                        let mut grid_row = row![].spacing(style::SPACE_MD);
-                        let mut count = 0;
-                        for _ in 0..style::GRID_COLUMNS {
-                            if let Some(card) = drain.next() {
-                                grid_row = grid_row.push(card);
-                                count += 1;
-                            }
-                        }
-                        if count == 0 {
-                            break;
-                        }
-                        for _ in count..style::GRID_COLUMNS {
-                            grid_row = grid_row.push(
-                                container(text("")).width(Length::Fixed(style::GRID_CARD_WIDTH)),
-                            );
-                        }
-                        grid_rows.push(grid_row.into());
-                    }
-
-                    scrollable(
-                        column(grid_rows)
-                            .spacing(style::SPACE_MD)
-                            .padding([style::SPACE_SM, style::SPACE_LG]),
-                    )
-                    .height(Length::Fill)
-                    .into()
-                }
-            }
+            scrollable(
+                column(items)
+                    .spacing(style::SPACE_XXS)
+                    .padding([style::SPACE_XS, style::SPACE_LG]),
+            )
+            .height(Length::Fill)
+            .into()
         };
 
-        let content = column![header, rule::horizontal(1), list]
+        let content = column![header, count_row, rule::horizontal(1), list]
             .spacing(0)
             .width(Length::Fill)
             .height(Length::Fill);
 
         if let Some(anime_id) = self.selected_anime {
-            if let Some(lib_row) = self.entries.iter().find(|r| r.anime.id == anime_id) {
-                let detail = anime_detail(cs, lib_row, &self.score_input);
+            if let Some(lib_row) = self.all_entries.iter().find(|r| r.anime.id == anime_id) {
+                let detail = search_detail(cs, lib_row, &self.score_input);
                 return row![
                     container(content).width(Length::FillPortion(3)),
                     rule::vertical(1),
@@ -410,88 +358,39 @@ impl Library {
     }
 }
 
-/// Filter chip bar for watch status filtering.
-fn chip_bar(cs: &ColorScheme, active: WatchStatus) -> Element<'static, Message> {
-    let chips: Vec<Element<'_, Message>> = WatchStatus::ALL
-        .iter()
-        .map(|&status| {
-            let is_selected = status == active;
-            let base_label = match status {
-                WatchStatus::PlanToWatch => "Plan".to_string(),
-                other => other.as_str().to_string(),
-            };
-            let mut chip_content = row![].spacing(style::SPACE_XXS).align_y(Alignment::Center);
-            if is_selected {
-                chip_content =
-                    chip_content.push(lucide_icons::iced::icon_check().size(style::TEXT_XS));
-            }
-            chip_content = chip_content.push(text(base_label).size(style::TEXT_XS));
+/// Check if a library row matches the search query (case-insensitive substring).
+fn matches_query(row: &LibraryRow, query: &str) -> bool {
+    let title = &row.anime.title;
 
-            button(container(chip_content).center_y(Length::Fill))
-                .height(Length::Fixed(style::CHIP_HEIGHT))
-                .padding([style::SPACE_XS, style::SPACE_MD])
-                .on_press(Message::TabChanged(status))
-                .style(theme::filter_chip(is_selected, cs))
-                .into()
-        })
-        .collect();
+    if title.preferred().to_lowercase().contains(query) {
+        return true;
+    }
+    if let Some(en) = &title.english {
+        if en.to_lowercase().contains(query) {
+            return true;
+        }
+    }
+    if let Some(romaji) = &title.romaji {
+        if romaji.to_lowercase().contains(query) {
+            return true;
+        }
+    }
+    if let Some(native) = &title.native {
+        if native.to_lowercase().contains(query) {
+            return true;
+        }
+    }
+    for synonym in &row.anime.synonyms {
+        if synonym.to_lowercase().contains(query) {
+            return true;
+        }
+    }
 
-    row(chips).spacing(style::SPACE_XS).into()
+    false
 }
 
-/// A single anime grid card.
-fn grid_card<'a>(
-    cs: &ColorScheme,
-    lib_row: &'a LibraryRow,
-    selected: Option<i64>,
-) -> Element<'a, Message> {
-    let title = lib_row.anime.title.preferred();
-    let progress = match lib_row.anime.episodes {
-        Some(total) => format!("{} / {}", lib_row.entry.watched_episodes, total),
-        None => format!("{}", lib_row.entry.watched_episodes),
-    };
-    let is_selected = selected == Some(lib_row.anime.id);
-    let anime_id = lib_row.anime.id;
-    let status_col = theme::status_color(cs, lib_row.entry.status);
-
-    let status_bar = container(text("").size(1))
-        .width(Length::Fill)
-        .height(Length::Fixed(3.0))
-        .style(theme::status_bar_accent(status_col));
-
-    let cover = container(
-        text("\u{1F3AC}")
-            .size(style::TEXT_3XL)
-            .color(cs.outline)
-            .center(),
-    )
-    .width(Length::Fill)
-    .height(Length::Fixed(style::GRID_COVER_HEIGHT))
-    .center_x(Length::Fill)
-    .center_y(Length::Fill)
-    .style(theme::grid_cover_placeholder(cs));
-
-    let info = column![
-        text(title).size(style::TEXT_SM).width(Length::Fill),
-        text(progress)
-            .size(style::TEXT_XS)
-            .color(cs.on_surface_variant),
-    ]
-    .spacing(style::SPACE_XXS)
-    .padding([style::SPACE_SM, style::SPACE_SM]);
-
-    let card_content = column![status_bar, cover, info];
-
-    button(card_content)
-        .width(Length::Fixed(style::GRID_CARD_WIDTH))
-        .padding(0)
-        .on_press(Message::AnimeSelected(anime_id))
-        .style(theme::grid_card(is_selected, cs))
-        .into()
-}
-
-/// A single anime list item with context menu.
-fn anime_list_item<'a>(
+/// A single search result list item with context menu.
+fn search_list_item<'a>(
     cs: &'a ColorScheme,
     lib_row: &'a LibraryRow,
     selected: Option<i64>,
@@ -506,6 +405,10 @@ fn anime_list_item<'a>(
     let anime_id = lib_row.anime.id;
     let status_col = theme::status_color(cs, lib_row.entry.status);
 
+    let status_label = text(lib_row.entry.status.as_str())
+        .size(style::TEXT_XS)
+        .color(cs.on_surface_variant);
+
     let status_bar = container(text("").size(1))
         .width(Length::Fixed(3.0))
         .height(Length::Fill)
@@ -514,6 +417,7 @@ fn anime_list_item<'a>(
     let content = row![
         status_bar,
         text(title).size(style::TEXT_BASE).width(Length::Fill),
+        status_label,
         text(progress)
             .size(style::TEXT_SM)
             .color(cs.on_surface_variant),
@@ -599,7 +503,7 @@ fn anime_list_item<'a>(
                 button(text("Delete").size(style::TEXT_SM))
                     .width(Length::Fill)
                     .padding([style::SPACE_XS, style::SPACE_MD])
-                    .on_press(Message::ContextAction(anime_id, ContextAction::Delete,))
+                    .on_press(Message::ContextAction(anime_id, ContextAction::Delete))
                     .style(move |_theme: &Theme, status| {
                         let (bg, tc) = match status {
                             button::Status::Hovered => (Some(Background::Color(error)), on_error),
@@ -638,8 +542,8 @@ fn anime_list_item<'a>(
     })
 }
 
-/// Detail panel for the selected anime.
-fn anime_detail<'a>(
+/// Detail panel for the selected anime (mirrors library detail).
+fn search_detail<'a>(
     cs: &ColorScheme,
     lib_row: &'a LibraryRow,
     score_input: &str,
@@ -702,7 +606,7 @@ fn anime_detail<'a>(
                 .size(style::TEXT_XS)
                 .color(cs.on_surface_variant),
             row![text_input("0-10", score_input)
-                .on_input(|v| Message::ScoreInputChanged(v))
+                .on_input(Message::ScoreInputChanged)
                 .on_submit(Message::ScoreSubmitted(anime_id))
                 .size(style::TEXT_SM)
                 .padding([style::SPACE_XS, style::SPACE_SM])
