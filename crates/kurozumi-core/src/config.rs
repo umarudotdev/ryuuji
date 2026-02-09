@@ -99,7 +99,7 @@ pub struct DiscordConfig {
 }
 
 /// Torrent feature configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TorrentConfig {
     pub enabled: bool,
     /// Auto-check interval in minutes; 0 = disabled.
@@ -110,16 +110,6 @@ pub struct TorrentConfig {
     pub torrent_client: Option<String>,
 }
 
-impl Default for TorrentConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            auto_check_interval: 0,
-            download_dir: None,
-            torrent_client: None,
-        }
-    }
-}
 
 impl AppConfig {
     /// Load config: user file (if exists) merged over built-in defaults.

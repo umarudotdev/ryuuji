@@ -59,7 +59,7 @@ enum DbCommand {
     },
     ProcessDetection {
         detected: DetectedMedia,
-        config: AppConfig,
+        config: Box<AppConfig>,
         reply: oneshot::Sender<Result<UpdateOutcome, KurozumiError>>,
     },
     SaveMalToken {
@@ -238,7 +238,7 @@ impl DbHandle {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(DbCommand::ProcessDetection {
             detected,
-            config,
+            config: Box::new(config),
             reply,
         });
         rx.await

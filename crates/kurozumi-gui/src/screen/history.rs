@@ -1,4 +1,4 @@
-use iced::widget::{center, column, container, row, scrollable, text, Space};
+use iced::widget::{center, column, container, row, text, Space};
 use iced::{Element, Length, Task};
 
 use chrono::{Local, NaiveDate};
@@ -103,10 +103,11 @@ impl History {
             content = content.push(history_item(entry, cs, cover_cache));
         }
 
-        let scrollable_content = scrollable(
+        let scrollable_content = crate::widgets::styled_scrollable(
             container(content)
                 .padding([style::SPACE_LG, style::SPACE_XL])
                 .width(Length::Fill),
+            cs,
         )
         .height(Length::Fill);
 

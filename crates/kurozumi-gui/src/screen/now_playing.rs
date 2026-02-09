@@ -1,4 +1,4 @@
-use iced::widget::{center, column, container, progress_bar, row, scrollable, text};
+use iced::widget::{center, column, container, progress_bar, row, text};
 use iced::{Alignment, Element, Length};
 
 use kurozumi_core::models::DetectedMedia;
@@ -338,14 +338,7 @@ fn playing_dashboard<'a>(
         }
     }
 
-    scrollable(page)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(6)
-                .scroller_width(4)
-                .margin(2),
-        ))
-        .style(theme::overlay_scrollbar(cs))
+    crate::widgets::styled_scrollable(page, cs)
         .height(Length::Fill)
         .into()
 }
