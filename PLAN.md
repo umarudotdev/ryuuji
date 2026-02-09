@@ -6,7 +6,7 @@
 
 ---
 
-## Phase 1: AniList + Kitsu Service Clients
+## Phase 1: AniList + Kitsu Service Clients ✅
 
 **Goal:** Complete the `AnimeService` trait implementations for AniList and Kitsu, enabling search, import, and progress sync on all three services.
 
@@ -110,7 +110,7 @@ Message::DetectionProcessed(Ok(UpdateOutcome::Updated { anime_id, episode, .. })
 
 ---
 
-## Phase 2: Streaming Service Detection
+## Phase 2: Streaming Service Detection ✅
 
 **Goal:** Detect anime from web browsers watching streaming services (Crunchyroll, Netflix, Jellyfin, Plex, etc.)
 
@@ -224,7 +224,7 @@ The rest of the pipeline (orchestrator, recognition, library update) stays uncha
 
 ---
 
-## Phase 3: Season Charts Screen
+## Phase 3: Season Charts Screen ✅
 
 **Goal:** New "Seasons" screen for browsing current/past/future anime seasons with cover art, genres, scores.
 

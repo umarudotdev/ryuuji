@@ -11,6 +11,7 @@ Anime viewers who watch local files must manually update their episode progress 
 ## Users
 
 - Anime viewers who watch locally downloaded files via mpv, VLC, MPC-HC, or PotPlayer
+- Anime viewers who watch via streaming services (Crunchyroll, Netflix, etc.) in browsers
 - Users with accounts on MyAnimeList, AniList, or Kitsu who want automatic progress sync
 - Linux and Windows desktop users
 
@@ -23,20 +24,26 @@ Cargo workspace with five crates:
 | `kurozumi-core` | Models, storage (SQLite), config (TOML), orchestrator, recognition cache (4-level fuzzy matcher) |
 | `kurozumi-detect` | Platform-specific media player detection (MPRIS on Linux, Win32 on Windows) |
 | `kurozumi-parse` | Anime filename tokenizer + multi-pass parser with compile-time keyword tables |
-| `kurozumi-api` | Service clients behind `AnimeService` trait (MAL implemented, AniList/Kitsu stubs) |
-| `kurozumi-gui` | Iced 0.14 desktop UI — Now Playing, Library, Search, Settings pages; iced_aw widgets, Lucide icons, Geist font |
+| `kurozumi-api` | Service clients behind `AnimeService` trait: MAL (OAuth2 PKCE), AniList (GraphQL), Kitsu (JSON:API) |
+| `kurozumi-gui` | Iced 0.14 desktop UI — 7 screens (Now Playing, Library, History, Search, Seasons, Torrents, Settings); iced_aw widgets, Lucide icons, Geist font |
 
 ### Data flow
 
 ```
 Detection tick (every N seconds)
   -> detect_players()          [kurozumi-detect, platform-specific]
-  -> parse(filename)           [kurozumi-parse, tokenizer + parser]
+  -> if browser:
+       detect_stream()         [kurozumi-detect/stream, URL/title pattern matching]
+       -> extracted title
+     else:
+       extract basename        [from file_path or media_title]
+  -> parse(title)              [kurozumi-parse, tokenizer + parser]
   -> DetectedMedia             [kurozumi-core/models]
   -> process_detection()       [kurozumi-core/orchestrator]
      -> recognize()            [kurozumi-core/recognition, 4-level: query cache/exact/normalized/fuzzy]
      -> upsert library entry   [kurozumi-core/storage, SQLite]
      -> record watch history
+     -> auto-push to service   [if primary service authenticated]
   -> UpdateOutcome             [displayed in GUI]
 ```
 
@@ -68,7 +75,9 @@ TOML config with built-in defaults (`config/default.toml`), overridden by user f
 
 **Detection & Parsing**
 - Media player detection: mpv, VLC, MPC-HC/BE, PotPlayer
-- Linux: MPRIS D-Bus queries; Windows: Win32 window enumeration
+- Browser detection: Firefox, Chrome, Edge, Brave (with `is_browser` flag in player DB)
+- Streaming service detection: Crunchyroll, Netflix, Jellyfin, Plex, Hidive, Bilibili (data-driven via `streams.toml`)
+- Linux: MPRIS D-Bus queries (URL available from metadata); Windows: Win32 window enumeration (title-based fallback)
 - Filename parser handles fansub conventions: `[Group] Title - 05 (1080p) [CRC32].mkv`
 - Extracts: title, episode number, release group, resolution, codec, checksum
 - Handles edge cases: version suffixes (v2), decimal episodes (12.5), ranges (01-03), season prefixes (S2)
@@ -82,32 +91,32 @@ TOML config with built-in defaults (`config/default.toml`), overridden by user f
 - Manual +/- episode adjustment in GUI
 
 **GUI**
-- Iced 0.14 desktop app with sidebar navigation, dark/light theme system
+- Iced 0.14 desktop app with sidebar navigation (7 screens), dark/light theme system
 - Embedded default themes (dark/light TOML); user-provided themes from `~/.config/kurozumi/themes/`; system appearance auto-detection
-- Geist Sans/Mono variable fonts; Lucide icon font; iced_aw widgets (cards, number inputs, context menus)
+- Geist Sans/Mono variable fonts; Lucide icon font; iced_aw widgets (cards, number inputs, context menus, wrap)
 - Shared detail panel widget for anime info + episode controls
-- Now Playing page: detected title, episode, player, quality, status message
-- Library page: tabbed by status (Watching/Completed/On Hold/Dropped/Plan to Watch), 60/40 list+detail split, episode adjustment buttons
-- Search page: MAL anime search with results list and detail view
-- Settings page: general, library, MAL service, and appearance configuration
+- Now Playing: detected title, episode, player name (with streaming service name for browsers), quality, status message
+- Library: tabbed by status (Watching/Completed/On Hold/Dropped/Plan to Watch), 60/40 list+detail split, episode adjustment
+- History: timestamped watch log with detail panel, filtering
+- Search: local library search + online search via primary service, add-to-library flow
+- Seasons: browse anime by season/year via AniList API, genre filter, sort (popularity/score/title), detail panel with add-to-library
+- Torrents: RSS feed management, torrent filters, auto-check
+- Settings: general, library, service configuration (MAL/AniList/Kitsu), appearance, torrent, library export
 
-**MyAnimeList Integration**
-- OAuth2 PKCE authentication (plain method, localhost redirect listener on port 19742)
-- Anime search via MAL API v2
-- User list import with cursor-based pagination
-- Episode progress update (form-encoded PATCH)
-- Token refresh flow
+**Service Integration**
+- MyAnimeList: OAuth2 PKCE authentication, anime search, user list import (cursor-based pagination), episode progress update, token refresh
+- AniList: OAuth2 Authorization Code grant, GraphQL API, anime search, user list import, episode progress update, season browse (paginated)
+- Kitsu: Resource Owner Password grant, JSON:API, anime search, user list import, episode progress update
+- Multi-service support: configurable primary service, search delegates to primary, auto-push progress on detection
+- Cover image cache: disk-backed with network fetch, negative IDs for online results
 
 ### Stubs / Planned
 
-- AniList GraphQL client (graphql_client dependency present)
-- Kitsu JSON:API client
 - Discord Rich Presence
 - System tray integration
-- Service sync orchestration (push local changes to remote, pull remote changes)
-- Conflict resolution
-- Cover image display
-- Notifications
+- Conflict resolution (currently last-write-wins)
+- Desktop notifications
+- HTTP webhook sharing
 
 ## Technology
 
@@ -131,7 +140,7 @@ Platform-specific: `mpris` (Linux D-Bus), `windows` (Win32 FFI).
 
 ## Testing
 
-Unit tests in: orchestrator (workflow), storage (CRUD), recognition cache (4-level matching), config (roundtrip), parser (filename formats), tokenizer (edge cases), MAL types (JSON deserialization). All tests use in-memory SQLite for speed. 37 tests across the workspace.
+Unit tests in: orchestrator (workflow), storage (CRUD), recognition cache (4-level matching), config (roundtrip), parser (filename formats), tokenizer (edge cases), MAL/AniList/Kitsu types (JSON deserialization), player DB (matching, browser flag), stream detection (URL/title matching, stream extraction). All tests use in-memory SQLite for speed. 116 tests across the workspace.
 
 ## License
 
