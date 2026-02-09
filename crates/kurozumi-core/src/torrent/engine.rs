@@ -39,10 +39,7 @@ fn evaluate_filter(item: &TorrentItem, filter: &TorrentFilter) -> bool {
 }
 
 /// Evaluate a single condition against a torrent item.
-fn evaluate_condition(
-    item: &TorrentItem,
-    cond: &crate::torrent::filter::FilterCondition,
-) -> bool {
+fn evaluate_condition(item: &TorrentItem, cond: &crate::torrent::filter::FilterCondition) -> bool {
     use crate::torrent::filter::{FilterElement, FilterOperator};
 
     let field_value = match cond.element {

@@ -88,6 +88,7 @@ pub enum Message {
     DetectionTick,
     DetectionResult(Option<DetectedMedia>),
     DetectionProcessed(Result<UpdateOutcome, String>),
+    SyncPushResult(Result<(), String>),
     AppearanceChanged(ThemeMode),
     WindowEvent(window::Event),
     NowPlaying(now_playing::Message),
@@ -102,13 +103,45 @@ pub enum Message {
 impl Kurozumi {
     pub fn new() -> (Self, Task<Message>) {
         let app = Self::default();
-        // Check if MAL token exists on startup.
+        // Check if service tokens exist on startup.
         let task = if let Some(db) = &app.db {
-            let db = db.clone();
-            Task::perform(
-                async move { db.get_mal_token().await.ok().flatten().is_some() },
+            let db_mal = db.clone();
+            let db_al = db.clone();
+            let db_kt = db.clone();
+            let mal_check = Task::perform(
+                async move {
+                    db_mal
+                        .get_service_token("mal")
+                        .await
+                        .ok()
+                        .flatten()
+                        .is_some()
+                },
                 |has_token| Message::Settings(settings::Message::MalTokenChecked(has_token)),
-            )
+            );
+            let anilist_check = Task::perform(
+                async move {
+                    db_al
+                        .get_service_token("anilist")
+                        .await
+                        .ok()
+                        .flatten()
+                        .is_some()
+                },
+                |has_token| Message::Settings(settings::Message::AniListTokenChecked(has_token)),
+            );
+            let kitsu_check = Task::perform(
+                async move {
+                    db_kt
+                        .get_service_token("kitsu")
+                        .await
+                        .ok()
+                        .flatten()
+                        .is_some()
+                },
+                |has_token| Message::Settings(settings::Message::KitsuTokenChecked(has_token)),
+            );
+            Task::batch([mal_check, anilist_check, kitsu_check])
         } else {
             Task::none()
         };
@@ -132,7 +165,7 @@ impl Kurozumi {
                     return self.handle_action(action);
                 }
                 if page == Page::Search {
-                    self.search.mal_authenticated = self.settings.mal_authenticated;
+                    self.search.service_authenticated = self.is_primary_service_authenticated();
                     let action = self.search.load_entries(self.db.as_ref());
                     return self.handle_action(action);
                 }
@@ -227,6 +260,18 @@ impl Kurozumi {
                             );
                         }
 
+                        // Auto-push progress to primary service.
+                        let sync_task = match &outcome {
+                            UpdateOutcome::Updated {
+                                anime_id, episode, ..
+                            }
+                            | UpdateOutcome::AddedToLibrary {
+                                anime_id, episode, ..
+                            } => self.spawn_sync_push(*anime_id, *episode),
+                            _ => Task::none(),
+                        };
+                        follow_up = Task::batch([follow_up, sync_task]);
+
                         self.now_playing.last_outcome = Some(outcome);
                     }
                     Err(e) => {
@@ -244,6 +289,12 @@ impl Kurozumi {
                     return Task::batch([follow_up, search_task]);
                 }
                 follow_up
+            }
+            Message::SyncPushResult(result) => {
+                if let Err(e) = result {
+                    tracing::warn!("Sync push failed: {e}");
+                }
+                Task::none()
             }
             Message::AppearanceChanged(_mode) => {
                 // OS appearance changed — re-resolve theme for System mode.
@@ -339,7 +390,7 @@ impl Kurozumi {
                     search::Message::SearchOnline => {
                         let query = self.search.query().to_string();
                         self.search.update(msg, self.db.as_ref());
-                        return self.spawn_mal_search(query);
+                        return self.spawn_online_search(query);
                     }
                     search::Message::AddToLibrary(idx) => {
                         let idx = *idx;
@@ -410,6 +461,26 @@ impl Kurozumi {
             Message::Settings(ref msg) => {
                 // Intercept async actions before delegating to settings.
                 match msg {
+                    settings::Message::AniListLogin => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_anilist_login()
+                    }
+                    settings::Message::AniListImport => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_anilist_import()
+                    }
+                    settings::Message::KitsuLogin => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_kitsu_login()
+                    }
+                    settings::Message::KitsuImport => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_kitsu_import()
+                    }
                     settings::Message::MalLogin => {
                         let msg = msg.clone();
                         self.settings.update(msg, &mut self.config);
@@ -448,16 +519,15 @@ impl Kurozumi {
 
         Task::perform(
             async move {
-                // Run the OAuth PKCE flow (opens browser, waits for redirect).
                 let token_resp = kurozumi_api::mal::auth::authorize(&client_id)
                     .await
                     .map_err(|e| e.to_string())?;
 
-                // Save tokens to DB.
                 let expires_at = token_resp
                     .expires_in
                     .map(|secs| (Utc::now() + chrono::Duration::seconds(secs as i64)).to_rfc3339());
-                db.save_mal_token(
+                db.save_service_token(
+                    "mal",
                     token_resp.access_token,
                     token_resp.refresh_token,
                     expires_at,
@@ -483,21 +553,18 @@ impl Kurozumi {
 
         Task::perform(
             async move {
-                // Load token from DB.
                 let token = db
-                    .get_mal_token()
+                    .get_service_token("mal")
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| "Not logged in to MAL".to_string())?;
 
-                // Fetch user's full anime list from MAL (with all title variants).
                 let client = kurozumi_api::mal::MalClient::new(client_id, token);
                 let mal_items = client
                     .get_user_list_full()
                     .await
                     .map_err(|e| e.to_string())?;
 
-                // Map MAL items directly to local types, preserving all title data.
                 let batch: Vec<(Anime, Option<LibraryEntry>)> = mal_items
                     .into_iter()
                     .map(|item| {
@@ -562,7 +629,7 @@ impl Kurozumi {
                             WatchStatus::from_db_str(status_str).unwrap_or(WatchStatus::Watching);
                         let library_entry = LibraryEntry {
                             id: 0,
-                            anime_id: 0, // will be set by DB actor
+                            anime_id: 0,
                             status,
                             watched_episodes: item.list_status.num_episodes_watched.unwrap_or(0),
                             score: item.list_status.score.map(|s| s as f32),
@@ -573,10 +640,274 @@ impl Kurozumi {
                     })
                     .collect();
 
-                // Bulk upsert into DB.
-                db.mal_import_batch(batch).await.map_err(|e| e.to_string())
+                db.service_import_batch("mal", batch)
+                    .await
+                    .map_err(|e| e.to_string())
             },
             |result| Message::Settings(settings::Message::MalImportResult(result)),
+        )
+    }
+
+    /// Spawn the AniList OAuth login flow as an async task.
+    fn spawn_anilist_login(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let client_id = self.settings.anilist_client_id.trim().to_string();
+        let client_secret = self.settings.anilist_client_secret.trim().to_string();
+        if client_id.is_empty() || client_secret.is_empty() {
+            return Task::none();
+        }
+
+        Task::perform(
+            async move {
+                let token_resp = kurozumi_api::anilist::auth::authorize(&client_id, &client_secret)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                // AniList tokens don't expire — store with no refresh/expiry.
+                db.save_service_token("anilist", token_resp.access_token, None, None)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                Ok(())
+            },
+            |result| Message::Settings(settings::Message::AniListLoginResult(result)),
+        )
+    }
+
+    /// Spawn the AniList library import flow as an async task.
+    fn spawn_anilist_import(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+
+        Task::perform(
+            async move {
+                let token = db
+                    .get_service_token("anilist")
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Not logged in to AniList".to_string())?;
+
+                let client = kurozumi_api::anilist::AniListClient::new(token);
+                let entries = client
+                    .get_user_list_full()
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                let batch: Vec<(Anime, Option<LibraryEntry>)> = entries
+                    .into_iter()
+                    .map(|entry| {
+                        let media = entry.media;
+                        let title_romaji = media.title.as_ref().and_then(|t| t.romaji.clone());
+                        let title_english = media.title.as_ref().and_then(|t| t.english.clone());
+                        let title_native = media.title.as_ref().and_then(|t| t.native.clone());
+                        let season = media.season.as_deref().map(|s| {
+                            let mut c = s.chars();
+                            match c.next() {
+                                Some(first) => {
+                                    first.to_uppercase().to_string() + &c.as_str().to_lowercase()
+                                }
+                                None => s.to_string(),
+                            }
+                        });
+
+                        let anime = Anime {
+                            id: 0,
+                            ids: AnimeIds {
+                                anilist: Some(media.id),
+                                kitsu: None,
+                                mal: None,
+                            },
+                            title: AnimeTitle {
+                                romaji: title_romaji,
+                                english: title_english,
+                                native: title_native,
+                            },
+                            synonyms: media.synonyms.unwrap_or_default(),
+                            episodes: media.episodes,
+                            cover_url: media.cover_image.and_then(|c| c.large),
+                            season,
+                            year: media.season_year,
+                            synopsis: media.description,
+                            genres: media.genres.unwrap_or_default(),
+                            media_type: media.format.map(|f| f.to_lowercase()),
+                            airing_status: media.status.map(|s| s.to_lowercase()),
+                            mean_score: media.mean_score.map(|s| s as f32 / 10.0),
+                            studios: media
+                                .studios
+                                .and_then(|s| s.nodes)
+                                .map(|n| n.into_iter().map(|s| s.name).collect())
+                                .unwrap_or_default(),
+                            source: media.source.map(|s| s.to_lowercase()),
+                            rating: None,
+                            start_date: media.start_date.as_ref().and_then(|d| d.to_string_opt()),
+                            end_date: media.end_date.as_ref().and_then(|d| d.to_string_opt()),
+                        };
+
+                        let status_str = entry.status.as_deref().unwrap_or("CURRENT");
+                        let status = match status_str {
+                            "CURRENT" | "REPEATING" => WatchStatus::Watching,
+                            "COMPLETED" => WatchStatus::Completed,
+                            "PAUSED" => WatchStatus::OnHold,
+                            "DROPPED" => WatchStatus::Dropped,
+                            "PLANNING" => WatchStatus::PlanToWatch,
+                            _ => WatchStatus::Watching,
+                        };
+                        let library_entry = LibraryEntry {
+                            id: 0,
+                            anime_id: 0,
+                            status,
+                            watched_episodes: entry.progress,
+                            score: entry.score.map(|s| s / 10.0),
+                            updated_at: Utc::now(),
+                        };
+
+                        (anime, Some(library_entry))
+                    })
+                    .collect();
+
+                db.service_import_batch("anilist", batch)
+                    .await
+                    .map_err(|e| e.to_string())
+            },
+            |result| Message::Settings(settings::Message::AniListImportResult(result)),
+        )
+    }
+
+    /// Spawn the Kitsu login flow as an async task.
+    fn spawn_kitsu_login(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let username = self.settings.kitsu_username.trim().to_string();
+        let password = self.settings.kitsu_password.clone();
+        if username.is_empty() || password.is_empty() {
+            return Task::none();
+        }
+
+        Task::perform(
+            async move {
+                let token_resp = kurozumi_api::kitsu::auth::authenticate(&username, &password)
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                let expires_at = token_resp
+                    .expires_in
+                    .map(|secs| (Utc::now() + chrono::Duration::seconds(secs as i64)).to_rfc3339());
+                db.save_service_token(
+                    "kitsu",
+                    token_resp.access_token,
+                    token_resp.refresh_token,
+                    expires_at,
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+
+                Ok(())
+            },
+            |result| Message::Settings(settings::Message::KitsuLoginResult(result)),
+        )
+    }
+
+    /// Spawn the Kitsu library import flow as an async task.
+    fn spawn_kitsu_import(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+
+        Task::perform(
+            async move {
+                let token = db
+                    .get_service_token("kitsu")
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Not logged in to Kitsu".to_string())?;
+
+                let client = kurozumi_api::kitsu::KitsuClient::new(token);
+                let items = client
+                    .get_user_list_full()
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                let batch: Vec<(Anime, Option<LibraryEntry>)> = items
+                    .into_iter()
+                    .map(|item| {
+                        let title_romaji =
+                            item.anime.canonical_title.clone().or_else(|| {
+                                item.anime.titles.as_ref().and_then(|t| t.en_jp.clone())
+                            });
+                        let title_english = item.anime.titles.as_ref().and_then(|t| t.en.clone());
+                        let title_native = item.anime.titles.as_ref().and_then(|t| t.ja_jp.clone());
+                        let year = item
+                            .anime
+                            .start_date
+                            .as_deref()
+                            .and_then(|d| d.split('-').next())
+                            .and_then(|y| y.parse().ok());
+
+                        let anime = Anime {
+                            id: 0,
+                            ids: AnimeIds {
+                                anilist: None,
+                                kitsu: Some(item.anime_id),
+                                mal: None,
+                            },
+                            title: AnimeTitle {
+                                romaji: title_romaji,
+                                english: title_english,
+                                native: title_native,
+                            },
+                            synonyms: Vec::new(),
+                            episodes: item.anime.episode_count,
+                            cover_url: item.anime.poster_image.and_then(|p| p.medium.or(p.large)),
+                            season: None,
+                            year,
+                            synopsis: item.anime.synopsis,
+                            genres: Vec::new(),
+                            media_type: item.anime.subtype.map(|s| s.to_lowercase()),
+                            airing_status: item.anime.status.map(|s| s.to_lowercase()),
+                            mean_score: item
+                                .anime
+                                .average_rating
+                                .as_deref()
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .map(|r| r / 10.0),
+                            studios: Vec::new(),
+                            source: None,
+                            rating: None,
+                            start_date: item.anime.start_date.clone(),
+                            end_date: item.anime.end_date,
+                        };
+
+                        let status_str = item.entry.status.as_deref().unwrap_or("current");
+                        let status = match status_str {
+                            "current" => WatchStatus::Watching,
+                            "completed" => WatchStatus::Completed,
+                            "on_hold" => WatchStatus::OnHold,
+                            "dropped" => WatchStatus::Dropped,
+                            "planned" => WatchStatus::PlanToWatch,
+                            _ => WatchStatus::Watching,
+                        };
+                        let library_entry = LibraryEntry {
+                            id: 0,
+                            anime_id: 0,
+                            status,
+                            watched_episodes: item.entry.progress.unwrap_or(0),
+                            score: item.entry.rating_twenty.map(|r| r as f32 / 2.0),
+                            updated_at: Utc::now(),
+                        };
+
+                        (anime, Some(library_entry))
+                    })
+                    .collect();
+
+                db.service_import_batch("kitsu", batch)
+                    .await
+                    .map_err(|e| e.to_string())
+            },
+            |result| Message::Settings(settings::Message::KitsuImportResult(result)),
         )
     }
 
@@ -603,6 +934,16 @@ impl Kurozumi {
         )
     }
 
+    /// Spawn an online search as an async task using the primary service.
+    fn spawn_online_search(&self, query: String) -> Task<Message> {
+        let primary = self.config.services.primary.clone();
+        match primary.as_str() {
+            "anilist" => self.spawn_anilist_search(query),
+            "kitsu" => self.spawn_kitsu_search(query),
+            _ => self.spawn_mal_search(query),
+        }
+    }
+
     /// Spawn an online MAL search as an async task.
     fn spawn_mal_search(&self, query: String) -> Task<Message> {
         let Some(db) = self.db.clone() else {
@@ -618,12 +959,58 @@ impl Kurozumi {
                 use kurozumi_api::traits::AnimeService;
 
                 let token = db
-                    .get_mal_token()
+                    .get_service_token("mal")
                     .await
                     .map_err(|e| e.to_string())?
                     .ok_or_else(|| "Not logged in to MAL".to_string())?;
 
                 let client = kurozumi_api::mal::MalClient::new(client_id, token);
+                client.search_anime(&query).await.map_err(|e| e.to_string())
+            },
+            |result| Message::Search(search::Message::OnlineResultsLoaded(result)),
+        )
+    }
+
+    /// Spawn an online AniList search as an async task.
+    fn spawn_anilist_search(&self, query: String) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+
+        Task::perform(
+            async move {
+                use kurozumi_api::traits::AnimeService;
+
+                let token = db
+                    .get_service_token("anilist")
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Not logged in to AniList".to_string())?;
+
+                let client = kurozumi_api::anilist::AniListClient::new(token);
+                client.search_anime(&query).await.map_err(|e| e.to_string())
+            },
+            |result| Message::Search(search::Message::OnlineResultsLoaded(result)),
+        )
+    }
+
+    /// Spawn an online Kitsu search as an async task.
+    fn spawn_kitsu_search(&self, query: String) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+
+        Task::perform(
+            async move {
+                use kurozumi_api::traits::AnimeService;
+
+                let token = db
+                    .get_service_token("kitsu")
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Not logged in to Kitsu".to_string())?;
+
+                let client = kurozumi_api::kitsu::KitsuClient::new(token);
                 client.search_anime(&query).await.map_err(|e| e.to_string())
             },
             |result| Message::Search(search::Message::OnlineResultsLoaded(result)),
@@ -638,16 +1025,31 @@ impl Kurozumi {
         let Some(db) = self.db.clone() else {
             return Task::none();
         };
+        let primary = self.config.services.primary.clone();
 
         Task::perform(
             async move {
-                let anime = Anime {
-                    id: 0,
-                    ids: AnimeIds {
+                let ids = match primary.as_str() {
+                    "anilist" => AnimeIds {
+                        anilist: Some(result.service_id),
+                        kitsu: None,
+                        mal: None,
+                    },
+                    "kitsu" => AnimeIds {
+                        anilist: None,
+                        kitsu: Some(result.service_id),
+                        mal: None,
+                    },
+                    _ => AnimeIds {
                         anilist: None,
                         kitsu: None,
                         mal: Some(result.service_id),
                     },
+                };
+
+                let anime = Anime {
+                    id: 0,
+                    ids,
                     title: AnimeTitle {
                         romaji: Some(result.title.clone()),
                         english: result.title_english.clone(),
@@ -679,12 +1081,90 @@ impl Kurozumi {
                     updated_at: Utc::now(),
                 };
 
-                db.mal_import_batch(vec![(anime, Some(entry))])
+                db.service_import_batch(&primary, vec![(anime, Some(entry))])
                     .await
                     .map(|_| ())
                     .map_err(|e| e.to_string())
             },
             |result| Message::Search(search::Message::AddedToLibrary(result)),
+        )
+    }
+
+    /// Check if the primary service has an active authentication token.
+    fn is_primary_service_authenticated(&self) -> bool {
+        match self.config.services.primary.as_str() {
+            "anilist" => self.settings.anilist_authenticated,
+            "kitsu" => self.settings.kitsu_authenticated,
+            _ => self.settings.mal_authenticated,
+        }
+    }
+
+    /// Push an episode progress update to the primary service.
+    fn spawn_sync_push(&self, anime_id: i64, episode: u32) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        if !self.is_primary_service_authenticated() {
+            return Task::none();
+        }
+        let primary = self.config.services.primary.clone();
+
+        Task::perform(
+            async move {
+                use kurozumi_api::traits::AnimeService;
+
+                // Look up the anime to get its service IDs.
+                let row = db
+                    .get_library_row(anime_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Anime not found in library".to_string())?;
+                let ids = &row.anime.ids;
+
+                let token = db
+                    .get_service_token(&primary)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("No {primary} token found"))?;
+
+                match primary.as_str() {
+                    "anilist" => {
+                        let service_id = ids
+                            .anilist
+                            .ok_or_else(|| "No AniList ID for this anime".to_string())?;
+                        let client = kurozumi_api::anilist::AniListClient::new(token);
+                        client
+                            .update_progress(service_id, episode)
+                            .await
+                            .map_err(|e| e.to_string())
+                    }
+                    "kitsu" => {
+                        let service_id = ids
+                            .kitsu
+                            .ok_or_else(|| "No Kitsu ID for this anime".to_string())?;
+                        let client = kurozumi_api::kitsu::KitsuClient::new(token);
+                        client
+                            .update_progress(service_id, episode)
+                            .await
+                            .map_err(|e| e.to_string())
+                    }
+                    _ => {
+                        let service_id = ids
+                            .mal
+                            .ok_or_else(|| "No MAL ID for this anime".to_string())?;
+                        let client_id = kurozumi_core::config::AppConfig::load()
+                            .ok()
+                            .and_then(|c| c.services.mal.client_id)
+                            .unwrap_or_default();
+                        let client = kurozumi_api::mal::MalClient::new(client_id, token);
+                        client
+                            .update_progress(service_id, episode)
+                            .await
+                            .map_err(|e| e.to_string())
+                    }
+                }
+            },
+            Message::SyncPushResult,
         )
     }
 

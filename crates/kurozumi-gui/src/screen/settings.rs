@@ -39,6 +39,20 @@ pub struct Settings {
     // Services
     pub primary_service: String,
     pub primary_service_options: Vec<String>,
+    // AniList
+    pub anilist_enabled: bool,
+    pub anilist_client_id: String,
+    pub anilist_client_secret: String,
+    pub anilist_authenticated: bool,
+    pub anilist_status: String,
+    pub anilist_busy: bool,
+    // Kitsu
+    pub kitsu_enabled: bool,
+    pub kitsu_authenticated: bool,
+    pub kitsu_status: String,
+    pub kitsu_busy: bool,
+    pub kitsu_username: String,
+    pub kitsu_password: String,
     // MAL
     pub mal_enabled: bool,
     pub mal_client_id: String,
@@ -73,10 +87,30 @@ pub enum Message {
     ConfirmUpdateToggled(bool),
     // Services
     PrimaryServiceChanged(String),
+    // AniList
+    AniListEnabledToggled(bool),
+    AniListClientIdChanged(String),
+    AniListClientIdSubmitted,
+    AniListClientSecretChanged(String),
+    AniListClientSecretSubmitted,
+    AniListLogin,
+    AniListLoginResult(Result<(), String>),
+    AniListImport,
+    AniListImportResult(Result<usize, String>),
+    AniListTokenChecked(bool),
+    // Kitsu
+    KitsuEnabledToggled(bool),
+    KitsuUsernameChanged(String),
+    KitsuPasswordChanged(String),
+    KitsuLogin,
+    KitsuLoginResult(Result<(), String>),
+    KitsuImport,
+    KitsuImportResult(Result<usize, String>),
+    KitsuTokenChecked(bool),
+    // MAL
     MalEnabledToggled(bool),
     MalClientIdChanged(String),
     MalClientIdSubmitted,
-    // MAL actions
     MalLogin,
     MalLoginResult(Result<(), String>),
     MalImport,
@@ -111,6 +145,31 @@ impl Settings {
             confirm_update: config.library.confirm_update,
             primary_service: config.services.primary.clone(),
             primary_service_options: vec!["anilist".into(), "kitsu".into(), "mal".into()],
+            // AniList
+            anilist_enabled: config.services.anilist.enabled,
+            anilist_client_id: config
+                .services
+                .anilist
+                .client_id
+                .clone()
+                .unwrap_or_default(),
+            anilist_client_secret: config
+                .services
+                .anilist
+                .client_secret
+                .clone()
+                .unwrap_or_default(),
+            anilist_authenticated: false,
+            anilist_status: String::new(),
+            anilist_busy: false,
+            // Kitsu
+            kitsu_enabled: config.services.kitsu.enabled,
+            kitsu_authenticated: false,
+            kitsu_status: String::new(),
+            kitsu_busy: false,
+            kitsu_username: String::new(),
+            kitsu_password: String::new(),
+            // MAL
             mal_enabled: config.services.mal.enabled,
             mal_client_id: config.services.mal.client_id.clone().unwrap_or_default(),
             mal_authenticated: false,
@@ -186,6 +245,140 @@ impl Settings {
                 let _ = config.save();
                 Action::None
             }
+
+            // ── AniList ─────────────────────────────────────────
+            Message::AniListEnabledToggled(val) => {
+                self.anilist_enabled = val;
+                config.services.anilist.enabled = val;
+                let _ = config.save();
+                Action::None
+            }
+            Message::AniListClientIdChanged(val) => {
+                self.anilist_client_id = val;
+                Action::None
+            }
+            Message::AniListClientIdSubmitted => {
+                config.services.anilist.client_id = if self.anilist_client_id.trim().is_empty() {
+                    None
+                } else {
+                    Some(self.anilist_client_id.trim().to_string())
+                };
+                let _ = config.save();
+                Action::None
+            }
+            Message::AniListClientSecretChanged(val) => {
+                self.anilist_client_secret = val;
+                Action::None
+            }
+            Message::AniListClientSecretSubmitted => {
+                config.services.anilist.client_secret =
+                    if self.anilist_client_secret.trim().is_empty() {
+                        None
+                    } else {
+                        Some(self.anilist_client_secret.trim().to_string())
+                    };
+                let _ = config.save();
+                Action::None
+            }
+            Message::AniListLogin => {
+                self.anilist_busy = true;
+                self.anilist_status = "Opening browser for AniList login...".into();
+                Action::None
+            }
+            Message::AniListLoginResult(result) => {
+                self.anilist_busy = false;
+                match result {
+                    Ok(()) => {
+                        self.anilist_authenticated = true;
+                        self.anilist_status = "Logged in to AniList.".into();
+                    }
+                    Err(e) => {
+                        self.anilist_status = format!("Login failed: {e}");
+                    }
+                }
+                Action::None
+            }
+            Message::AniListImport => {
+                self.anilist_busy = true;
+                self.anilist_status = "Importing anime list from AniList...".into();
+                Action::None
+            }
+            Message::AniListImportResult(result) => {
+                self.anilist_busy = false;
+                match result {
+                    Ok(count) => {
+                        self.anilist_status = format!("Imported {count} anime from AniList.");
+                        Action::RefreshLibrary
+                    }
+                    Err(e) => {
+                        self.anilist_status = format!("Import failed: {e}");
+                        Action::None
+                    }
+                }
+            }
+            Message::AniListTokenChecked(has_token) => {
+                self.anilist_authenticated = has_token;
+                Action::None
+            }
+
+            // ── Kitsu ───────────────────────────────────────────
+            Message::KitsuEnabledToggled(val) => {
+                self.kitsu_enabled = val;
+                config.services.kitsu.enabled = val;
+                let _ = config.save();
+                Action::None
+            }
+            Message::KitsuUsernameChanged(val) => {
+                self.kitsu_username = val;
+                Action::None
+            }
+            Message::KitsuPasswordChanged(val) => {
+                self.kitsu_password = val;
+                Action::None
+            }
+            Message::KitsuLogin => {
+                self.kitsu_busy = true;
+                self.kitsu_status = "Logging in to Kitsu...".into();
+                Action::None
+            }
+            Message::KitsuLoginResult(result) => {
+                self.kitsu_busy = false;
+                self.kitsu_password.clear(); // Don't keep password in memory
+                match result {
+                    Ok(()) => {
+                        self.kitsu_authenticated = true;
+                        self.kitsu_status = "Logged in to Kitsu.".into();
+                    }
+                    Err(e) => {
+                        self.kitsu_status = format!("Login failed: {e}");
+                    }
+                }
+                Action::None
+            }
+            Message::KitsuImport => {
+                self.kitsu_busy = true;
+                self.kitsu_status = "Importing anime list from Kitsu...".into();
+                Action::None
+            }
+            Message::KitsuImportResult(result) => {
+                self.kitsu_busy = false;
+                match result {
+                    Ok(count) => {
+                        self.kitsu_status = format!("Imported {count} anime from Kitsu.");
+                        Action::RefreshLibrary
+                    }
+                    Err(e) => {
+                        self.kitsu_status = format!("Import failed: {e}");
+                        Action::None
+                    }
+                }
+            }
+            Message::KitsuTokenChecked(has_token) => {
+                self.kitsu_authenticated = has_token;
+                Action::None
+            }
+
+            // ── MAL ─────────────────────────────────────────────
             Message::MalEnabledToggled(val) => {
                 self.mal_enabled = val;
                 config.services.mal.enabled = val;
@@ -511,6 +704,198 @@ impl Settings {
             .spacing(style::SPACE_MD),
         ]
         .spacing(style::SPACE_SM);
+
+        // AniList sub-section
+        content = content.push(rule::horizontal(1));
+        content = content.push(
+            text("AniList")
+                .size(style::TEXT_XS)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+        content = content.push(
+            toggler(self.anilist_enabled)
+                .label("Enable AniList sync")
+                .text_size(style::TEXT_BASE)
+                .on_toggle(Message::AniListEnabledToggled)
+                .spacing(style::SPACE_SM)
+                .size(22.0)
+                .style(theme::toggler_style(cs)),
+        );
+
+        if self.anilist_enabled {
+            content = content.push(
+                row![
+                    text("Client ID")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    text_input("your-client-id", &self.anilist_client_id)
+                        .on_input(Message::AniListClientIdChanged)
+                        .on_submit(Message::AniListClientIdSubmitted)
+                        .size(style::TEXT_SM)
+                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .width(Length::Fixed(240.0))
+                        .style(theme::text_input_style(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_MD),
+            );
+            content = content.push(
+                row![
+                    text("Client Secret")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    text_input("your-client-secret", &self.anilist_client_secret)
+                        .on_input(Message::AniListClientSecretChanged)
+                        .on_submit(Message::AniListClientSecretSubmitted)
+                        .size(style::TEXT_SM)
+                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .width(Length::Fixed(240.0))
+                        .secure(true)
+                        .style(theme::text_input_style(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_MD),
+            );
+
+            let has_credentials = !self.anilist_client_id.trim().is_empty()
+                && !self.anilist_client_secret.trim().is_empty();
+
+            if has_credentials {
+                let mut actions = row![].spacing(style::SPACE_SM);
+
+                if !self.anilist_authenticated {
+                    let mut login_btn = button(text("Login to AniList").size(style::TEXT_SM))
+                        .padding([style::SPACE_SM, style::SPACE_XL])
+                        .style(theme::primary_button(cs));
+                    if !self.anilist_busy {
+                        login_btn = login_btn.on_press(Message::AniListLogin);
+                    }
+                    actions = actions.push(login_btn);
+                } else {
+                    let mut import_btn = button(text("Import Library").size(style::TEXT_SM))
+                        .padding([style::SPACE_SM, style::SPACE_XL])
+                        .style(theme::primary_button(cs));
+                    if !self.anilist_busy {
+                        import_btn = import_btn.on_press(Message::AniListImport);
+                    }
+                    actions = actions.push(import_btn);
+                }
+
+                content = content.push(actions);
+            }
+
+            if !self.anilist_status.is_empty() {
+                let color = if self.anilist_status.contains("failed")
+                    || self.anilist_status.contains("Error")
+                {
+                    cs.error
+                } else {
+                    cs.status_completed
+                };
+                content = content.push(
+                    text(&self.anilist_status)
+                        .size(style::TEXT_SM)
+                        .color(color)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                );
+            }
+        }
+
+        // Kitsu sub-section
+        content = content.push(rule::horizontal(1));
+        content = content.push(
+            text("Kitsu")
+                .size(style::TEXT_XS)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+        content = content.push(
+            toggler(self.kitsu_enabled)
+                .label("Enable Kitsu sync")
+                .text_size(style::TEXT_BASE)
+                .on_toggle(Message::KitsuEnabledToggled)
+                .spacing(style::SPACE_SM)
+                .size(22.0)
+                .style(theme::toggler_style(cs)),
+        );
+
+        if self.kitsu_enabled {
+            content = content.push(
+                row![
+                    text("Username")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    text_input("email or username", &self.kitsu_username)
+                        .on_input(Message::KitsuUsernameChanged)
+                        .size(style::TEXT_SM)
+                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .width(Length::Fixed(240.0))
+                        .style(theme::text_input_style(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_MD),
+            );
+            content = content.push(
+                row![
+                    text("Password")
+                        .size(style::TEXT_BASE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    text_input("password", &self.kitsu_password)
+                        .on_input(Message::KitsuPasswordChanged)
+                        .size(style::TEXT_SM)
+                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .width(Length::Fixed(240.0))
+                        .secure(true)
+                        .style(theme::text_input_style(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_MD),
+            );
+
+            if !self.kitsu_authenticated {
+                let has_credentials = !self.kitsu_username.trim().is_empty()
+                    && !self.kitsu_password.trim().is_empty();
+
+                let mut login_btn = button(text("Login to Kitsu").size(style::TEXT_SM))
+                    .padding([style::SPACE_SM, style::SPACE_XL])
+                    .style(theme::primary_button(cs));
+                if !self.kitsu_busy && has_credentials {
+                    login_btn = login_btn.on_press(Message::KitsuLogin);
+                }
+                content = content.push(login_btn);
+            } else {
+                let mut import_btn = button(text("Import Library").size(style::TEXT_SM))
+                    .padding([style::SPACE_SM, style::SPACE_XL])
+                    .style(theme::primary_button(cs));
+                if !self.kitsu_busy {
+                    import_btn = import_btn.on_press(Message::KitsuImport);
+                }
+                content = content.push(import_btn);
+            }
+
+            if !self.kitsu_status.is_empty() {
+                let color = if self.kitsu_status.contains("failed")
+                    || self.kitsu_status.contains("Error")
+                {
+                    cs.error
+                } else {
+                    cs.status_completed
+                };
+                content = content.push(
+                    text(&self.kitsu_status)
+                        .size(style::TEXT_SM)
+                        .color(color)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                );
+            }
+        }
 
         // MAL sub-section
         content = content.push(rule::horizontal(1));

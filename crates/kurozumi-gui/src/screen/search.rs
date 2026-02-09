@@ -67,7 +67,7 @@ pub struct Search {
     pub online_results: Vec<AnimeSearchResult>,
     pub online_loading: bool,
     online_error: Option<String>,
-    pub mal_authenticated: bool,
+    pub service_authenticated: bool,
     selected_online: Option<usize>,
 }
 
@@ -122,7 +122,7 @@ impl Search {
             online_results: Vec::new(),
             online_loading: false,
             online_error: None,
-            mal_authenticated: false,
+            service_authenticated: false,
             selected_online: None,
         }
     }
@@ -579,7 +579,7 @@ impl Search {
         };
 
         // Online search prompt
-        let mal_prompt = self.mal_search_prompt(cs);
+        let mal_prompt = self.online_search_prompt(cs);
 
         let content = column![header, filter_bar, rule::horizontal(1), list, mal_prompt]
             .spacing(0)
@@ -622,14 +622,14 @@ impl Search {
             .into()
     }
 
-    /// Render the "Search MAL" call-to-action at the bottom of local results.
-    fn mal_search_prompt(&self, cs: &ColorScheme) -> Element<'_, Message> {
+    /// Render the "Search online" call-to-action at the bottom of local results.
+    fn online_search_prompt(&self, cs: &ColorScheme) -> Element<'_, Message> {
         if self.query.trim().is_empty() {
             return container(text("").size(1)).height(Length::Shrink).into();
         }
 
-        let inner: Element<'_, Message> = if self.mal_authenticated {
-            let label = format!("Search MAL for \"{}\"", self.query.trim());
+        let inner: Element<'_, Message> = if self.service_authenticated {
+            let label = format!("Search online for \"{}\"", self.query.trim());
             button(
                 row![
                     lucide_icons::iced::icon_globe()
@@ -647,7 +647,7 @@ impl Search {
             .style(theme::ghost_button(cs))
             .into()
         } else {
-            text("Log in to MAL in Settings to search online")
+            text("Log in to a service in Settings to search online")
                 .size(style::TEXT_XS)
                 .color(cs.outline)
                 .line_height(style::LINE_HEIGHT_LOOSE)
@@ -769,8 +769,14 @@ impl Search {
         if let Some(idx) = self.selected_online {
             if let Some(result) = self.online_results.get(idx) {
                 let cover_key = online_cover_key(result.service_id);
-                let detail =
-                    online_detail_panel(cs, result, Message::CloseDetail, Message::AddToLibrary(idx), covers, cover_key);
+                let detail = online_detail_panel(
+                    cs,
+                    result,
+                    Message::CloseDetail,
+                    Message::AddToLibrary(idx),
+                    covers,
+                    cover_key,
+                );
                 return row![
                     container(content).width(Length::FillPortion(3)),
                     rule::vertical(1),

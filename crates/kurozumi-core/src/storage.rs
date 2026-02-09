@@ -220,6 +220,134 @@ impl Storage {
         }
     }
 
+    /// Get an anime by its AniList ID.
+    pub fn get_anime_by_anilist_id(&self, anilist_id: u64) -> Result<Option<Anime>, KurozumiError> {
+        self.conn
+            .query_row(
+                "SELECT id, anilist_id, kitsu_id, mal_id, title_romaji, title_english,
+                 title_native, synonyms, episodes, cover_url, season, year,
+                 synopsis, genres, media_type, airing_status, mean_score,
+                 studios, source, rating, start_date, end_date
+                 FROM anime WHERE anilist_id = ?1",
+                params![anilist_id as i64],
+                |row| Ok(row_to_anime(row)),
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    /// Insert or update an anime keyed by AniList ID.
+    pub fn upsert_anime_by_anilist_id(&self, anime: &Anime) -> Result<i64, KurozumiError> {
+        let anilist_id = anime
+            .ids
+            .anilist
+            .expect("upsert_anime_by_anilist_id requires an AniList ID");
+
+        if let Some(existing) = self.get_anime_by_anilist_id(anilist_id)? {
+            let synonyms_json = serde_json::to_string(&anime.synonyms).unwrap_or_default();
+            let genres_json = serde_json::to_string(&anime.genres).unwrap_or_default();
+            let studios_json = serde_json::to_string(&anime.studios).unwrap_or_default();
+            self.conn.execute(
+                "UPDATE anime SET
+                    title_romaji = ?1, title_english = ?2, title_native = ?3,
+                    synonyms = ?4, episodes = ?5, cover_url = ?6,
+                    season = ?7, year = ?8,
+                    synopsis = ?9, genres = ?10, media_type = ?11,
+                    airing_status = ?12, mean_score = ?13, studios = ?14,
+                    source = ?15, rating = ?16, start_date = ?17, end_date = ?18
+                 WHERE id = ?19",
+                params![
+                    anime.title.romaji,
+                    anime.title.english,
+                    anime.title.native,
+                    synonyms_json,
+                    anime.episodes,
+                    anime.cover_url,
+                    anime.season,
+                    anime.year,
+                    anime.synopsis,
+                    genres_json,
+                    anime.media_type,
+                    anime.airing_status,
+                    anime.mean_score,
+                    studios_json,
+                    anime.source,
+                    anime.rating,
+                    anime.start_date,
+                    anime.end_date,
+                    existing.id,
+                ],
+            )?;
+            Ok(existing.id)
+        } else {
+            self.insert_anime(anime)
+        }
+    }
+
+    /// Get an anime by its Kitsu ID.
+    pub fn get_anime_by_kitsu_id(&self, kitsu_id: u64) -> Result<Option<Anime>, KurozumiError> {
+        self.conn
+            .query_row(
+                "SELECT id, anilist_id, kitsu_id, mal_id, title_romaji, title_english,
+                 title_native, synonyms, episodes, cover_url, season, year,
+                 synopsis, genres, media_type, airing_status, mean_score,
+                 studios, source, rating, start_date, end_date
+                 FROM anime WHERE kitsu_id = ?1",
+                params![kitsu_id as i64],
+                |row| Ok(row_to_anime(row)),
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    /// Insert or update an anime keyed by Kitsu ID.
+    pub fn upsert_anime_by_kitsu_id(&self, anime: &Anime) -> Result<i64, KurozumiError> {
+        let kitsu_id = anime
+            .ids
+            .kitsu
+            .expect("upsert_anime_by_kitsu_id requires a Kitsu ID");
+
+        if let Some(existing) = self.get_anime_by_kitsu_id(kitsu_id)? {
+            let synonyms_json = serde_json::to_string(&anime.synonyms).unwrap_or_default();
+            let genres_json = serde_json::to_string(&anime.genres).unwrap_or_default();
+            let studios_json = serde_json::to_string(&anime.studios).unwrap_or_default();
+            self.conn.execute(
+                "UPDATE anime SET
+                    title_romaji = ?1, title_english = ?2, title_native = ?3,
+                    synonyms = ?4, episodes = ?5, cover_url = ?6,
+                    season = ?7, year = ?8,
+                    synopsis = ?9, genres = ?10, media_type = ?11,
+                    airing_status = ?12, mean_score = ?13, studios = ?14,
+                    source = ?15, rating = ?16, start_date = ?17, end_date = ?18
+                 WHERE id = ?19",
+                params![
+                    anime.title.romaji,
+                    anime.title.english,
+                    anime.title.native,
+                    synonyms_json,
+                    anime.episodes,
+                    anime.cover_url,
+                    anime.season,
+                    anime.year,
+                    anime.synopsis,
+                    genres_json,
+                    anime.media_type,
+                    anime.airing_status,
+                    anime.mean_score,
+                    studios_json,
+                    anime.source,
+                    anime.rating,
+                    anime.start_date,
+                    anime.end_date,
+                    existing.id,
+                ],
+            )?;
+            Ok(existing.id)
+        } else {
+            self.insert_anime(anime)
+        }
+    }
+
     // ── Library Entry CRUD ──────────────────────────────────────
 
     /// Insert or update a library entry.

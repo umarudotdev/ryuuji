@@ -223,11 +223,7 @@ impl History {
         };
         let db = db.clone();
         Action::RunTask(Task::perform(
-            async move {
-                db.get_watch_history(500)
-                    .await
-                    .map_err(|e| e.to_string())
-            },
+            async move { db.get_watch_history(500).await.map_err(|e| e.to_string()) },
             |result| app::Message::History(Message::HistoryRefreshed(result)),
         ))
     }
@@ -255,22 +251,14 @@ impl History {
         };
         let db1 = db.clone();
         let history_task = Task::perform(
-            async move {
-                db1.get_watch_history(500)
-                    .await
-                    .map_err(|e| e.to_string())
-            },
+            async move { db1.get_watch_history(500).await.map_err(|e| e.to_string()) },
             |r| app::Message::History(Message::HistoryRefreshed(r)),
         );
 
         let row_task = if let Some(id) = self.selected_anime {
             let db2 = db.clone();
             Task::perform(
-                async move {
-                    db2.get_library_row(id)
-                        .await
-                        .map_err(|e| e.to_string())
-                },
+                async move { db2.get_library_row(id).await.map_err(|e| e.to_string()) },
                 |r| app::Message::History(Message::LibraryRowFetched(Box::new(r))),
             )
         } else {
@@ -325,8 +313,7 @@ impl History {
                 );
             }
 
-            content =
-                content.push(history_item(entry, cs, cover_cache, self.selected_anime));
+            content = content.push(history_item(entry, cs, cover_cache, self.selected_anime));
         }
 
         let scrollable_content = crate::widgets::styled_scrollable(

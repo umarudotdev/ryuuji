@@ -62,16 +62,19 @@ enum DbCommand {
         config: Box<AppConfig>,
         reply: oneshot::Sender<Result<UpdateOutcome, KurozumiError>>,
     },
-    SaveMalToken {
+    SaveServiceToken {
+        service: String,
         token: String,
         refresh: Option<String>,
         expires_at: Option<String>,
         reply: oneshot::Sender<Result<(), KurozumiError>>,
     },
-    GetMalToken {
+    GetServiceToken {
+        service: String,
         reply: oneshot::Sender<Result<Option<String>, KurozumiError>>,
     },
-    MalImportBatch {
+    ServiceImportBatch {
+        service: String,
         entries: Vec<(Anime, Option<LibraryEntry>)>,
         reply: oneshot::Sender<Result<usize, KurozumiError>>,
     },
@@ -245,14 +248,16 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
-    pub async fn save_mal_token(
+    pub async fn save_service_token(
         &self,
+        service: impl Into<String>,
         token: String,
         refresh: Option<String>,
         expires_at: Option<String>,
     ) -> Result<(), KurozumiError> {
         let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(DbCommand::SaveMalToken {
+        let _ = self.tx.send(DbCommand::SaveServiceToken {
+            service: service.into(),
             token,
             refresh,
             expires_at,
@@ -262,9 +267,15 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
-    pub async fn get_mal_token(&self) -> Result<Option<String>, KurozumiError> {
+    pub async fn get_service_token(
+        &self,
+        service: impl Into<String>,
+    ) -> Result<Option<String>, KurozumiError> {
         let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(DbCommand::GetMalToken { reply });
+        let _ = self.tx.send(DbCommand::GetServiceToken {
+            service: service.into(),
+            reply,
+        });
         rx.await
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
@@ -317,10 +328,7 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
-    pub async fn upsert_torrent_filter(
-        &self,
-        filter: TorrentFilter,
-    ) -> Result<i64, KurozumiError> {
+    pub async fn upsert_torrent_filter(&self, filter: TorrentFilter) -> Result<i64, KurozumiError> {
         let (reply, rx) = oneshot::channel();
         let _ = self
             .tx
@@ -331,18 +339,14 @@ impl DbHandle {
 
     pub async fn delete_torrent_filter(&self, id: i64) -> Result<(), KurozumiError> {
         let (reply, rx) = oneshot::channel();
-        let _ = self
-            .tx
-            .send(DbCommand::DeleteTorrentFilter { id, reply });
+        let _ = self.tx.send(DbCommand::DeleteTorrentFilter { id, reply });
         rx.await
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
 
     pub async fn is_torrent_archived(&self, guid: String) -> Result<bool, KurozumiError> {
         let (reply, rx) = oneshot::channel();
-        let _ = self
-            .tx
-            .send(DbCommand::IsTorrentArchived { guid, reply });
+        let _ = self.tx.send(DbCommand::IsTorrentArchived { guid, reply });
         rx.await
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
@@ -378,14 +382,19 @@ impl DbHandle {
         rx.await.unwrap_or_default()
     }
 
-    /// Import a batch of anime + optional library entries from MAL.
+    /// Import a batch of anime + optional library entries from a service.
     /// Returns the number of anime upserted.
-    pub async fn mal_import_batch(
+    pub async fn service_import_batch(
         &self,
+        service: impl Into<String>,
         entries: Vec<(Anime, Option<LibraryEntry>)>,
     ) -> Result<usize, KurozumiError> {
         let (reply, rx) = oneshot::channel();
-        let _ = self.tx.send(DbCommand::MalImportBatch { entries, reply });
+        let _ = self.tx.send(DbCommand::ServiceImportBatch {
+            service: service.into(),
+            entries,
+            reply,
+        });
         rx.await
             .unwrap_or_else(|_| Err(KurozumiError::Config("DB actor closed".into())))
     }
@@ -456,21 +465,22 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                 }
                 let _ = reply.send(result);
             }
-            DbCommand::SaveMalToken {
+            DbCommand::SaveServiceToken {
+                service,
                 token,
                 refresh,
                 expires_at,
                 reply,
             } => {
                 let _ = reply.send(storage.save_token(
-                    "mal",
+                    &service,
                     &token,
                     refresh.as_deref(),
                     expires_at.as_deref(),
                 ));
             }
-            DbCommand::GetMalToken { reply } => {
-                let _ = reply.send(storage.get_token("mal"));
+            DbCommand::GetServiceToken { service, reply } => {
+                let _ = reply.send(storage.get_token(&service));
             }
             DbCommand::GetLibraryRow { anime_id, reply } => {
                 let result = match storage.get_anime(anime_id) {
@@ -522,18 +532,25 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
             }
             DbCommand::MatchTorrentItems { mut items, reply } => {
                 kurozumi_core::torrent::matcher::match_torrent_items(
-                    &mut items,
-                    &storage,
-                    &mut cache,
+                    &mut items, &storage, &mut cache,
                 );
                 let _ = reply.send(items);
             }
-            DbCommand::MalImportBatch { entries, reply } => {
+            DbCommand::ServiceImportBatch {
+                service,
+                entries,
+                reply,
+            } => {
                 let mut count = 0usize;
                 let mut err: Option<KurozumiError> = None;
 
                 for (anime, library_entry) in &entries {
-                    match storage.upsert_anime_by_mal_id(anime) {
+                    let upsert_result = match service.as_str() {
+                        "anilist" => storage.upsert_anime_by_anilist_id(anime),
+                        "kitsu" => storage.upsert_anime_by_kitsu_id(anime),
+                        _ => storage.upsert_anime_by_mal_id(anime),
+                    };
+                    match upsert_result {
                         Ok(anime_id) => {
                             count += 1;
                             if let Some(entry) = library_entry {
