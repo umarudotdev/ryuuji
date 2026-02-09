@@ -1,4 +1,4 @@
--- kurozumi initial schema
+-- ryuuji initial schema
 
 CREATE TABLE IF NOT EXISTS anime (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

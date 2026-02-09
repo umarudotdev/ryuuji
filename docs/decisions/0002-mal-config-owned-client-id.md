@@ -44,7 +44,7 @@ Option B — user-provided Client ID in config.
 
 ## Rationale
 
-- **No infrastructure**: Kurozumi is a local-first application. No server to maintain or pay for.
+- **No infrastructure**: Ryuuji is a local-first application. No server to maintain or pay for.
 - **No credential leakage risk**: The Client ID never leaves the user's machine.
 - **Per-user rate limits**: Each user has their own API quota.
 - **Precedent**: Other open-source MAL tools (Taiga, MALClient, Trackma) use this approach.
