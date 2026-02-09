@@ -1,0 +1,106 @@
+[meta]
+name = "Ryuuji"
+
+# ── Dark variant ───────────────────────────────────────────────────
+
+[dark.surface]
+container_lowest = "#140D10"
+base = "#1A1114"
+container_low = "#221B1E"
+container = "#262025"
+container_high = "#312A2F"
+container_highest = "#3C343A"
+bright = "#413437"
+
+[dark.text]
+on_surface = "#EFE0E3"
+on_surface_variant = "#D6C2C6"
+outline = "#9E8E92"
+outline_variant = "#51454A"
+
+[dark.primary]
+base = "#FFB1C1"
+hover = "#FFC4D0"
+dim = "#E89AAB"
+on_primary = "#5E1127"
+container = "#7A2E3E"
+on_container = "#FFD9E0"
+
+[dark.secondary]
+container = "#524347"
+on_container = "#D6C2C6"
+
+[dark.tertiary]
+base = "#E8C68F"
+on_tertiary = "#3F2E04"
+
+[dark.error]
+base = "#FFB4AB"
+hover = "#CC3030"
+pressed = "#AA2020"
+on_error = "#FFFFFF"
+
+[dark.status]
+watching = "#FFB1C1"
+completed = "#4AC78B"
+on_hold = "#E8C68F"
+dropped = "#FFB4AB"
+plan = "#D6C2C6"
+
+[dark.inverse]
+surface = "#EFE0E3"
+on_surface = "#1A1114"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#FFF8F8"
+container_low = "#FFF0F1"
+container = "#FBE8EA"
+container_high = "#F5E2E5"
+container_highest = "#EFDCDF"
+bright = "#E8D5D8"
+
+[light.text]
+on_surface = "#211A1C"
+on_surface_variant = "#534348"
+outline = "#857076"
+outline_variant = "#D6C2C6"
+
+[light.primary]
+base = "#8E4456"
+hover = "#7A3A4A"
+dim = "#A25568"
+on_primary = "#FFFFFF"
+container = "#FFD9E0"
+on_container = "#3B0716"
+
+[light.secondary]
+container = "#F5DEE1"
+on_container = "#2B1D21"
+
+[light.tertiary]
+base = "#7D5800"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#BA1A1A"
+hover = "#9C1414"
+pressed = "#7E0E0E"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#8E4456"
+completed = "#1B6E42"
+on_hold = "#7D5800"
+dropped = "#BA1A1A"
+plan = "#534348"
+
+[light.inverse]
+surface = "#362E31"
+on_surface = "#FBEFF0"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

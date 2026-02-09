@@ -60,9 +60,23 @@ mod hex_color {
 // ── TOML intermediate structs ──────────────────────────────────────
 
 /// Raw TOML theme file structure.
+///
+/// Each file defines one theme with both dark and light variants.
 #[derive(Debug, Deserialize)]
 pub struct ThemeFile {
     pub meta: ThemeMeta,
+    pub dark: ThemeVariant,
+    pub light: ThemeVariant,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ThemeMeta {
+    pub name: String,
+}
+
+/// A single appearance variant (dark or light) within a theme.
+#[derive(Debug, Deserialize)]
+pub struct ThemeVariant {
     pub surface: SurfaceColors,
     pub text: TextColors,
     pub primary: PrimaryColors,
@@ -71,12 +85,6 @@ pub struct ThemeFile {
     pub error: ErrorColors,
     pub status: StatusColors,
     pub inverse: InverseColors,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ThemeMeta {
-    pub name: String,
-    pub kind: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -244,67 +252,50 @@ pub struct ColorScheme {
 }
 
 impl ColorScheme {
-    /// Build a ColorScheme from a parsed ThemeFile.
-    pub fn from_theme_file(f: &ThemeFile) -> Self {
+    /// Build a ColorScheme from a single theme variant.
+    pub fn from_variant(v: &ThemeVariant) -> Self {
         Self {
-            surface_container_lowest: f.surface.container_lowest,
-            surface: f.surface.base,
-            surface_container_low: f.surface.container_low,
-            surface_container: f.surface.container,
-            surface_container_high: f.surface.container_high,
-            surface_container_highest: f.surface.container_highest,
-            surface_bright: f.surface.bright,
+            surface_container_lowest: v.surface.container_lowest,
+            surface: v.surface.base,
+            surface_container_low: v.surface.container_low,
+            surface_container: v.surface.container,
+            surface_container_high: v.surface.container_high,
+            surface_container_highest: v.surface.container_highest,
+            surface_bright: v.surface.bright,
 
-            on_surface: f.text.on_surface,
-            on_surface_variant: f.text.on_surface_variant,
-            outline: f.text.outline,
-            outline_variant: f.text.outline_variant,
+            on_surface: v.text.on_surface,
+            on_surface_variant: v.text.on_surface_variant,
+            outline: v.text.outline,
+            outline_variant: v.text.outline_variant,
 
-            primary: f.primary.base,
-            primary_hover: f.primary.hover,
-            primary_dim: f.primary.dim,
-            on_primary: f.primary.on_primary,
-            primary_container: f.primary.container,
-            on_primary_container: f.primary.on_container,
+            primary: v.primary.base,
+            primary_hover: v.primary.hover,
+            primary_dim: v.primary.dim,
+            on_primary: v.primary.on_primary,
+            primary_container: v.primary.container,
+            on_primary_container: v.primary.on_container,
 
-            secondary_container: f.secondary.container,
-            on_secondary_container: f.secondary.on_container,
+            secondary_container: v.secondary.container,
+            on_secondary_container: v.secondary.on_container,
 
-            tertiary: f.tertiary.base,
-            on_tertiary: f.tertiary.on_tertiary,
+            tertiary: v.tertiary.base,
+            on_tertiary: v.tertiary.on_tertiary,
 
-            error: f.error.base,
-            error_hover: f.error.hover,
-            error_pressed: f.error.pressed,
-            on_error: f.error.on_error,
+            error: v.error.base,
+            error_hover: v.error.hover,
+            error_pressed: v.error.pressed,
+            on_error: v.error.on_error,
 
-            status_watching: f.status.watching,
-            status_completed: f.status.completed,
-            status_on_hold: f.status.on_hold,
-            status_dropped: f.status.dropped,
-            status_plan: f.status.plan,
+            status_watching: v.status.watching,
+            status_completed: v.status.completed,
+            status_on_hold: v.status.on_hold,
+            status_dropped: v.status.dropped,
+            status_plan: v.status.plan,
 
-            inverse_surface: f.inverse.surface,
-            inverse_on_surface: f.inverse.on_surface,
-            scrim: f.inverse.scrim,
-            modal_backdrop: f.inverse.modal_backdrop,
-        }
-    }
-
-    /// Get the color scheme for a given theme mode (from embedded defaults).
-    #[allow(dead_code)]
-    pub fn for_mode(mode: ThemeMode) -> Self {
-        match mode {
-            ThemeMode::Dark => Self::from_theme_file(
-                &toml::from_str(super::DEFAULT_DARK_TOML).expect("embedded dark theme is valid"),
-            ),
-            ThemeMode::Light => Self::from_theme_file(
-                &toml::from_str(super::DEFAULT_LIGHT_TOML).expect("embedded light theme is valid"),
-            ),
-            ThemeMode::System => match dark_light::detect() {
-                Ok(dark_light::Mode::Light) => Self::for_mode(ThemeMode::Light),
-                _ => Self::for_mode(ThemeMode::Dark),
-            },
+            inverse_surface: v.inverse.surface,
+            inverse_on_surface: v.inverse.on_surface,
+            scrim: v.inverse.scrim,
+            modal_backdrop: v.inverse.modal_backdrop,
         }
     }
 }

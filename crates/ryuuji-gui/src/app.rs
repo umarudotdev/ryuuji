@@ -29,6 +29,7 @@ pub struct Ryuuji {
     db: Option<DbHandle>,
     // Theme
     current_theme: RyuujiTheme,
+    active_mode: ThemeMode,
     // Screens
     now_playing: now_playing::NowPlaying,
     library: library::Library,
@@ -55,15 +56,16 @@ impl Default for Ryuuji {
             .and_then(|path| DbHandle::open(&path));
 
         // Resolve initial theme from config.
-        let theme_name = config.appearance.theme.as_str();
-        let current_theme = theme::find_theme(theme_name)
-            .unwrap_or_else(|| RyuujiTheme::for_mode(config.appearance.mode));
+        let current_theme = theme::find_theme(&config.appearance.theme)
+            .unwrap_or_else(RyuujiTheme::default_theme);
+        let active_mode = theme::resolve_mode(config.appearance.mode);
 
         Self {
             page: Page::default(),
             config,
             db,
             current_theme,
+            active_mode,
             now_playing: now_playing::NowPlaying::new(),
             library: library::Library::new(),
             history: history::History::new(),
@@ -1394,7 +1396,7 @@ impl Ryuuji {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let cs = &self.current_theme.colors;
+        let cs = self.current_theme.colors(self.active_mode);
         let nav = self.nav_rail(cs);
 
         let page_content: Element<'_, Message> = match self.page {
@@ -1461,34 +1463,19 @@ impl Ryuuji {
     }
 
     pub fn theme(&self) -> Theme {
-        self.current_theme.iced_theme()
+        self.current_theme.iced_theme(self.active_mode)
     }
 
     /// Resolve the current theme from the config's theme name + mode.
     ///
     /// Called after any settings change that might affect appearance.
-    /// Tries the named theme first; if it doesn't match the active mode
-    /// (or doesn't exist), falls back to the default for the mode.
     fn sync_theme(&mut self) {
-        let mode = self.config.appearance.mode;
-        let target_mode = match mode {
-            ThemeMode::System => match dark_light::detect() {
-                Ok(dark_light::Mode::Light) => ThemeMode::Light,
-                _ => ThemeMode::Dark,
-            },
-            other => other,
-        };
-
-        // If the named theme exists and matches the target mode, use it.
+        self.active_mode = theme::resolve_mode(self.config.appearance.mode);
         if let Some(named) = theme::find_theme(&self.config.appearance.theme) {
-            if named.kind == target_mode {
-                self.current_theme = named;
-                return;
-            }
+            self.current_theme = named;
+        } else {
+            self.current_theme = RyuujiTheme::default_theme();
         }
-
-        // Otherwise pick the default for the target mode.
-        self.current_theme = RyuujiTheme::for_mode(target_mode);
     }
 
     fn build_modal_content<'a>(

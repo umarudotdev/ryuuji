@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!--
+    Ryuuji App Icon — Dragon's Eye on dark badge
+    Rounded-square container with the dragon eye mark,
+    scale ridge details, and golden spark accent.
+  -->
+  <defs>
+    <linearGradient id="iris" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFC4D0"/>
+      <stop offset="45%" stop-color="#FFB1C1"/>
+      <stop offset="100%" stop-color="#E89AAB"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E8C68F"/>
+      <stop offset="100%" stop-color="#D4A85A"/>
+    </linearGradient>
+    <radialGradient id="eye-depth" cx="0.5" cy="0.62" r="0.5">
+      <stop offset="55%" stop-color="#FFB1C1" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#7A2E3E" stop-opacity="0.3"/>
+    </radialGradient>
+    <!-- Subtle radial glow behind the eye -->
+    <radialGradient id="glow" cx="0.5" cy="0.52" r="0.35">
+      <stop offset="0%" stop-color="#FFB1C1" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FFB1C1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="#1A1114"/>
+
+  <!-- Ambient glow -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#glow)"/>
+
+  <!-- Scale ridges above the eye — brow armor -->
+  <path d="M 130,195  Q 220,148  320,145  Q 390,144  420,165"
+        fill="none" stroke="#7A2E3E" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 152,180  Q 235,136  330,133  Q 395,132  425,152"
+        fill="none" stroke="#5E1127" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <path d="M 178,168  Q 250,128  338,125  Q 396,124  422,140"
+        fill="none" stroke="#5E1127" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Eye shape — fierce angular almond -->
+  <path d="
+    M 80,268
+    Q 148,178  268,184
+    Q 370,190  436,256
+    Q 438,264  436,270
+    Q 370,348  268,352
+    Q 148,358  80,272
+    Q 78,270  80,268
+    Z
+  " fill="url(#iris)"/>
+
+  <!-- Eye depth overlay -->
+  <path d="
+    M 80,268
+    Q 148,178  268,184
+    Q 370,190  436,256
+    Q 438,264  436,270
+    Q 370,348  268,352
+    Q 148,358  80,272
+    Q 78,270  80,268
+    Z
+  " fill="url(#eye-depth)"/>
+
+  <!-- Pupil — vertical slit -->
+  <path d="
+    M 262,178
+    Q 290,268  262,358
+    Q 238,268  262,178
+    Z
+  " fill="#1A1114"/>
+
+  <!-- Specular highlights -->
+  <ellipse cx="226" cy="238" rx="18" ry="22" fill="white" opacity="0.2"/>
+  <circle cx="222" cy="232" r="9" fill="white" opacity="0.35"/>
+  <circle cx="300" cy="296" r="5" fill="white" opacity="0.12"/>
+
+  <!-- Under-eye scale line -->
+  <path d="M 138,345  Q 230,380  330,375  Q 392,370  425,348"
+        fill="none" stroke="#7A2E3E" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Golden spark at outer corner — dragon fire -->
+  <path d="
+    M 432,258
+    L 452,244
+    L 446,264
+    L 462,268
+    L 448,276
+    L 434,272
+    Z
+  " fill="url(#spark)" opacity="0.8"/>
+  <path d="
+    M 440,252
+    L 448,240
+    L 450,256
+    Z
+  " fill="#E8C68F" opacity="0.4"/>
+</svg>

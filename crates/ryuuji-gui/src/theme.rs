@@ -1,7 +1,7 @@
 //! Material Design 3 theme — warm pink accent with tonal surfaces.
 //!
-//! Supports both embedded default themes and user-provided TOML theme files
-//! discovered from `~/.config/ryuuji/themes/`.
+//! Each theme is a single TOML file containing both dark and light variants.
+//! Supports embedded defaults and user-provided themes from `~/.config/ryuuji/themes/`.
 
 mod catalog;
 mod colors;
@@ -12,17 +12,15 @@ pub use colors::*;
 
 use iced::Theme;
 
-/// Embedded default theme TOML sources.
-pub(crate) const DEFAULT_DARK_TOML: &str = include_str!("../assets/themes/default-dark.toml");
-pub(crate) const DEFAULT_LIGHT_TOML: &str = include_str!("../assets/themes/default-light.toml");
+/// Embedded default theme TOML source (contains both dark and light).
+pub(crate) const DEFAULT_THEME_TOML: &str = include_str!("../assets/themes/default.toml");
 
-/// A fully loaded theme with metadata and computed colors.
+/// A fully loaded theme with both appearance variants.
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct RyuujiTheme {
     pub name: String,
-    pub kind: ThemeMode,
-    pub colors: ColorScheme,
+    pub dark: ColorScheme,
+    pub light: ColorScheme,
 }
 
 impl RyuujiTheme {
@@ -30,55 +28,47 @@ impl RyuujiTheme {
     pub fn from_toml(toml_str: &str) -> Result<Self, String> {
         let file: ThemeFile =
             toml::from_str(toml_str).map_err(|e| format!("theme parse error: {e}"))?;
-        let kind = match file.meta.kind.as_str() {
-            "dark" => ThemeMode::Dark,
-            "light" => ThemeMode::Light,
-            other => return Err(format!("unknown theme kind: {other}")),
-        };
-        let colors = ColorScheme::from_theme_file(&file);
         Ok(Self {
             name: file.meta.name.clone(),
-            kind,
-            colors,
+            dark: ColorScheme::from_variant(&file.dark),
+            light: ColorScheme::from_variant(&file.light),
         })
     }
 
-    /// Load the embedded default dark theme.
-    pub fn default_dark() -> Self {
-        Self::from_toml(DEFAULT_DARK_TOML).expect("embedded dark theme is valid TOML")
+    /// Load the embedded default theme.
+    pub fn default_theme() -> Self {
+        Self::from_toml(DEFAULT_THEME_TOML).expect("embedded default theme is valid TOML")
     }
 
-    /// Load the embedded default light theme.
-    pub fn default_light() -> Self {
-        Self::from_toml(DEFAULT_LIGHT_TOML).expect("embedded light theme is valid TOML")
-    }
-
-    /// Get the default theme for a given mode.
-    ///
-    /// For `System`, detects the OS preference at call time.
-    pub fn for_mode(mode: ThemeMode) -> Self {
+    /// Get the color scheme for a resolved mode (Dark or Light).
+    pub fn colors(&self, mode: ThemeMode) -> &ColorScheme {
         match mode {
-            ThemeMode::Dark => Self::default_dark(),
-            ThemeMode::Light => Self::default_light(),
-            ThemeMode::System => match dark_light::detect() {
-                Ok(dark_light::Mode::Light) => Self::default_light(),
-                _ => Self::default_dark(),
-            },
+            ThemeMode::Light => &self.light,
+            // Dark is the fallback for both Dark and System.
+            _ => &self.dark,
         }
     }
 
-    /// Build the iced Theme from this theme's colors.
-    pub fn iced_theme(&self) -> Theme {
-        build_theme(&self.colors)
+    /// Build the iced Theme for a given mode.
+    pub fn iced_theme(&self, mode: ThemeMode) -> Theme {
+        build_theme(self.colors(mode))
     }
 }
 
-/// Discover all available themes: embedded defaults + user themes from disk.
+/// Resolve `ThemeMode::System` to a concrete Dark or Light.
+pub fn resolve_mode(mode: ThemeMode) -> ThemeMode {
+    match mode {
+        ThemeMode::System => match dark_light::detect() {
+            Ok(dark_light::Mode::Light) => ThemeMode::Light,
+            _ => ThemeMode::Dark,
+        },
+        other => other,
+    }
+}
+
+/// Discover all available themes: embedded default + user themes from disk.
 pub fn available_themes() -> Vec<RyuujiTheme> {
-    let mut themes = vec![
-        RyuujiTheme::default_dark(),
-        RyuujiTheme::default_light(),
-    ];
+    let mut themes = vec![RyuujiTheme::default_theme()];
 
     // Scan user themes directory.
     if let Some(user_themes) = user_themes_dir() {
