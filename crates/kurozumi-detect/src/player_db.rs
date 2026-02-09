@@ -24,6 +24,9 @@ pub struct PlayerDef {
     /// Whether this player is enabled for detection.
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Whether this player is a web browser (for streaming service detection).
+    #[serde(default)]
+    pub is_browser: bool,
 }
 
 fn default_true() -> bool {
@@ -228,6 +231,24 @@ mod tests {
         assert_eq!(db.players.len(), original_count + 1);
         let custom = db.find_by_mpris("custom").unwrap();
         assert_eq!(custom.name, "Custom Player");
+    }
+
+    #[test]
+    fn test_is_browser_true_for_browsers() {
+        let db = PlayerDatabase::embedded();
+        let firefox = db.find_by_mpris("firefox").unwrap();
+        assert!(firefox.is_browser);
+        let chrome = db.find_by_mpris("chrome").unwrap();
+        assert!(chrome.is_browser);
+    }
+
+    #[test]
+    fn test_is_browser_false_for_media_players() {
+        let db = PlayerDatabase::embedded();
+        let mpv = db.find_by_mpris("mpv").unwrap();
+        assert!(!mpv.is_browser);
+        let vlc = db.find_by_mpris("vlc").unwrap();
+        assert!(!vlc.is_browser);
     }
 
     #[test]

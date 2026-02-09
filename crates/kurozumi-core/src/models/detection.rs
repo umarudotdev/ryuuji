@@ -15,4 +15,6 @@ pub struct DetectedMedia {
     pub resolution: Option<String>,
     /// Raw title string before parsing.
     pub raw_title: String,
+    /// Streaming service name (e.g., "Crunchyroll"), if detected via browser.
+    pub service_name: Option<String>,
 }

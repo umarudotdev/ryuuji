@@ -151,7 +151,12 @@ fn playing_dashboard<'a>(
         .map(|ep| format!("Episode {ep}"))
         .unwrap_or_default();
 
-    let mut meta_parts: Vec<String> = vec![media.player_name.clone()];
+    let player_label = if let Some(service) = &media.service_name {
+        format!("{} \u{00B7} {service}", media.player_name)
+    } else {
+        media.player_name.clone()
+    };
+    let mut meta_parts: Vec<String> = vec![player_label];
     if let Some(group) = &media.release_group {
         meta_parts.push(group.clone());
     }

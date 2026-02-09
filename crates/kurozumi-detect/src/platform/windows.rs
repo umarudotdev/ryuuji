@@ -63,6 +63,7 @@ unsafe extern "system" fn enum_window_callback(hwnd: HWND, lparam: LPARAM) -> BO
             player_name: player.name.clone(),
             media_title,
             file_path: None,
+            is_browser: player.is_browser,
         });
     }
 
