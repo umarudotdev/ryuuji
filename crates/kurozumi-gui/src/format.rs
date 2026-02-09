@@ -38,6 +38,25 @@ pub fn source(s: &str) -> String {
     }
 }
 
+/// Format a UTC timestamp as a human-readable relative time string.
+pub fn relative_time(dt: &chrono::DateTime<chrono::Utc>) -> String {
+    let now = chrono::Utc::now();
+    let secs = (now - *dt).num_seconds().max(0);
+
+    if secs < 60 {
+        "just now".into()
+    } else if secs < 3600 {
+        let m = secs / 60;
+        format!("{m}m ago")
+    } else if secs < 86400 {
+        let h = secs / 3600;
+        format!("{h}h ago")
+    } else {
+        let d = secs / 86400;
+        format!("{d}d ago")
+    }
+}
+
 pub fn rating(s: &str) -> String {
     match s {
         "g" => "G".into(),

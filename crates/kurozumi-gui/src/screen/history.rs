@@ -1,45 +1,220 @@
-use iced::widget::{center, column, container, row, text, Space};
-use iced::{Element, Length, Task};
+use iced::widget::{button, center, column, container, row, rule, text, Space};
+use iced::{Alignment, Element, Length, Task};
 
 use chrono::{Local, NaiveDate};
-use kurozumi_core::storage::HistoryRow;
+use kurozumi_core::models::WatchStatus;
+use kurozumi_core::storage::{HistoryRow, LibraryRow};
 
 use crate::app;
 use crate::cover_cache::CoverCache;
 use crate::db::DbHandle;
-use crate::screen::Action;
+use crate::screen::{Action, ContextAction, ModalKind};
 use crate::style;
-use crate::theme::ColorScheme;
+use crate::theme::{self, ColorScheme};
 use crate::widgets;
 
 /// History screen state.
 pub struct History {
     pub entries: Vec<HistoryRow>,
+    pub selected_anime: Option<i64>,
+    /// Full library row for the selected anime (fetched on demand).
+    pub selected_row: Option<LibraryRow>,
+    pub score_input: String,
+    pub episode_input: String,
 }
 
 /// Messages handled by the History screen.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // ContextAction is infrastructure for future context menus
 pub enum Message {
     HistoryRefreshed(Result<Vec<HistoryRow>, String>),
+    AnimeSelected(i64),
+    CloseDetail,
+    LibraryRowFetched(Box<Result<Option<LibraryRow>, String>>),
+    // Detail panel editing
+    EpisodeChanged(i64, u32),
+    StatusChanged(i64, WatchStatus),
+    ScoreChanged(i64, f32),
+    ScoreInputChanged(String),
+    ScoreInputSubmitted,
+    EpisodeInputChanged(String),
+    EpisodeInputSubmitted,
+    // Context menu
+    ContextAction(i64, ContextAction),
+    ConfirmDelete(i64),
+    CancelModal,
+    DbOperationDone(Result<(), String>),
 }
 
 impl History {
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
+            selected_anime: None,
+            selected_row: None,
+            score_input: String::new(),
+            episode_input: String::new(),
         }
     }
 
     /// Handle a history message, returning an Action for the app router.
-    pub fn update(&mut self, msg: Message) -> Action {
+    pub fn update(&mut self, msg: Message, db: Option<&DbHandle>) -> Action {
         match msg {
             Message::HistoryRefreshed(Ok(entries)) => {
                 self.entries = entries;
                 Action::None
             }
             Message::HistoryRefreshed(Err(e)) => Action::SetStatus(format!("History error: {e}")),
+            Message::AnimeSelected(id) => {
+                self.selected_anime = Some(id);
+                self.fetch_library_row(db, id)
+            }
+            Message::CloseDetail => {
+                self.selected_anime = None;
+                self.selected_row = None;
+                Action::None
+            }
+            Message::LibraryRowFetched(result) => {
+                if let Ok(Some(row)) = *result {
+                    self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
+                    self.episode_input = row.entry.watched_episodes.to_string();
+                    self.selected_row = Some(row);
+                } else {
+                    // Anime no longer in library — close the detail panel.
+                    self.selected_anime = None;
+                    self.selected_row = None;
+                }
+                Action::None
+            }
+            // ── Detail panel editing ─────────────────────────────
+            Message::EpisodeChanged(anime_id, new_ep) => {
+                if let Some(db) = db {
+                    let db = db.clone();
+                    return Action::RunTask(Task::perform(
+                        async move {
+                            let _ = db.update_episode_count(anime_id, new_ep).await;
+                            let _ = db.record_watch(anime_id, new_ep).await;
+                        },
+                        |_| app::Message::History(Message::DbOperationDone(Ok(()))),
+                    ));
+                }
+                Action::None
+            }
+            Message::StatusChanged(anime_id, new_status) => {
+                if let Some(db) = db {
+                    let db = db.clone();
+                    return Action::RunTask(Task::perform(
+                        async move { db.update_library_status(anime_id, new_status).await },
+                        |r| {
+                            app::Message::History(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    ));
+                }
+                Action::None
+            }
+            Message::ScoreChanged(anime_id, score) => {
+                if let Some(db) = db {
+                    let db = db.clone();
+                    return Action::RunTask(Task::perform(
+                        async move { db.update_library_score(anime_id, score).await },
+                        |r| {
+                            app::Message::History(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    ));
+                }
+                Action::None
+            }
+            Message::ScoreInputChanged(val) => {
+                self.score_input = val;
+                Action::None
+            }
+            Message::ScoreInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    let score = self
+                        .score_input
+                        .parse::<f32>()
+                        .unwrap_or(0.0)
+                        .clamp(0.0, 10.0);
+                    self.score_input = format!("{score:.1}");
+                    return self.update(Message::ScoreChanged(anime_id, score), db);
+                }
+                Action::None
+            }
+            Message::EpisodeInputChanged(val) => {
+                self.episode_input = val;
+                Action::None
+            }
+            Message::EpisodeInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    let max_ep = self
+                        .selected_row
+                        .as_ref()
+                        .and_then(|r| r.anime.episodes)
+                        .unwrap_or(u32::MAX);
+                    let ep = self.episode_input.parse::<u32>().unwrap_or(0).min(max_ep);
+                    self.episode_input = ep.to_string();
+                    return self.update(Message::EpisodeChanged(anime_id, ep), db);
+                }
+                Action::None
+            }
+            // ── Context menu ─────────────────────────────────────
+            Message::ContextAction(anime_id, action) => match action {
+                ContextAction::ChangeStatus(new_status) => {
+                    if let Some(db) = db {
+                        let db = db.clone();
+                        return Action::RunTask(Task::perform(
+                            async move { db.update_library_status(anime_id, new_status).await },
+                            |r| {
+                                app::Message::History(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
+                        ));
+                    }
+                    Action::None
+                }
+                ContextAction::Delete => {
+                    let title = self
+                        .entries
+                        .iter()
+                        .find(|r| r.anime.id == anime_id)
+                        .map(|r| r.anime.title.preferred().to_string())
+                        .unwrap_or_else(|| "this anime".into());
+                    Action::ShowModal(ModalKind::ConfirmDelete {
+                        anime_id,
+                        title,
+                        source: super::Page::History,
+                    })
+                }
+            },
+            Message::ConfirmDelete(anime_id) => {
+                if let Some(db) = db {
+                    if self.selected_anime == Some(anime_id) {
+                        self.selected_anime = None;
+                        self.selected_row = None;
+                    }
+                    let db = db.clone();
+                    return Action::RunTask(Task::perform(
+                        async move { db.delete_library_entry(anime_id).await },
+                        |r| {
+                            app::Message::History(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    ));
+                }
+                Action::None
+            }
+            Message::CancelModal => Action::DismissModal,
+            Message::DbOperationDone(_result) => self.refresh_all(db),
         }
     }
+
+    // ── Async actions ────────────────────────────────────────────
 
     /// Fire a task to load watch history from the DB.
     pub fn load_history(&self, db: Option<&DbHandle>) -> Action {
@@ -56,6 +231,56 @@ impl History {
             |result| app::Message::History(Message::HistoryRefreshed(result)),
         ))
     }
+
+    /// Fetch the full LibraryRow for the detail panel.
+    fn fetch_library_row(&self, db: Option<&DbHandle>, anime_id: i64) -> Action {
+        let Some(db) = db else {
+            return Action::None;
+        };
+        let db = db.clone();
+        Action::RunTask(Task::perform(
+            async move {
+                db.get_library_row(anime_id)
+                    .await
+                    .map_err(|e| e.to_string())
+            },
+            |r| app::Message::History(Message::LibraryRowFetched(Box::new(r))),
+        ))
+    }
+
+    /// Re-fetch both history and the selected row after a DB write.
+    fn refresh_all(&self, db: Option<&DbHandle>) -> Action {
+        let Some(db) = db else {
+            return Action::None;
+        };
+        let db1 = db.clone();
+        let history_task = Task::perform(
+            async move {
+                db1.get_watch_history(500)
+                    .await
+                    .map_err(|e| e.to_string())
+            },
+            |r| app::Message::History(Message::HistoryRefreshed(r)),
+        );
+
+        let row_task = if let Some(id) = self.selected_anime {
+            let db2 = db.clone();
+            Task::perform(
+                async move {
+                    db2.get_library_row(id)
+                        .await
+                        .map_err(|e| e.to_string())
+                },
+                |r| app::Message::History(Message::LibraryRowFetched(Box::new(r))),
+            )
+        } else {
+            Task::none()
+        };
+
+        Action::RunTask(Task::batch([history_task, row_task]))
+    }
+
+    // ── View ─────────────────────────────────────────────────────
 
     pub fn view<'a>(
         &'a self,
@@ -100,7 +325,8 @@ impl History {
                 );
             }
 
-            content = content.push(history_item(entry, cs, cover_cache));
+            content =
+                content.push(history_item(entry, cs, cover_cache, self.selected_anime));
         }
 
         let scrollable_content = crate::widgets::styled_scrollable(
@@ -111,34 +337,70 @@ impl History {
         )
         .height(Length::Fill);
 
-        container(
-            column![
-                // Header
-                container(
-                    text("History")
-                        .size(style::TEXT_XL)
-                        .font(style::FONT_HEADING)
-                        .line_height(style::LINE_HEIGHT_TIGHT),
-                )
-                .padding(iced::Padding::new(style::SPACE_XL)
+        let list = column![
+            // Header
+            container(
+                text("History")
+                    .size(style::TEXT_XL)
+                    .font(style::FONT_HEADING)
+                    .line_height(style::LINE_HEIGHT_TIGHT),
+            )
+            .padding(
+                iced::Padding::new(style::SPACE_XL)
                     .top(style::SPACE_LG)
-                    .bottom(style::SPACE_SM)),
-                scrollable_content,
-            ]
-            .width(Length::Fill)
-            .height(Length::Fill),
-        )
+                    .bottom(style::SPACE_SM),
+            ),
+            scrollable_content,
+        ]
         .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        .height(Length::Fill);
+
+        // Detail panel (shown when a library row has been fetched for the selection)
+        if let Some(lib_row) = &self.selected_row {
+            let anime_id = lib_row.anime.id;
+            let detail = widgets::detail_panel(
+                cs,
+                lib_row,
+                Message::CloseDetail,
+                move |s| Message::StatusChanged(anime_id, s),
+                move |v| Message::ScoreChanged(anime_id, v),
+                move |ep| Message::EpisodeChanged(anime_id, ep),
+                &self.score_input,
+                Message::ScoreInputChanged,
+                Message::ScoreInputSubmitted,
+                &self.episode_input,
+                Message::EpisodeInputChanged,
+                Message::EpisodeInputSubmitted,
+                cover_cache,
+            );
+            return row![
+                container(list)
+                    .width(Length::FillPortion(3))
+                    .height(Length::Fill),
+                rule::vertical(1),
+                container(detail)
+                    .width(Length::FillPortion(2))
+                    .height(Length::Fill),
+            ]
+            .height(Length::Fill)
+            .into();
+        }
+
+        container(list)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
     }
 }
 
-/// A single history item row.
+// ── History item widget ──────────────────────────────────────────
+
+/// A single history item row with cover thumbnail, metadata, and selection support.
 fn history_item<'a>(
     entry: &'a HistoryRow,
     cs: &ColorScheme,
     cover_cache: &'a CoverCache,
+    selected: Option<i64>,
 ) -> Element<'a, Message> {
     let time_str = entry
         .watched_at
@@ -147,44 +409,79 @@ fn history_item<'a>(
         .to_string();
     let title = entry.anime.title.preferred();
     let episode_text = format!("Episode {}", entry.episode);
+    let is_selected = selected == Some(entry.anime.id);
+    let anime_id = entry.anime.id;
 
     let thumb = widgets::rounded_cover(
         cs,
         cover_cache,
-        entry.anime.id,
+        anime_id,
         style::THUMB_WIDTH,
         style::THUMB_HEIGHT,
         style::RADIUS_SM,
     );
 
-    let info = column![
-        text(title)
-            .size(style::TEXT_BASE)
-            .line_height(style::LINE_HEIGHT_NORMAL)
-            .color(cs.on_surface),
+    // Title + metadata column
+    let mut meta_parts: Vec<String> = Vec::new();
+    if let Some(mt) = &entry.anime.media_type {
+        meta_parts.push(crate::format::media_type(mt));
+    }
+    if let Some(year) = entry.anime.year {
+        meta_parts.push(year.to_string());
+    }
+    let genre_str: String = entry
+        .anime
+        .genres
+        .iter()
+        .take(2)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    if !genre_str.is_empty() {
+        meta_parts.push(genre_str);
+    }
+
+    let mut info_col = column![text(title)
+        .size(style::TEXT_BASE)
+        .font(style::FONT_HEADING)
+        .line_height(style::LINE_HEIGHT_NORMAL)
+        .wrapping(iced::widget::text::Wrapping::None)]
+    .spacing(style::SPACE_XXS)
+    .clip(true);
+
+    if !meta_parts.is_empty() {
+        info_col = info_col.push(
+            text(meta_parts.join("  \u{00B7}  "))
+                .size(style::TEXT_XS)
+                .color(cs.outline)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+    }
+
+    // Right side: episode badge + timestamp
+    let right_col = column![
         text(episode_text)
             .size(style::TEXT_SM)
-            .line_height(style::LINE_HEIGHT_LOOSE)
-            .color(cs.on_surface_variant),
+            .color(cs.on_surface_variant)
+            .line_height(style::LINE_HEIGHT_NORMAL),
+        text(time_str)
+            .size(style::TEXT_XS)
+            .color(cs.outline)
+            .line_height(style::LINE_HEIGHT_LOOSE),
     ]
-    .spacing(style::SPACE_XXS);
+    .spacing(style::SPACE_XXS)
+    .align_x(Alignment::End);
 
-    container(
-        row![
-            text(time_str)
-                .size(style::TEXT_SM)
-                .color(cs.outline)
-                .line_height(style::LINE_HEIGHT_NORMAL)
-                .width(Length::Fixed(48.0)),
-            thumb,
-            info,
-        ]
-        .spacing(style::SPACE_MD)
-        .align_y(iced::Alignment::Center),
-    )
-    .padding([style::SPACE_SM, style::SPACE_MD])
-    .width(Length::Fill)
-    .into()
+    let content = row![thumb, info_col.width(Length::Fill), right_col]
+        .spacing(style::SPACE_SM)
+        .align_y(Alignment::Center);
+
+    button(content)
+        .width(Length::Fill)
+        .padding([style::SPACE_XS, style::SPACE_MD])
+        .on_press(Message::AnimeSelected(anime_id))
+        .style(theme::list_item(is_selected, cs))
+        .into()
 }
 
 /// Empty state when no history exists.
