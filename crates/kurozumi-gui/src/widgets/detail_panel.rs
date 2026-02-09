@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, pick_list, progress_bar, row, scrollable, text};
+use iced::widget::{button, column, container, pick_list, progress_bar, row, text};
 use iced::{Alignment, Element, Length};
 
 use kurozumi_api::traits::AnimeSearchResult;
@@ -117,13 +117,20 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     }
 
     // ── Close button ──────────────────────────────────────────────
+    let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
     let close_btn = button(
-        lucide_icons::iced::icon_x()
-            .size(style::TEXT_SM)
-            .color(cs.on_surface_variant),
+        container(
+            lucide_icons::iced::icon_x()
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill),
     )
     .on_press(on_close)
-    .padding(style::SPACE_XS)
+    .padding(0)
+    .width(Length::Fixed(close_size))
+    .height(Length::Fixed(close_size))
     .style(theme::icon_button(cs));
 
     let top_bar = row![container("").width(Length::Fill), close_btn]
@@ -305,14 +312,7 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
 
     detail_content = detail_content.push(progress_card);
 
-    scrollable(detail_content)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(6)
-                .scroller_width(4)
-                .margin(2),
-        ))
-        .style(theme::overlay_scrollbar(cs))
+    super::styled_scrollable(detail_content, cs)
         .height(Length::Fill)
         .into()
 }
@@ -412,13 +412,20 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
     }
 
     // Close button
+    let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
     let close_btn = button(
-        lucide_icons::iced::icon_x()
-            .size(style::TEXT_SM)
-            .color(cs.on_surface_variant),
+        container(
+            lucide_icons::iced::icon_x()
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill),
     )
     .on_press(on_close)
-    .padding(style::SPACE_XS)
+    .padding(0)
+    .width(Length::Fixed(close_size))
+    .height(Length::Fixed(close_size))
     .style(theme::icon_button(cs));
 
     let top_bar = row![container("").width(Length::Fill), close_btn]
@@ -478,14 +485,7 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
 
     detail_content = detail_content.push(add_btn);
 
-    scrollable(detail_content)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(6)
-                .scroller_width(4)
-                .margin(2),
-        ))
-        .style(theme::overlay_scrollbar(cs))
+    super::styled_scrollable(detail_content, cs)
         .height(Length::Fill)
         .into()
 }

@@ -357,14 +357,7 @@ impl Settings {
         .padding(style::SPACE_XL)
         .width(Length::Fill);
 
-        iced::widget::scrollable(page)
-            .direction(iced::widget::scrollable::Direction::Vertical(
-                iced::widget::scrollable::Scrollbar::new()
-                    .width(6)
-                    .scroller_width(4)
-                    .margin(2),
-            ))
-            .style(theme::overlay_scrollbar(cs))
+        crate::widgets::styled_scrollable(page, cs)
             .height(Length::Fill)
             .into()
     }

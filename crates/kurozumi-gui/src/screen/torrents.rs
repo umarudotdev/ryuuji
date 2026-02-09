@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use iced::widget::{
-    button, checkbox, column, container, pick_list, row, scrollable, text, text_input, toggler,
+    button, checkbox, column, container, pick_list, row, text, text_input, toggler,
     Space,
 };
 use iced::{Alignment, Element, Length, Task};
@@ -53,16 +53,14 @@ pub enum Message {
     RefreshFeeds,
     FeedItemsLoaded(Result<Vec<TorrentItem>, String>),
     ToggleItem(String),
-    SelectAll,
-    DeselectAll,
     DownloadSelected,
     DownloadDone(Result<usize, String>),
     // Sources tab
     FeedsLoaded(Result<Vec<TorrentFeed>, String>),
     ToggleFeed(i64, bool),
-    FeedSaved(Result<i64, String>),
+    FeedSaved,
     DeleteFeed(i64),
-    FeedDeleted(Result<(), String>),
+    FeedDeleted,
     EditFeed(Option<TorrentFeed>),
     FeedNameChanged(String),
     FeedUrlChanged(String),
@@ -70,9 +68,9 @@ pub enum Message {
     // Filters tab
     FiltersLoaded(Result<Vec<TorrentFilter>, String>),
     ToggleFilter(i64, bool),
-    FilterSaved(Result<i64, String>),
+    FilterSaved,
     DeleteFilter(i64),
-    FilterDeleted(Result<(), String>),
+    FilterDeleted,
     EditFilter(Option<TorrentFilter>),
     FilterNameChanged(String),
     AddCondition,
@@ -144,16 +142,6 @@ impl Torrents {
                 }
                 Action::None
             }
-            Message::SelectAll => {
-                for item in &self.feed_items {
-                    self.selected_items.insert(item.guid.clone());
-                }
-                Action::None
-            }
-            Message::DeselectAll => {
-                self.selected_items.clear();
-                Action::None
-            }
             Message::DownloadSelected => self.download_selected(db),
             Message::DownloadDone(Ok(count)) => {
                 self.selected_items.clear();
@@ -174,9 +162,9 @@ impl Torrents {
                 }
                 Action::None
             }
-            Message::FeedSaved(_) => self.load_feeds(db),
+            Message::FeedSaved => self.load_feeds(db),
             Message::DeleteFeed(id) => self.delete_feed_action(db, id),
-            Message::FeedDeleted(_) => self.load_feeds(db),
+            Message::FeedDeleted => self.load_feeds(db),
             Message::EditFeed(feed) => {
                 if let Some(ref f) = feed {
                     self.feed_name_input = f.name.clone();
@@ -225,9 +213,9 @@ impl Torrents {
                 }
                 Action::None
             }
-            Message::FilterSaved(_) => self.load_filters(db),
+            Message::FilterSaved => self.load_filters(db),
             Message::DeleteFilter(id) => self.delete_filter_action(db, id),
-            Message::FilterDeleted(_) => self.load_filters(db),
+            Message::FilterDeleted => self.load_filters(db),
             Message::EditFilter(filter) => {
                 if let Some(ref f) = filter {
                     self.filter_name_input = f.name.clone();
@@ -429,7 +417,7 @@ impl Torrents {
                     .await
                     .map_err(|e| e.to_string())
             },
-            |r| app::Message::Torrents(Message::FeedSaved(r)),
+            |_| app::Message::Torrents(Message::FeedSaved),
         ))
     }
 
@@ -444,7 +432,7 @@ impl Torrents {
                     .await
                     .map_err(|e| e.to_string())
             },
-            |r| app::Message::Torrents(Message::FeedDeleted(r)),
+            |_| app::Message::Torrents(Message::FeedDeleted),
         ))
     }
 
@@ -459,7 +447,7 @@ impl Torrents {
                     .await
                     .map_err(|e| e.to_string())
             },
-            |r| app::Message::Torrents(Message::FilterSaved(r)),
+            |_| app::Message::Torrents(Message::FilterSaved),
         ))
     }
 
@@ -474,7 +462,7 @@ impl Torrents {
                     .await
                     .map_err(|e| e.to_string())
             },
-            |r| app::Message::Torrents(Message::FilterDeleted(r)),
+            |_| app::Message::Torrents(Message::FilterDeleted),
         ))
     }
 
@@ -700,7 +688,8 @@ impl Torrents {
 
         column![
             toolbar,
-            scrollable(list.width(Length::Fill)).height(Length::Fill),
+            crate::widgets::styled_scrollable(list.width(Length::Fill), cs)
+                .height(Length::Fill),
         ]
         .spacing(style::SPACE_SM)
         .padding([style::SPACE_SM, style::SPACE_XL])
@@ -791,10 +780,11 @@ impl Torrents {
             content = content.push(feed_row);
         }
 
-        scrollable(
+        crate::widgets::styled_scrollable(
             content
                 .padding([style::SPACE_SM, style::SPACE_XL])
                 .width(Length::Fill),
+            cs,
         )
         .height(Length::Fill)
         .into()
@@ -965,10 +955,11 @@ impl Torrents {
             content = content.push(filter_row);
         }
 
-        scrollable(
+        crate::widgets::styled_scrollable(
             content
                 .padding([style::SPACE_SM, style::SPACE_XL])
                 .width(Length::Fill),
+            cs,
         )
         .height(Length::Fill)
         .into()

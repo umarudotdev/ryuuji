@@ -13,8 +13,8 @@ pub use colors::*;
 use iced::Theme;
 
 /// Embedded default theme TOML sources.
-pub(crate) const DEFAULT_DARK_TOML: &str = include_str!("../../assets/themes/default-dark.toml");
-pub(crate) const DEFAULT_LIGHT_TOML: &str = include_str!("../../assets/themes/default-light.toml");
+pub(crate) const DEFAULT_DARK_TOML: &str = include_str!("../assets/themes/default-dark.toml");
+pub(crate) const DEFAULT_LIGHT_TOML: &str = include_str!("../assets/themes/default-light.toml");
 
 /// A fully loaded theme with metadata and computed colors.
 #[derive(Debug, Clone)]

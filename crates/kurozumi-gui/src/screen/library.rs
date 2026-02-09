@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, pick_list, row, rule, scrollable, text};
+use iced::widget::{button, column, container, pick_list, row, rule, text};
 use iced::{Alignment, Element, Length, Task};
 
 use kurozumi_core::models::WatchStatus;
@@ -334,18 +334,12 @@ impl Library {
                 })
                 .collect();
 
-            scrollable(
+            crate::widgets::styled_scrollable(
                 column(items)
                     .spacing(style::SPACE_XXS)
                     .padding([style::SPACE_XS, style::SPACE_LG]),
+                cs,
             )
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new()
-                    .width(6)
-                    .scroller_width(4)
-                    .margin(2),
-            ))
-            .style(theme::overlay_scrollbar(cs))
             .height(Length::Fill)
             .into()
         };

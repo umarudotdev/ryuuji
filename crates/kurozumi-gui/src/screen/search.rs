@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, pick_list, row, rule, scrollable, text, text_input};
+use iced::widget::{button, column, container, pick_list, row, rule, text, text_input};
 use iced::{Alignment, Element, Length, Task};
 
 use kurozumi_api::traits::AnimeSearchResult;
@@ -472,13 +472,20 @@ impl Search {
             .align_y(Alignment::Center);
 
         if !self.query.is_empty() {
+            let clear_size = style::TEXT_SM + style::SPACE_XS * 2.0;
             let clear_btn = button(
-                lucide_icons::iced::icon_x()
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),
+                container(
+                    lucide_icons::iced::icon_x()
+                        .size(style::TEXT_SM)
+                        .color(cs.on_surface_variant),
+                )
+                .center_x(Length::Fill)
+                .center_y(Length::Fill),
             )
             .on_press(Message::ClearQuery)
-            .padding(style::SPACE_XS)
+            .padding(0)
+            .width(Length::Fixed(clear_size))
+            .height(Length::Fixed(clear_size))
             .style(theme::icon_button(cs));
             search_row = search_row.push(clear_btn);
         }
@@ -561,18 +568,12 @@ impl Search {
                 })
                 .collect();
 
-            scrollable(
+            crate::widgets::styled_scrollable(
                 column(items)
                     .spacing(style::SPACE_XXS)
                     .padding([style::SPACE_XS, style::SPACE_LG]),
+                cs,
             )
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new()
-                    .width(6)
-                    .scroller_width(4)
-                    .margin(2),
-            ))
-            .style(theme::overlay_scrollbar(cs))
             .height(Length::Fill)
             .into()
         };
@@ -749,18 +750,12 @@ impl Search {
                 })
                 .collect();
 
-            scrollable(
+            crate::widgets::styled_scrollable(
                 column(items)
                     .spacing(style::SPACE_XXS)
                     .padding([style::SPACE_XS, style::SPACE_LG]),
+                cs,
             )
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new()
-                    .width(6)
-                    .scroller_width(4)
-                    .margin(2),
-            ))
-            .style(theme::overlay_scrollbar(cs))
             .height(Length::Fill)
             .into()
         };
