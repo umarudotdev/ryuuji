@@ -1,0 +1,53 @@
+[meta]
+name = "Ryuuji Dark"
+kind = "dark"
+
+[surface]
+container_lowest = "#140D10"
+base = "#1A1114"
+container_low = "#221B1E"
+container = "#262025"
+container_high = "#312A2F"
+container_highest = "#3C343A"
+bright = "#413437"
+
+[text]
+on_surface = "#EFE0E3"
+on_surface_variant = "#D6C2C6"
+outline = "#9E8E92"
+outline_variant = "#51454A"
+
+[primary]
+base = "#FFB1C1"
+hover = "#FFC4D0"
+dim = "#E89AAB"
+on_primary = "#5E1127"
+container = "#7A2E3E"
+on_container = "#FFD9E0"
+
+[secondary]
+container = "#524347"
+on_container = "#D6C2C6"
+
+[tertiary]
+base = "#E8C68F"
+on_tertiary = "#3F2E04"
+
+[error]
+base = "#FFB4AB"
+hover = "#CC3030"
+pressed = "#AA2020"
+on_error = "#FFFFFF"
+
+[status]
+watching = "#FFB1C1"
+completed = "#4AC78B"
+on_hold = "#E8C68F"
+dropped = "#FFB4AB"
+plan = "#D6C2C6"
+
+[inverse]
+surface = "#EFE0E3"
+on_surface = "#1A1114"
+scrim = "#000000"
+modal_backdrop = "#000000BF"

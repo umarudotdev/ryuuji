@@ -61,4 +61,4 @@ Option B — raw `reqwest` + `url` for the MAL OAuth2 flow.
 
 - [MAL API v2 OAuth docs](https://myanimelist.net/apiconfig/references/authorization)
 - [RFC 7636 — PKCE](https://datatracker.ietf.org/doc/html/rfc7636) (Section 4.2: plain method)
-- `crates/kurozumi-api/src/mal/auth.rs` — implementation
+- `crates/ryuuji-api/src/mal/auth.rs` — implementation

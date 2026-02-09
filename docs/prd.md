@@ -1,8 +1,8 @@
-# Kurozumi — Product Requirements Document
+# Ryuuji — Product Requirements Document
 
 ## Overview
 
-Kurozumi is a cross-platform desktop application that automatically detects anime playback in media players, tracks watch progress locally, and synchronizes with external anime tracking services. It targets users who watch anime via local media files (fansubs, Blu-ray rips) and want their tracking services updated without manual entry.
+Ryuuji is a cross-platform desktop application that automatically detects anime playback in media players, tracks watch progress locally, and synchronizes with external anime tracking services. It targets users who watch anime via local media files (fansubs, Blu-ray rips) and want their tracking services updated without manual entry.
 
 ## Problem
 
@@ -21,27 +21,27 @@ Cargo workspace with five crates:
 
 | Crate | Role |
 |-------|------|
-| `kurozumi-core` | Models, storage (SQLite), config (TOML), orchestrator, recognition cache (4-level fuzzy matcher) |
-| `kurozumi-detect` | Platform-specific media player detection (MPRIS on Linux, Win32 on Windows) |
-| `kurozumi-parse` | Anime filename tokenizer + multi-pass parser with compile-time keyword tables |
-| `kurozumi-api` | Service clients behind `AnimeService` trait: MAL (OAuth2 PKCE), AniList (GraphQL), Kitsu (JSON:API) |
-| `kurozumi-gui` | Iced 0.14 desktop UI — 7 screens (Now Playing, Library, History, Search, Seasons, Torrents, Settings); iced_aw widgets, Lucide icons, Geist font |
+| `ryuuji-core` | Models, storage (SQLite), config (TOML), orchestrator, recognition cache (4-level fuzzy matcher) |
+| `ryuuji-detect` | Platform-specific media player detection (MPRIS on Linux, Win32 on Windows) |
+| `ryuuji-parse` | Anime filename tokenizer + multi-pass parser with compile-time keyword tables |
+| `ryuuji-api` | Service clients behind `AnimeService` trait: MAL (OAuth2 PKCE), AniList (GraphQL), Kitsu (JSON:API) |
+| `ryuuji-gui` | Iced 0.14 desktop UI — 7 screens (Now Playing, Library, History, Search, Seasons, Torrents, Settings); iced_aw widgets, Lucide icons, Geist font |
 
 ### Data flow
 
 ```
 Detection tick (every N seconds)
-  -> detect_players()          [kurozumi-detect, platform-specific]
+  -> detect_players()          [ryuuji-detect, platform-specific]
   -> if browser:
-       detect_stream()         [kurozumi-detect/stream, URL/title pattern matching]
+       detect_stream()         [ryuuji-detect/stream, URL/title pattern matching]
        -> extracted title
      else:
        extract basename        [from file_path or media_title]
-  -> parse(title)              [kurozumi-parse, tokenizer + parser]
-  -> DetectedMedia             [kurozumi-core/models]
-  -> process_detection()       [kurozumi-core/orchestrator]
-     -> recognize()            [kurozumi-core/recognition, 4-level: query cache/exact/normalized/fuzzy]
-     -> upsert library entry   [kurozumi-core/storage, SQLite]
+  -> parse(title)              [ryuuji-parse, tokenizer + parser]
+  -> DetectedMedia             [ryuuji-core/models]
+  -> process_detection()       [ryuuji-core/orchestrator]
+     -> recognize()            [ryuuji-core/recognition, 4-level: query cache/exact/normalized/fuzzy]
+     -> upsert library entry   [ryuuji-core/storage, SQLite]
      -> record watch history
      -> auto-push to service   [if primary service authenticated]
   -> UpdateOutcome             [displayed in GUI]
@@ -92,7 +92,7 @@ TOML config with built-in defaults (`config/default.toml`), overridden by user f
 
 **GUI**
 - Iced 0.14 desktop app with sidebar navigation (7 screens), dark/light theme system
-- Embedded default themes (dark/light TOML); user-provided themes from `~/.config/kurozumi/themes/`; system appearance auto-detection
+- Embedded default themes (dark/light TOML); user-provided themes from `~/.config/ryuuji/themes/`; system appearance auto-detection
 - Geist Sans/Mono variable fonts; Lucide icon font; iced_aw widgets (cards, number inputs, context menus, wrap)
 - Shared detail panel widget for anime info + episode controls
 - Now Playing: detected title, episode, player name (with streaming service name for browsers), quality, status message

@@ -10,15 +10,15 @@
 
 **Goal:** Complete the `AnimeService` trait implementations for AniList and Kitsu, enabling search, import, and progress sync on all three services.
 
-### 1A. AniList GraphQL Client (`kurozumi-api/src/anilist/`)
+### 1A. AniList GraphQL Client (`ryuuji-api/src/anilist/`)
 
 **Files to create/modify:**
-- `kurozumi-api/src/anilist/client.rs` — `AniListClient` implementing `AnimeService`
-- `kurozumi-api/src/anilist/auth.rs` — OAuth2 Authorization Code flow (AniList uses code grant with PKCE)
-- `kurozumi-api/src/anilist/types.rs` — GraphQL response types
-- `kurozumi-api/src/anilist/queries.rs` — GraphQL query strings as `const &str`
-- `kurozumi-api/src/anilist/error.rs` — `AniListError` enum
-- `kurozumi-api/src/anilist/mod.rs` — re-exports
+- `ryuuji-api/src/anilist/client.rs` — `AniListClient` implementing `AnimeService`
+- `ryuuji-api/src/anilist/auth.rs` — OAuth2 Authorization Code flow (AniList uses code grant with PKCE)
+- `ryuuji-api/src/anilist/types.rs` — GraphQL response types
+- `ryuuji-api/src/anilist/queries.rs` — GraphQL query strings as `const &str`
+- `ryuuji-api/src/anilist/error.rs` — `AniListError` enum
+- `ryuuji-api/src/anilist/mod.rs` — re-exports
 
 **Auth flow:**
 - AniList OAuth2 Authorization Code grant
@@ -41,14 +41,14 @@
 - Map AniList `MediaFormat` (TV, OVA, MOVIE, etc.) to existing `media_type` field
 - Map AniList `MediaStatus` to `airing_status`
 
-### 1B. Kitsu JSON:API Client (`kurozumi-api/src/kitsu/`)
+### 1B. Kitsu JSON:API Client (`ryuuji-api/src/kitsu/`)
 
 **Files to create/modify:**
-- `kurozumi-api/src/kitsu/client.rs` — `KitsuClient` implementing `AnimeService`
-- `kurozumi-api/src/kitsu/auth.rs` — OAuth2 Resource Owner Password Grant (Kitsu uses username/password, no browser redirect)
-- `kurozumi-api/src/kitsu/types.rs` — JSON:API response types
-- `kurozumi-api/src/kitsu/error.rs` — `KitsuError` enum
-- `kurozumi-api/src/kitsu/mod.rs` — re-exports
+- `ryuuji-api/src/kitsu/client.rs` — `KitsuClient` implementing `AnimeService`
+- `ryuuji-api/src/kitsu/auth.rs` — OAuth2 Resource Owner Password Grant (Kitsu uses username/password, no browser redirect)
+- `ryuuji-api/src/kitsu/types.rs` — JSON:API response types
+- `ryuuji-api/src/kitsu/error.rs` — `KitsuError` enum
+- `ryuuji-api/src/kitsu/mod.rs` — re-exports
 
 **Auth flow:**
 - Kitsu uses Resource Owner Password Credentials grant (username + password → token)
@@ -70,11 +70,11 @@
 ### 1C. GUI Integration for Multi-Service
 
 **Files to modify:**
-- `kurozumi-gui/src/screen/settings.rs` — Add AniList and Kitsu settings sections (mirroring MAL pattern)
-- `kurozumi-gui/src/screen/search.rs` — Search delegates to `config.services.primary` service
-- `kurozumi-gui/src/app.rs` — Add `spawn_anilist_*` and `spawn_kitsu_*` task methods, or generalize with service dispatch
-- `kurozumi-gui/src/db.rs` — Generalize token storage: `save_service_token(service, ...)` / `get_service_token(service, ...)`
-- `kurozumi-core/src/config.rs` — Add `AniListConfig { enabled, client_id }` (AniList needs client_id + client_secret registered at https://anilist.co/settings/developer)
+- `ryuuji-gui/src/screen/settings.rs` — Add AniList and Kitsu settings sections (mirroring MAL pattern)
+- `ryuuji-gui/src/screen/search.rs` — Search delegates to `config.services.primary` service
+- `ryuuji-gui/src/app.rs` — Add `spawn_anilist_*` and `spawn_kitsu_*` task methods, or generalize with service dispatch
+- `ryuuji-gui/src/db.rs` — Generalize token storage: `save_service_token(service, ...)` / `get_service_token(service, ...)`
+- `ryuuji-core/src/config.rs` — Add `AniListConfig { enabled, client_id }` (AniList needs client_id + client_secret registered at https://anilist.co/settings/developer)
 
 **Settings UI additions:**
 - AniList section: Client ID input, Login button (opens browser), Import button, status text
@@ -89,8 +89,8 @@
 ### 1D. Bidirectional Sync Foundation
 
 **New files:**
-- `kurozumi-core/src/sync.rs` — `SyncEngine` with push/pull logic
-- `kurozumi-gui/src/screen/settings.rs` — "Sync Now" button per service
+- `ryuuji-core/src/sync.rs` — `SyncEngine` with push/pull logic
+- `ryuuji-gui/src/screen/settings.rs` — "Sync Now" button per service
 
 **Sync strategy:**
 - **Pull:** Import from service → upsert local (existing pattern, extended to all services)
@@ -114,7 +114,7 @@ Message::DetectionProcessed(Ok(UpdateOutcome::Updated { anime_id, episode, .. })
 
 **Goal:** Detect anime from web browsers watching streaming services (Crunchyroll, Netflix, Jellyfin, Plex, etc.)
 
-### 2A. Stream Provider Database (`kurozumi-detect/data/streams.toml`)
+### 2A. Stream Provider Database (`ryuuji-detect/data/streams.toml`)
 
 **New file** — data-driven stream definitions (same pattern as `players.toml`):
 ```toml
@@ -151,7 +151,7 @@ Additional services: Bilibili, Hidive, Disney+, Hulu, Amazon Prime Video, Funima
 
 ### 2B. Browser Detection in `players.toml`
 
-**Modify** `kurozumi-detect/data/players.toml` — add browser entries:
+**Modify** `ryuuji-detect/data/players.toml` — add browser entries:
 ```toml
 [[player]]
 name = "Firefox"
@@ -190,7 +190,7 @@ enabled = true
 is_browser = true
 ```
 
-### 2C. Stream Detection Engine (`kurozumi-detect/src/stream.rs`)
+### 2C. Stream Detection Engine (`ryuuji-detect/src/stream.rs`)
 
 **New file:**
 - `StreamDatabase` — loads `streams.toml`, matches URLs against stream patterns
@@ -201,7 +201,7 @@ is_browser = true
 1. If `PlayerInfo` came from a browser (`is_browser` flag or matched browser player)
 2. Check `file_path` (which is URL on Linux MPRIS) or `media_title` (window title) against stream URL patterns
 3. If URL matches a stream provider, extract title from `media_title` using the stream's `title_pattern`
-4. Parse extracted title through `kurozumi-parse` just like file-based detection
+4. Parse extracted title through `ryuuji-parse` just like file-based detection
 5. Return `StreamInfo` with service name and parsed anime data
 
 **Integration in `PlayerInfo`:**
@@ -211,7 +211,7 @@ is_browser = true
 
 ### 2D. Pipeline Integration
 
-**Modify** `kurozumi-gui/src/app.rs` `detect_and_parse()`:
+**Modify** `ryuuji-gui/src/app.rs` `detect_and_parse()`:
 ```
 Current: detect_players() → first player → extract title from file_path/media_title → parse()
 New:     detect_players() → first player →
@@ -228,7 +228,7 @@ The rest of the pipeline (orchestrator, recognition, library update) stays uncha
 
 **Goal:** New "Seasons" screen for browsing current/past/future anime seasons with cover art, genres, scores.
 
-### 3A. Season Data Fetching (`kurozumi-api/src/anilist/`)
+### 3A. Season Data Fetching (`ryuuji-api/src/anilist/`)
 
 **Add to AniList client:**
 - `browse_season(season: Season, year: u32, page: u32) -> Result<SeasonPage, AniListError>`
@@ -241,7 +241,7 @@ The rest of the pipeline (orchestrator, recognition, library update) stays uncha
 pub enum AnimeSeason { Winter, Spring, Summer, Fall }
 ```
 
-### 3B. Seasons Screen (`kurozumi-gui/src/screen/seasons.rs`)
+### 3B. Seasons Screen (`ryuuji-gui/src/screen/seasons.rs`)
 
 **New screen following established pattern:**
 
@@ -284,16 +284,16 @@ pub enum Message {
 
 - Add `Page::Seasons` to `Page` enum
 - Add nav rail item with `icon_calendar()` between Search and Torrents
-- Add screen instance to `Kurozumi` struct
+- Add screen instance to `Ryuuji` struct
 - Wire up messages in `app.rs`
 
 ---
 
 ## Phase 4: Sharing & Social Features
 
-### 4A. Discord Rich Presence (`kurozumi-gui/src/discord.rs`)
+### 4A. Discord Rich Presence (`ryuuji-gui/src/discord.rs`)
 
-**New dependency:** `discord-rich-presence = "1"` in `kurozumi-gui/Cargo.toml`
+**New dependency:** `discord-rich-presence = "1"` in `ryuuji-gui/Cargo.toml`
 
 **New file** — `discord.rs`:
 - `DiscordPresence` struct wrapping the IPC client
@@ -325,12 +325,12 @@ Message::DetectionResult(None) => {
 - Reconnect on config toggle
 - Handle connection errors gracefully (Discord not running → log warning, don't crash)
 
-### 4B. HTTP Webhook Sharing (`kurozumi-core/src/sharing/`)
+### 4B. HTTP Webhook Sharing (`ryuuji-core/src/sharing/`)
 
 **New module:**
-- `kurozumi-core/src/sharing/mod.rs` — `SharingEngine`
-- `kurozumi-core/src/sharing/http.rs` — HTTP webhook
-- `kurozumi-core/src/sharing/format.rs` — Template formatting
+- `ryuuji-core/src/sharing/mod.rs` — `SharingEngine`
+- `ryuuji-core/src/sharing/http.rs` — HTTP webhook
+- `ryuuji-core/src/sharing/format.rs` — Template formatting
 
 **Template system:**
 - Config field: `sharing.http.url`, `sharing.http.body_template`
@@ -343,7 +343,7 @@ Message::DetectionResult(None) => {
 
 ### 4C. Config & Settings
 
-**Modify** `kurozumi-core/src/config.rs`:
+**Modify** `ryuuji-core/src/config.rs`:
 ```rust
 pub struct SharingConfig {
     pub discord: DiscordConfig,     // { enabled: bool }  (already exists)
@@ -351,7 +351,7 @@ pub struct SharingConfig {
 }
 ```
 
-**Modify** `kurozumi-gui/src/screen/settings.rs`:
+**Modify** `ryuuji-gui/src/screen/settings.rs`:
 - Add "Sharing" section with:
   - Discord Rich Presence toggle (already exists, now functional)
   - HTTP webhook: URL input, body template text area, test button
@@ -366,17 +366,17 @@ pub struct SharingConfig {
 discord-rich-presence = "1"
 ```
 
-### `kurozumi-api/Cargo.toml`
+### `ryuuji-api/Cargo.toml`
 No new deps needed — `graphql_client`, `reqwest`, `serde`, `chrono` already present.
 (We'll use raw reqwest POST for GraphQL instead of `graphql_client` codegen.)
 
-### `kurozumi-gui/Cargo.toml`
+### `ryuuji-gui/Cargo.toml`
 ```toml
 # New
 discord-rich-presence = "1"
 ```
 
-### `kurozumi-detect/Cargo.toml`
+### `ryuuji-detect/Cargo.toml`
 No new deps — `regex`, `serde`, `toml` already present.
 
 ---

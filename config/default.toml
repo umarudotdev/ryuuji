@@ -28,7 +28,7 @@ client_id = ""
 
 [appearance]
 # Selected theme name.
-theme = "Kurozumi Dark"
+theme = "Ryuuji Dark"
 # Theme mode: "dark" or "light".
 mode = "dark"
 
