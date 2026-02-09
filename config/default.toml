@@ -16,6 +16,8 @@ primary = "anilist"
 
 [services.anilist]
 enabled = true
+client_id = ""
+client_secret = ""
 
 [services.kitsu]
 enabled = false

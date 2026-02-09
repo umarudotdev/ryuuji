@@ -77,13 +77,20 @@ pub struct LibraryConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServicesConfig {
     pub primary: String,
-    pub anilist: ServiceToggle,
-    pub kitsu: ServiceToggle,
+    pub anilist: AniListConfig,
+    pub kitsu: KitsuConfig,
     pub mal: MalConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServiceToggle {
+pub struct AniListConfig {
+    pub enabled: bool,
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KitsuConfig {
     pub enabled: bool,
 }
 
@@ -109,7 +116,6 @@ pub struct TorrentConfig {
     /// Path to external torrent client.
     pub torrent_client: Option<String>,
 }
-
 
 impl AppConfig {
     /// Load config: user file (if exists) merged over built-in defaults.

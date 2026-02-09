@@ -33,11 +33,7 @@ impl NowPlaying {
         }
     }
 
-    pub fn view<'a>(
-        &'a self,
-        cs: &ColorScheme,
-        covers: &'a CoverCache,
-    ) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self, cs: &ColorScheme, covers: &'a CoverCache) -> Element<'a, Message> {
         let content: Element<'a, Message> = match &self.detected {
             Some(media) => playing_dashboard(cs, media, self.matched_row.as_ref(), covers),
             None => empty_state(cs),

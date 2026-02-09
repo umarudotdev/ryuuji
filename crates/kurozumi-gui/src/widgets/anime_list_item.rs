@@ -105,14 +105,9 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
     .spacing(style::SPACE_XXS)
     .align_x(Alignment::End);
 
-    let content = row![
-        status_bar,
-        thumb,
-        info_col.width(Length::Fill),
-        right_col,
-    ]
-    .spacing(style::SPACE_SM)
-    .align_y(Alignment::Center);
+    let content = row![status_bar, thumb, info_col.width(Length::Fill), right_col,]
+        .spacing(style::SPACE_SM)
+        .align_y(Alignment::Center);
 
     let on_select_clone = on_select.clone();
     let base = button(content)

@@ -77,9 +77,6 @@ pub enum FeedSort {
     Size,
 }
 
-
-
-
 /// Torrent screen state.
 pub struct Torrents {
     pub tab: TorrentTab,
@@ -407,11 +404,7 @@ impl Torrents {
         };
         let db = db.clone();
         Action::RunTask(Task::perform(
-            async move {
-                db.get_torrent_filters()
-                    .await
-                    .map_err(|e| e.to_string())
-            },
+            async move { db.get_torrent_filters().await.map_err(|e| e.to_string()) },
             |r| app::Message::Torrents(Message::FiltersLoaded(r)),
         ))
     }
@@ -426,15 +419,11 @@ impl Torrents {
             async move {
                 // Load feeds and filters from DB.
                 let feeds = db.get_torrent_feeds().await.map_err(|e| e.to_string())?;
-                let filters = db
-                    .get_torrent_filters()
-                    .await
-                    .map_err(|e| e.to_string())?;
+                let filters = db.get_torrent_filters().await.map_err(|e| e.to_string())?;
 
                 // Fetch RSS from all enabled feeds.
                 let client = reqwest::Client::new();
-                let results =
-                    kurozumi_core::torrent::rss::fetch_all_feeds(&client, &feeds).await;
+                let results = kurozumi_core::torrent::rss::fetch_all_feeds(&client, &feeds).await;
                 let mut all_items: Vec<TorrentItem> = Vec::new();
                 for (_feed_id, result) in results {
                     match result {
@@ -473,18 +462,11 @@ impl Torrents {
                 for item in &items {
                     // Archive the item.
                     let _ = db
-                        .archive_torrent(
-                            item.guid.clone(),
-                            item.title.clone(),
-                            "downloaded".into(),
-                        )
+                        .archive_torrent(item.guid.clone(), item.title.clone(), "downloaded".into())
                         .await;
 
                     // Open magnet or torrent link.
-                    let link = item
-                        .magnet_link
-                        .as_deref()
-                        .or(item.link.as_deref());
+                    let link = item.magnet_link.as_deref().or(item.link.as_deref());
                     if let Some(url) = link {
                         let _ = open::that(url);
                         count += 1;
@@ -517,11 +499,7 @@ impl Torrents {
         };
         let db = db.clone();
         Action::RunTask(Task::perform(
-            async move {
-                db.delete_torrent_feed(id)
-                    .await
-                    .map_err(|e| e.to_string())
-            },
+            async move { db.delete_torrent_feed(id).await.map_err(|e| e.to_string()) },
             |_| app::Message::Torrents(Message::FeedDeleted),
         ))
     }
@@ -567,9 +545,7 @@ impl Torrents {
             .enumerate()
             .filter(|(_, item)| {
                 // Text search filter
-                if !query_lower.is_empty()
-                    && !item.title.to_lowercase().contains(&query_lower)
-                {
+                if !query_lower.is_empty() && !item.title.to_lowercase().contains(&query_lower) {
                     return false;
                 }
                 // State filter
@@ -605,7 +581,11 @@ impl Torrents {
 
     // ── View ─────────────────────────────────────────────────────
 
-    pub fn view<'a>(&'a self, cs: &ColorScheme, cover_cache: &'a CoverCache) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        cs: &ColorScheme,
+        cover_cache: &'a CoverCache,
+    ) -> Element<'a, Message> {
         let tabs = self.tab_bar(cs);
 
         let content: Element<'_, Message> = match self.tab {
@@ -662,26 +642,25 @@ impl Torrents {
 
     // ── Feed tab view ────────────────────────────────────────────
 
-    fn feed_view<'a>(&'a self, cs: &ColorScheme, cover_cache: &'a CoverCache) -> Element<'a, Message> {
+    fn feed_view<'a>(
+        &'a self,
+        cs: &ColorScheme,
+        cover_cache: &'a CoverCache,
+    ) -> Element<'a, Message> {
         // Toolbar: refresh + download + search
         let toolbar = row![
             button(text("Refresh").size(style::TEXT_SM))
                 .padding([style::SPACE_SM, style::SPACE_LG])
                 .on_press(Message::RefreshFeeds)
                 .style(theme::ghost_button(cs)),
-            button(
-                text(format!("Download ({})", self.selected_items.len()))
-                    .size(style::TEXT_SM)
-            )
-            .padding([style::SPACE_SM, style::SPACE_LG])
-            .on_press_maybe(
-                if self.selected_items.is_empty() {
+            button(text(format!("Download ({})", self.selected_items.len())).size(style::TEXT_SM))
+                .padding([style::SPACE_SM, style::SPACE_LG])
+                .on_press_maybe(if self.selected_items.is_empty() {
                     None
                 } else {
                     Some(Message::DownloadSelected)
-                }
-            )
-            .style(theme::ghost_button(cs)),
+                })
+                .style(theme::ghost_button(cs)),
             Space::new().width(Length::Fill),
             text_input("Search torrents...", &self.search_query)
                 .on_input(Message::SearchChanged)
@@ -733,10 +712,7 @@ impl Torrents {
             let is_selected = self.selected_torrent.as_deref() == Some(&item.guid);
             let guid = item.guid.clone();
 
-            let title_display = item
-                .anime_title
-                .as_deref()
-                .unwrap_or(&item.title);
+            let title_display = item.anime_title.as_deref().unwrap_or(&item.title);
             let title_color = if item.anime_id.is_some() {
                 cs.primary
             } else {
@@ -748,10 +724,7 @@ impl Torrents {
                 }
             };
 
-            let ep_str = item
-                .episode
-                .map(|e| e.to_string())
-                .unwrap_or_default();
+            let ep_str = item.episode.map(|e| e.to_string()).unwrap_or_default();
             let group_str = item.release_group.as_deref().unwrap_or("-");
             let size_str = item.size.as_deref().unwrap_or("-");
             let sl_str = match (item.seeders, item.leechers) {
@@ -761,11 +734,10 @@ impl Torrents {
 
             let item_row = button(
                 row![
-                    checkbox(is_checked)
-                        .on_toggle({
-                            let guid = guid.clone();
-                            move |_| Message::ToggleItem(guid.clone())
-                        }),
+                    checkbox(is_checked).on_toggle({
+                        let guid = guid.clone();
+                        move |_| Message::ToggleItem(guid.clone())
+                    }),
                     text(title_display)
                         .size(style::TEXT_SM)
                         .color(title_color)
@@ -811,8 +783,7 @@ impl Torrents {
                     .line_height(style::LINE_HEIGHT_LOOSE),
             ]
             .align_y(Alignment::Center),
-            crate::widgets::styled_scrollable(list.width(Length::Fill), cs)
-                .height(Length::Fill),
+            crate::widgets::styled_scrollable(list.width(Length::Fill), cs).height(Length::Fill),
         ]
         .spacing(style::SPACE_SM)
         .padding([style::SPACE_SM, style::SPACE_XL])
@@ -959,12 +930,10 @@ impl Torrents {
     // ── Sources tab view ─────────────────────────────────────────
 
     fn sources_view(&self, cs: &ColorScheme) -> Element<'_, Message> {
-        let toolbar = row![
-            button(text("Add Feed").size(style::TEXT_SM))
-                .padding([style::SPACE_SM, style::SPACE_LG])
-                .on_press(Message::EditFeed(None))
-                .style(theme::ghost_button(cs)),
-        ]
+        let toolbar = row![button(text("Add Feed").size(style::TEXT_SM))
+            .padding([style::SPACE_SM, style::SPACE_LG])
+            .on_press(Message::EditFeed(None))
+            .style(theme::ghost_button(cs)),]
         .spacing(style::SPACE_SM);
 
         let mut content = column![toolbar].spacing(style::SPACE_MD);
@@ -1064,20 +1033,18 @@ impl Torrents {
     // ── Filters tab view ─────────────────────────────────────────
 
     fn filter_view(&self, cs: &ColorScheme) -> Element<'_, Message> {
-        let toolbar = row![
-            button(text("Add Filter").size(style::TEXT_SM))
-                .padding([style::SPACE_SM, style::SPACE_LG])
-                .on_press(Message::EditFilter(Some(TorrentFilter {
-                    id: 0,
-                    name: String::new(),
-                    enabled: true,
-                    priority: 0,
-                    match_mode: MatchMode::All,
-                    action: FilterAction::Select,
-                    conditions: vec![],
-                })))
-                .style(theme::ghost_button(cs)),
-        ]
+        let toolbar = row![button(text("Add Filter").size(style::TEXT_SM))
+            .padding([style::SPACE_SM, style::SPACE_LG])
+            .on_press(Message::EditFilter(Some(TorrentFilter {
+                id: 0,
+                name: String::new(),
+                enabled: true,
+                priority: 0,
+                match_mode: MatchMode::All,
+                action: FilterAction::Select,
+                conditions: vec![],
+            })))
+            .style(theme::ghost_button(cs)),]
         .spacing(style::SPACE_SM);
 
         let mut content = column![toolbar].spacing(style::SPACE_MD);
@@ -1101,7 +1068,11 @@ impl Torrents {
                     .text_size(style::TEXT_SM),
                     text("Action:").size(style::TEXT_SM),
                     pick_list(
-                        &[FilterAction::Discard, FilterAction::Select, FilterAction::Prefer][..],
+                        &[
+                            FilterAction::Discard,
+                            FilterAction::Select,
+                            FilterAction::Prefer
+                        ][..],
                         Some(filter.action),
                         Message::FilterActionChanged,
                     )
@@ -1192,7 +1163,11 @@ impl Torrents {
             let cond_count = format!(
                 "{} condition{}",
                 filter.conditions.len(),
-                if filter.conditions.len() == 1 { "" } else { "s" }
+                if filter.conditions.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
             );
 
             // Color-code the action badge
@@ -1284,8 +1259,7 @@ fn torrent_detail_panel<'a>(
     .height(Length::Fixed(close_size))
     .style(theme::icon_button(cs));
 
-    let top_bar = row![container("").width(Length::Fill), close_btn]
-        .align_y(Alignment::Start);
+    let top_bar = row![container("").width(Length::Fill), close_btn].align_y(Alignment::Start);
 
     let mut detail = column![top_bar].spacing(style::SPACE_MD);
 
@@ -1312,16 +1286,14 @@ fn torrent_detail_panel<'a>(
 
     // Matched anime name (if different from raw title)
     if let Some(ref anime_title) = item.anime_title {
-        detail = detail.push(
-            row![
-                text("Matched: ")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant),
-                text(anime_title.as_str())
-                    .size(style::TEXT_SM)
-                    .color(cs.primary),
-            ]
-        );
+        detail = detail.push(row![
+            text("Matched: ")
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
+            text(anime_title.as_str())
+                .size(style::TEXT_SM)
+                .color(cs.primary),
+        ]);
     }
 
     // Details card

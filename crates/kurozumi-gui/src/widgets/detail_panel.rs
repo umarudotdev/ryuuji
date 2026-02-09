@@ -133,8 +133,7 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     .height(Length::Fixed(close_size))
     .style(theme::icon_button(cs));
 
-    let top_bar = row![container("").width(Length::Fill), close_btn]
-        .align_y(Alignment::Center);
+    let top_bar = row![container("").width(Length::Fill), close_btn].align_y(Alignment::Center);
 
     // ── Synopsis snippet ─────────────────────────────────────────
     let mut detail_content = column![
@@ -428,8 +427,7 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
     .height(Length::Fixed(close_size))
     .style(theme::icon_button(cs));
 
-    let top_bar = row![container("").width(Length::Fill), close_btn]
-        .align_y(Alignment::Center);
+    let top_bar = row![container("").width(Length::Fill), close_btn].align_y(Alignment::Center);
 
     let mut detail_content = column![
         top_bar,
