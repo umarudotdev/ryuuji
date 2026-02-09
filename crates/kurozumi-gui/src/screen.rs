@@ -2,6 +2,7 @@ pub mod history;
 pub mod library;
 pub mod now_playing;
 pub mod search;
+pub mod seasons;
 pub mod settings;
 pub mod torrents;
 
@@ -19,6 +20,7 @@ pub enum Page {
     Library,
     History,
     Search,
+    Seasons,
     Torrents,
     Settings,
 }

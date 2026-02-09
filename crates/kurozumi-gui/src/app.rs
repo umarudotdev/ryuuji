@@ -13,7 +13,7 @@ use kurozumi_core::storage::LibraryRow;
 use crate::cover_cache::{self, CoverCache, CoverState};
 use crate::db::DbHandle;
 use crate::screen::{
-    history, library, now_playing, search, settings, torrents, Action, ModalKind, Page,
+    history, library, now_playing, search, seasons, settings, torrents, Action, ModalKind, Page,
 };
 use crate::style;
 use crate::subscription;
@@ -34,6 +34,7 @@ pub struct Kurozumi {
     library: library::Library,
     history: history::History,
     search: search::Search,
+    seasons: seasons::Seasons,
     torrents: torrents::Torrents,
     settings: settings::Settings,
     // Cover images
@@ -67,6 +68,7 @@ impl Default for Kurozumi {
             library: library::Library::new(),
             history: history::History::new(),
             search: search::Search::new(),
+            seasons: seasons::Seasons::new(),
             torrents: torrents::Torrents::new(),
             settings: settings_screen,
             cover_cache: CoverCache::default(),
@@ -95,6 +97,7 @@ pub enum Message {
     Library(library::Message),
     History(history::Message),
     Search(search::Message),
+    Seasons(seasons::Message),
     Torrents(torrents::Message),
     TorrentTick,
     Settings(settings::Message),
@@ -168,6 +171,14 @@ impl Kurozumi {
                     self.search.service_authenticated = self.is_primary_service_authenticated();
                     let action = self.search.load_entries(self.db.as_ref());
                     return self.handle_action(action);
+                }
+                if page == Page::Seasons {
+                    self.seasons.service_authenticated = self.is_primary_service_authenticated();
+                    if self.seasons.service_authenticated {
+                        self.seasons.update(seasons::Message::Refresh);
+                        return self.spawn_season_browse();
+                    }
+                    return Task::none();
                 }
                 if page == Page::Torrents {
                     let action = self.torrents.update(
@@ -449,6 +460,54 @@ impl Kurozumi {
                 let info = Self::cover_info_from_rows(&self.search.all_entries);
                 let batch_covers = self.batch_request_covers(info);
                 Task::batch([cover_task, action_task, batch_covers])
+            }
+            Message::Seasons(msg) => {
+                // Intercept messages that need app-level access.
+                match &msg {
+                    seasons::Message::SeasonChanged(_)
+                    | seasons::Message::YearPrev
+                    | seasons::Message::YearNext
+                    | seasons::Message::Refresh => {
+                        self.seasons.update(msg);
+                        return self.spawn_season_browse();
+                    }
+                    seasons::Message::AddToLibrary(idx) => {
+                        let idx = *idx;
+                        if let Some(result) = self.seasons.entries.get(idx).cloned() {
+                            return self.spawn_add_to_library_from_seasons(result);
+                        }
+                        return Task::none();
+                    }
+                    seasons::Message::DataLoaded(_) => {
+                        // After results load, batch-request covers.
+                        self.seasons.update(msg);
+                        let covers: Vec<(i64, Option<String>)> = self
+                            .seasons
+                            .entries
+                            .iter()
+                            .map(|r| (seasons::season_cover_key(r.service_id), r.cover_url.clone()))
+                            .collect();
+                        return self.batch_request_covers(covers);
+                    }
+                    _ => {}
+                }
+
+                // Request cover for newly selected anime.
+                let cover_task = match &msg {
+                    seasons::Message::AnimeSelected(idx) => {
+                        let info = self.seasons.entries.get(*idx).map(|r| {
+                            (seasons::season_cover_key(r.service_id), r.cover_url.clone())
+                        });
+                        if let Some((key, url)) = info {
+                            self.request_cover(key, url.as_deref())
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    _ => Task::none(),
+                };
+                self.seasons.update(msg);
+                cover_task
             }
             Message::Torrents(msg) => {
                 let action = self.torrents.update(msg, self.db.as_ref());
@@ -1017,6 +1076,93 @@ impl Kurozumi {
         )
     }
 
+    /// Spawn a season browse request via the AniList API.
+    fn spawn_season_browse(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let season = self.seasons.season;
+        let year = self.seasons.year;
+
+        Task::perform(
+            async move {
+                let token = db
+                    .get_service_token("anilist")
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Not logged in to AniList".to_string())?;
+
+                let client = kurozumi_api::anilist::AniListClient::new(token);
+                let page = client
+                    .browse_season(season, year, 1)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(page.items)
+            },
+            |result| Message::Seasons(seasons::Message::DataLoaded(result)),
+        )
+    }
+
+    /// Add a season browse result to the local library.
+    fn spawn_add_to_library_from_seasons(
+        &self,
+        result: kurozumi_api::traits::AnimeSearchResult,
+    ) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+
+        Task::perform(
+            async move {
+                let ids = AnimeIds {
+                    anilist: Some(result.service_id),
+                    kitsu: None,
+                    mal: None,
+                };
+
+                let anime = Anime {
+                    id: 0,
+                    ids,
+                    title: AnimeTitle {
+                        romaji: Some(result.title.clone()),
+                        english: result.title_english.clone(),
+                        native: None,
+                    },
+                    synonyms: Vec::new(),
+                    episodes: result.episodes,
+                    cover_url: result.cover_url.clone(),
+                    season: result.season.clone(),
+                    year: result.year,
+                    synopsis: result.synopsis.clone(),
+                    genres: result.genres.clone(),
+                    media_type: result.media_type.clone(),
+                    airing_status: result.status.clone(),
+                    mean_score: result.mean_score,
+                    studios: Vec::new(),
+                    source: None,
+                    rating: None,
+                    start_date: None,
+                    end_date: None,
+                };
+
+                let entry = LibraryEntry {
+                    id: 0,
+                    anime_id: 0,
+                    status: WatchStatus::PlanToWatch,
+                    watched_episodes: 0,
+                    score: None,
+                    updated_at: Utc::now(),
+                };
+
+                db.service_import_batch("anilist", vec![(anime, Some(entry))])
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            },
+            |result| Message::Seasons(seasons::Message::AddedToLibrary(result)),
+        )
+    }
+
     /// Add an online search result to the local library.
     fn spawn_add_to_library(
         &self,
@@ -1265,6 +1411,10 @@ impl Kurozumi {
                 .view(cs, &self.cover_cache)
                 .map(Message::History),
             Page::Search => self.search.view(cs, &self.cover_cache).map(Message::Search),
+            Page::Seasons => self
+                .seasons
+                .view(cs, &self.cover_cache)
+                .map(Message::Seasons),
             Page::Torrents => self
                 .torrents
                 .view(cs, &self.cover_cache)
@@ -1428,6 +1578,7 @@ impl Kurozumi {
                 nav_item(icons::icon_library(), "Library", Page::Library),
                 nav_item(icons::icon_clock(), "History", Page::History),
                 nav_item(icons::icon_search(), "Search", Page::Search),
+                nav_item(icons::icon_calendar(), "Seasons", Page::Seasons),
                 nav_item(icons::icon_download(), "Torrents", Page::Torrents),
             ]
             .spacing(style::SPACE_XS)

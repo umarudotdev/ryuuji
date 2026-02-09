@@ -22,6 +22,26 @@ pub struct PageData {
     pub media: Vec<AniListMedia>,
 }
 
+/// Response for paginated season browse queries.
+#[derive(Debug, Deserialize)]
+pub struct SeasonBrowseResponse {
+    #[serde(rename = "Page")]
+    pub page: SeasonPageData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SeasonPageData {
+    #[serde(rename = "pageInfo")]
+    pub page_info: PageInfo,
+    pub media: Vec<AniListMedia>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PageInfo {
+    #[serde(rename = "hasNextPage")]
+    pub has_next_page: bool,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AniListMedia {
     pub id: u64,

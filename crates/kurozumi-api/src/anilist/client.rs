@@ -3,9 +3,9 @@ use reqwest::Client;
 use super::error::AniListError;
 use super::types::{
     AniListMedia, GraphQLResponse, MediaListCollectionResponse, MediaListEntry, PageResponse,
-    ViewerResponse,
+    SeasonBrowseResponse, ViewerResponse,
 };
-use crate::traits::{AnimeSearchResult, AnimeService, UserListEntry};
+use crate::traits::{AnimeSearchResult, AnimeSeason, AnimeService, SeasonPage, UserListEntry};
 
 const API_URL: &str = "https://graphql.anilist.co";
 
@@ -72,6 +72,32 @@ query {
     Viewer {
         id
         name
+    }
+}
+"#;
+
+const SEASON_BROWSE_QUERY: &str = r#"
+query ($season: MediaSeason, $seasonYear: Int, $page: Int) {
+    Page(page: $page, perPage: 50) {
+        pageInfo { hasNextPage }
+        media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: POPULARITY_DESC) {
+            id
+            title { romaji english native }
+            episodes
+            coverImage { large }
+            meanScore
+            season
+            seasonYear
+            genres
+            studios { nodes { name } }
+            format
+            status
+            description
+            source
+            synonyms
+            startDate { year month day }
+            endDate { year month day }
+        }
     }
 }
 "#;
@@ -155,6 +181,38 @@ impl AniListClient {
             .collect();
 
         Ok(entries)
+    }
+
+    /// Browse anime by season and year with pagination.
+    pub async fn browse_season(
+        &self,
+        season: AnimeSeason,
+        year: u32,
+        page: u32,
+    ) -> Result<SeasonPage, AniListError> {
+        let resp: GraphQLResponse<SeasonBrowseResponse> = self
+            .graphql_request(
+                SEASON_BROWSE_QUERY,
+                serde_json::json!({
+                    "season": season.to_anilist_str(),
+                    "seasonYear": year,
+                    "page": page,
+                }),
+            )
+            .await?;
+
+        let items = resp
+            .data
+            .page
+            .media
+            .into_iter()
+            .map(|m| m.into_search_result())
+            .collect();
+
+        Ok(SeasonPage {
+            items,
+            has_next: resp.data.page.page_info.has_next_page,
+        })
     }
 
     /// Search for anime (raw types).
