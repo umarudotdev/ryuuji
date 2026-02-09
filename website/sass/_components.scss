@@ -1,0 +1,207 @@
+// Buttons, cards, badges, logo grids
+
+// ── Buttons ────────────────────────────────────────────────
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-sm;
+  padding: $space-md $space-xl;
+  border-radius: $radius-md;
+  font-family: $font-sans;
+  font-size: $text-base;
+  font-weight: 500;
+  line-height: 1;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
+
+.btn-primary {
+  background-color: $primary;
+  color: $on-primary;
+
+  &:hover {
+    background-color: $primary-hover;
+  }
+}
+
+.btn-secondary {
+  background-color: $surface-high;
+  color: $text-primary;
+  border: 1px solid $text-outline-variant;
+
+  &:hover {
+    background-color: $surface-highest;
+    border-color: $text-outline;
+  }
+}
+
+.btn-sm {
+  padding: $space-sm $space-lg;
+  font-size: $text-sm;
+  border-radius: $radius-sm;
+}
+
+// ── Cards ──────────────────────────────────────────────────
+.card {
+  background-color: $surface-container;
+  border: 1px solid $text-outline-variant;
+  border-radius: $radius-lg;
+  padding: $space-2xl;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: $text-outline;
+  }
+}
+
+.card-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-md;
+  background-color: $primary-container;
+  margin-bottom: $space-lg;
+
+  svg {
+    width: 24px;
+    height: 24px;
+    color: $primary;
+  }
+}
+
+.card h3 {
+  margin-bottom: $space-sm;
+}
+
+.card p {
+  font-size: $text-base;
+  line-height: $lh-loose;
+}
+
+// ── Badges ─────────────────────────────────────────────────
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding-inline: $space-sm;
+  border-radius: $radius-sm;
+  font-size: $text-xs;
+  font-weight: 500;
+  background-color: $surface-high;
+  color: $text-secondary;
+}
+
+.badge-primary {
+  background-color: $primary-container;
+  color: $on-primary-container;
+}
+
+.badge-gold {
+  background-color: rgba($tertiary, 0.15);
+  color: $tertiary;
+}
+
+// ── Logo/service grid ──────────────────────────────────────
+.logo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-sm;
+  justify-content: center;
+}
+
+.logo-grid-item {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-sm $space-lg;
+  background-color: $surface-container;
+  border: 1px solid $text-outline-variant;
+  border-radius: $radius-md;
+  font-size: $text-sm;
+  color: $text-secondary;
+  font-weight: 450;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: $text-outline;
+    color: $text-primary;
+  }
+}
+
+// ── Step indicator ─────────────────────────────────────────
+.step-number {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: $primary-container;
+  color: $on-primary-container;
+  font-size: $text-lg;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+// ── Code block ─────────────────────────────────────────────
+.code-block {
+  display: block;
+  background-color: $surface-low;
+  border: 1px solid $text-outline-variant;
+  border-radius: $radius-md;
+  padding: $space-lg $space-xl;
+  font-family: $font-mono;
+  font-size: $text-sm;
+  color: $text-secondary;
+  overflow-x: auto;
+  white-space: pre;
+  -webkit-overflow-scrolling: touch;
+
+  .prompt {
+    color: $text-outline;
+    user-select: none;
+  }
+
+  .cmd {
+    color: $primary;
+  }
+}
+
+// ── Divider ────────────────────────────────────────────────
+.divider {
+  width: 100%;
+  height: 1px;
+  background-color: $text-outline-variant;
+  border: none;
+}
+
+// ── Section header ─────────────────────────────────────────
+.section-header {
+  text-align: center;
+  margin-bottom: $space-3xl;
+
+  h2 {
+    margin-bottom: $space-md;
+  }
+
+  p {
+    max-width: 600px;
+    margin-inline: auto;
+    font-size: $text-lg;
+  }
+}

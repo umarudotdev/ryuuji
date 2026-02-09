@@ -1,0 +1,287 @@
+// Section-specific styles
+
+// ── Header ─────────────────────────────────────────────────
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: rgba($surface-base, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid $text-outline-variant;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  font-size: $text-lg;
+  font-weight: 600;
+  color: $text-primary;
+
+  svg {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: $space-2xl;
+
+  a {
+    font-size: $text-sm;
+    color: $text-secondary;
+    transition: color 0.15s ease;
+    font-weight: 450;
+
+    &:hover {
+      color: $text-primary;
+    }
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: $space-md;
+}
+
+@media (max-width: $bp-mobile) {
+  .header-nav {
+    display: none;
+  }
+}
+
+// ── Hero ───────────────────────────────────────────────────
+.hero {
+  padding-top: 96px;
+  padding-bottom: $section-spacing;
+  text-align: center;
+
+  @media (max-width: $bp-mobile) {
+    padding-top: 64px;
+    padding-bottom: $section-spacing-mobile;
+  }
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-sm;
+  padding: $space-xs $space-lg;
+  border-radius: 9999px;
+  background-color: rgba($primary, 0.1);
+  border: 1px solid rgba($primary, 0.2);
+  color: $primary;
+  font-size: $text-sm;
+  font-weight: 500;
+  margin-bottom: $space-2xl;
+}
+
+.hero h1 {
+  max-width: 800px;
+  margin-inline: auto;
+  margin-bottom: $space-xl;
+}
+
+.hero-tagline {
+  max-width: 560px;
+  margin-inline: auto;
+  font-size: $text-lg;
+  color: $text-secondary;
+  line-height: $lh-loose;
+  margin-bottom: $space-3xl;
+}
+
+.hero-ctas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-lg;
+  flex-wrap: wrap;
+}
+
+.hero-visual {
+  margin-top: 72px;
+  background-color: $surface-container;
+  border: 1px solid $text-outline-variant;
+  border-radius: $radius-xl;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 960px;
+  margin-inline: auto;
+
+  .placeholder-text {
+    color: $text-outline;
+    font-size: $text-sm;
+  }
+}
+
+// ── Features ───────────────────────────────────────────────
+.features {
+  background-color: $surface-base;
+}
+
+// ── How It Works ───────────────────────────────────────────
+.how-it-works {
+  background-color: $surface-lowest;
+}
+
+.steps {
+  max-width: 720px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3xl;
+}
+
+.step {
+  display: flex;
+  gap: $space-xl;
+  align-items: flex-start;
+}
+
+.step-content {
+  h3 {
+    margin-bottom: $space-sm;
+  }
+
+  p {
+    line-height: $lh-loose;
+  }
+
+  code {
+    font-size: $text-sm;
+    color: $primary-dim;
+    background-color: $surface-container;
+    padding: $space-xxs $space-xs;
+    border-radius: $radius-sm;
+  }
+}
+
+.step-connector {
+  width: 2px;
+  height: 32px;
+  background-color: $text-outline-variant;
+  margin-left: 19px;
+}
+
+// ── Supported ──────────────────────────────────────────────
+.supported {
+  background-color: $surface-base;
+}
+
+.supported-group {
+  margin-bottom: $space-3xl;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.supported-group h3 {
+  text-align: center;
+  margin-bottom: $space-xl;
+  font-size: $text-lg;
+  color: $text-secondary;
+  font-weight: 450;
+}
+
+// ── Screenshot placeholder ─────────────────────────────────
+.screenshot-section {
+  background-color: $surface-lowest;
+
+  .screenshot-placeholder {
+    max-width: 960px;
+    margin-inline: auto;
+    aspect-ratio: 16 / 9;
+    background-color: $surface-container;
+    border: 1px dashed $text-outline-variant;
+    border-radius: $radius-xl;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $text-outline;
+    font-size: $text-sm;
+  }
+}
+
+// ── Download ───────────────────────────────────────────────
+.download {
+  background-color: $surface-base;
+}
+
+.download-platforms {
+  display: flex;
+  justify-content: center;
+  gap: $space-lg;
+  flex-wrap: wrap;
+  margin-bottom: $space-2xl;
+}
+
+.download-source {
+  text-align: center;
+
+  p {
+    font-size: $text-sm;
+    color: $text-outline;
+    margin-bottom: $space-md;
+  }
+}
+
+// ── Footer ─────────────────────────────────────────────────
+.footer {
+  border-top: 1px solid $text-outline-variant;
+  padding-block: $space-3xl;
+  background-color: $surface-lowest;
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-lg;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  color: $text-outline;
+  font-size: $text-sm;
+}
+
+.footer-links {
+  display: flex;
+  gap: $space-xl;
+
+  a {
+    font-size: $text-sm;
+    color: $text-outline;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: $text-primary;
+    }
+  }
+}
+
+@media (max-width: $bp-mobile) {
+  .footer-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+}
