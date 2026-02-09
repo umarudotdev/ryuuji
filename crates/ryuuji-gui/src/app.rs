@@ -154,7 +154,7 @@ impl Ryuuji {
     }
 
     pub fn title(&self) -> String {
-        String::from("ryuuji")
+        String::from("Ryuuji")
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
