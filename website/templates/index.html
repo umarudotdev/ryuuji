@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+
+{% block content %}
+
+{# ── Hero ─────────────────────────────────────────────── #}
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Open source &middot; Written in Rust
+    </div>
+
+    <h1>Desktop anime tracker that works while you watch</h1>
+
+    <p class="hero-tagline">
+      Ryuuji automatically detects your media player or streaming service,
+      recognizes what you're watching, and keeps your anime list in sync
+      &mdash; no manual updates needed.
+    </p>
+
+    <div class="hero-ctas">
+      <a href="#download" class="btn btn-primary">
+        {{ m::icon_download() }}
+        Download
+      </a>
+      <a href="{{ config.extra.github_url }}" class="btn btn-secondary" target="_blank" rel="noopener">
+        {{ m::icon_github() }}
+        View on GitHub
+      </a>
+    </div>
+
+    <div class="hero-visual">
+      <span class="placeholder-text">App screenshot coming soon</span>
+    </div>
+  </div>
+</section>
+
+{# ── Features ─────────────────────────────────────────── #}
+<section id="features" class="features section">
+  <div class="container">
+    <div class="section-header">
+      <h2>Built for how you actually watch</h2>
+      <p>Whether you use local files, streaming services, or both &mdash; Ryuuji handles it.</p>
+    </div>
+
+    <div class="grid-2">
+      {{ m::feature_card(
+        title="Auto-detection",
+        description="Detects 20+ media players on Linux and Windows, plus streaming services like Crunchyroll, Netflix, and Jellyfin in your browser. Data-driven — add new players via config, not code.",
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+      ) }}
+
+      {{ m::feature_card(
+        title="Fuzzy recognition",
+        description="4-level matching pipeline: exact lookup, normalized comparison, then fuzzy search with configurable threshold. Handles fansub naming quirks that break other trackers.",
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>'
+      ) }}
+
+      {{ m::feature_card(
+        title="Multi-service sync",
+        description="Push progress to MyAnimeList, AniList, or Kitsu automatically after detection. Import your existing list from any service. One primary service, multiple connected.",
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>'
+      ) }}
+
+      {{ m::feature_card(
+        title="Local-first",
+        description="SQLite database with full watch history, offline by default. Your data stays on your machine. Services are optional — Ryuuji works perfectly as a standalone local tracker.",
+        icon='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>'
+      ) }}
+    </div>
+  </div>
+</section>
+
+{# ── How It Works ─────────────────────────────────────── #}
+<section id="how-it-works" class="how-it-works section">
+  <div class="container">
+    <div class="section-header">
+      <h2>How it works</h2>
+      <p>A three-stage pipeline runs every few seconds while you watch.</p>
+    </div>
+
+    <div class="steps">
+      {{ m::step(
+        number="1",
+        title="Detect",
+        description="Scans running media players via MPRIS on Linux or Win32 APIs on Windows. For browsers, matches the active tab URL against known streaming services like Crunchyroll and Netflix."
+      ) }}
+
+      <div class="step-connector"></div>
+
+      {{ m::step(
+        number="2",
+        title="Parse & Recognize",
+        description="Extracts the anime title from the filename or tab title using a <code>6-pass parser</code> built for fansub naming conventions. Then matches it against your library with a 4-level recognition cache &mdash; from exact match down to fuzzy search."
+      ) }}
+
+      <div class="step-connector"></div>
+
+      {{ m::step(
+        number="3",
+        title="Update & Sync",
+        description="Increments your episode progress in the local SQLite database, logs the watch event to history, and auto-pushes the update to your connected tracking service. Cross-season episode redirects are handled automatically via the embedded anime-relations database."
+      ) }}
+    </div>
+  </div>
+</section>
+
+{# ── Supported ────────────────────────────────────────── #}
+<section id="supported" class="supported section">
+  <div class="container">
+    <div class="section-header">
+      <h2>Wide compatibility</h2>
+      <p>Works with the players, services, and platforms you already use.</p>
+    </div>
+
+    <div class="supported-group">
+      <h3>Media Players</h3>
+      <div class="logo-grid">
+        {{ m::service_item(name="mpv") }}
+        {{ m::service_item(name="VLC") }}
+        {{ m::service_item(name="MPC-HC") }}
+        {{ m::service_item(name="MPC-BE") }}
+        {{ m::service_item(name="PotPlayer") }}
+        {{ m::service_item(name="Kodi") }}
+        {{ m::service_item(name="Celluloid") }}
+        {{ m::service_item(name="SMPlayer") }}
+        {{ m::service_item(name="Haruna") }}
+        {{ m::service_item(name="KMPlayer") }}
+        {{ m::service_item(name="GOM Player") }}
+        {{ m::service_item(name="QMPlay2") }}
+      </div>
+    </div>
+
+    <div class="supported-group">
+      <h3>Streaming Services</h3>
+      <div class="logo-grid">
+        {{ m::service_item(name="Crunchyroll") }}
+        {{ m::service_item(name="Netflix") }}
+        {{ m::service_item(name="Jellyfin") }}
+        {{ m::service_item(name="Plex") }}
+        {{ m::service_item(name="Hidive") }}
+        {{ m::service_item(name="Bilibili") }}
+      </div>
+    </div>
+
+    <div class="supported-group">
+      <h3>Tracking Services</h3>
+      <div class="logo-grid">
+        {{ m::service_item(name="MyAnimeList") }}
+        {{ m::service_item(name="AniList") }}
+        {{ m::service_item(name="Kitsu") }}
+      </div>
+    </div>
+
+    <div class="supported-group">
+      <h3>Browsers</h3>
+      <div class="logo-grid">
+        {{ m::service_item(name="Firefox") }}
+        {{ m::service_item(name="Chrome") }}
+        {{ m::service_item(name="Edge") }}
+        {{ m::service_item(name="Brave") }}
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── Screenshots (conditional) ────────────────────────── #}
+{% if config.extra.show_screenshots %}
+<section class="screenshot-section section">
+  <div class="container">
+    <div class="section-header">
+      <h2>See it in action</h2>
+    </div>
+    <div class="screenshot-placeholder">
+      Screenshots coming soon
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ── Download ─────────────────────────────────────────── #}
+<section id="download" class="download section">
+  <div class="container">
+    <div class="section-header">
+      <h2>Get Ryuuji</h2>
+      <p>Download a release or build from source.</p>
+    </div>
+
+    <div class="download-platforms">
+      <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary">
+        {{ m::icon_linux() }}
+        Linux
+      </a>
+      <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary">
+        {{ m::icon_windows() }}
+        Windows
+      </a>
+    </div>
+
+    <div class="download-source">
+      <p>Or build from source:</p>
+      <div class="code-block"><span class="prompt">$ </span><span class="cmd">cargo install --git {{ config.extra.github_url }} ryuuji-gui</span></div>
+    </div>
+  </div>
+</section>
+
+{% endblock content %}

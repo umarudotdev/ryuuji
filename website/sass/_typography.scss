@@ -1,0 +1,60 @@
+// Font-face declarations + text styles
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/GeistVF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMonoVF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+body {
+  font-family: $font-sans;
+  font-size: $text-base;
+  color: $text-primary;
+}
+
+h1, h2, h3, h4 {
+  font-weight: 500;
+  line-height: $lh-tight;
+  color: $text-primary;
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: $text-hero; }
+h2 { font-size: $text-3xl; }
+h3 { font-size: $text-xl;  }
+h4 { font-size: $text-lg;  }
+
+p {
+  line-height: $lh-normal;
+  color: $text-secondary;
+}
+
+code,
+.mono {
+  font-family: $font-mono;
+}
+
+.text-primary   { color: $text-primary;   }
+.text-secondary { color: $text-secondary; }
+.text-accent    { color: $primary;        }
+.text-gold      { color: $tertiary;       }
+
+strong {
+  color: $text-primary;
+  font-weight: 600;
+}
+
+@media (max-width: $bp-mobile) {
+  h1 { font-size: $text-3xl; }
+  h2 { font-size: $text-2xl; }
+}
