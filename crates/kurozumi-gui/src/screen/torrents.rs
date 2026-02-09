@@ -1,17 +1,17 @@
 use std::collections::HashSet;
 
 use iced::widget::{
-    button, checkbox, column, container, pick_list, row, text, text_input, toggler,
-    Space,
+    button, checkbox, column, container, pick_list, row, rule, text, text_input, toggler, Space,
 };
 use iced::{Alignment, Element, Length, Task};
 
 use kurozumi_core::torrent::{
-    FilterAction, FilterCondition, FilterElement, FilterOperator, MatchMode, TorrentFeed,
-    TorrentFilter, TorrentItem,
+    FilterAction, FilterCondition, FilterElement, FilterOperator, FilterState, MatchMode,
+    TorrentFeed, TorrentFilter, TorrentItem,
 };
 
 use crate::app;
+use crate::cover_cache::CoverCache;
 use crate::db::DbHandle;
 use crate::screen::Action;
 use crate::style;
@@ -26,6 +26,60 @@ pub enum TorrentTab {
     Sources,
 }
 
+/// Feed list filter by filter state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FeedFilter {
+    #[default]
+    All,
+    Matched,
+    Preferred,
+    Selected,
+    Discarded,
+}
+
+impl FeedFilter {
+    pub const ALL: &[FeedFilter] = &[
+        Self::All,
+        Self::Matched,
+        Self::Preferred,
+        Self::Selected,
+        Self::Discarded,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::All => "All",
+            Self::Matched => "Matched",
+            Self::Preferred => "Preferred",
+            Self::Selected => "Selected",
+            Self::Discarded => "Discarded",
+        }
+    }
+
+    fn matches(self, item: &TorrentItem) -> bool {
+        match self {
+            Self::All => true,
+            Self::Matched => item.anime_id.is_some(),
+            Self::Preferred => item.filter_state == FilterState::Preferred,
+            Self::Selected => item.filter_state == FilterState::Selected,
+            Self::Discarded => item.filter_state == FilterState::Discarded,
+        }
+    }
+}
+
+/// Column to sort the feed list by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FeedSort {
+    #[default]
+    Title,
+    Episode,
+    Seeders,
+    Size,
+}
+
+
+
+
 /// Torrent screen state.
 pub struct Torrents {
     pub tab: TorrentTab,
@@ -35,6 +89,12 @@ pub struct Torrents {
     pub filters: Vec<TorrentFilter>,
     pub loading: bool,
     pub search_query: String,
+    // Feed filtering and sorting
+    pub feed_filter: FeedFilter,
+    pub feed_sort: FeedSort,
+    pub sort_ascending: bool,
+    // Feed detail panel
+    pub selected_torrent: Option<String>,
     // Feed editing
     pub editing_feed: Option<TorrentFeed>,
     pub feed_name_input: String,
@@ -55,6 +115,10 @@ pub enum Message {
     ToggleItem(String),
     DownloadSelected,
     DownloadDone(Result<usize, String>),
+    FeedFilterChanged(FeedFilter),
+    FeedSortChanged(FeedSort),
+    TorrentSelected(String),
+    CloseTorrentDetail,
     // Sources tab
     FeedsLoaded(Result<Vec<TorrentFeed>, String>),
     ToggleFeed(i64, bool),
@@ -94,6 +158,10 @@ impl Torrents {
             filters: Vec::new(),
             loading: false,
             search_query: String::new(),
+            feed_filter: FeedFilter::default(),
+            feed_sort: FeedSort::default(),
+            sort_ascending: true,
+            selected_torrent: None,
             editing_feed: None,
             feed_name_input: String::new(),
             feed_url_input: String::new(),
@@ -109,6 +177,7 @@ impl Torrents {
                 self.tab = tab;
                 self.editing_feed = None;
                 self.editing_filter = None;
+                self.selected_torrent = None;
                 match tab {
                     TorrentTab::Sources => return self.load_feeds(db),
                     TorrentTab::Filters => return self.load_filters(db),
@@ -148,6 +217,27 @@ impl Torrents {
                 Action::SetStatus(format!("Sent {count} torrents to client"))
             }
             Message::DownloadDone(Err(e)) => Action::SetStatus(format!("Download error: {e}")),
+            Message::FeedFilterChanged(filter) => {
+                self.feed_filter = filter;
+                Action::None
+            }
+            Message::FeedSortChanged(sort) => {
+                if self.feed_sort == sort {
+                    self.sort_ascending = !self.sort_ascending;
+                } else {
+                    self.feed_sort = sort;
+                    self.sort_ascending = true;
+                }
+                Action::None
+            }
+            Message::TorrentSelected(guid) => {
+                self.selected_torrent = Some(guid);
+                Action::None
+            }
+            Message::CloseTorrentDetail => {
+                self.selected_torrent = None;
+                Action::None
+            }
             // ── Sources tab ──────────────────────────────────────
             Message::FeedsLoaded(Ok(feeds)) => {
                 self.feeds = feeds;
@@ -466,13 +556,60 @@ impl Torrents {
         ))
     }
 
+    // ── Sorting & filtering helpers ──────────────────────────────
+
+    /// Build an index of visible feed items after filtering and sorting.
+    fn visible_feed_indices(&self) -> Vec<usize> {
+        let query_lower = self.search_query.to_lowercase();
+        let mut indices: Vec<usize> = self
+            .feed_items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| {
+                // Text search filter
+                if !query_lower.is_empty()
+                    && !item.title.to_lowercase().contains(&query_lower)
+                {
+                    return false;
+                }
+                // State filter
+                self.feed_filter.matches(item)
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        // Sort
+        let items = &self.feed_items;
+        indices.sort_by(|&a, &b| {
+            let ia = &items[a];
+            let ib = &items[b];
+            let ord = match self.feed_sort {
+                FeedSort::Title => {
+                    let ta = ia.anime_title.as_deref().unwrap_or(&ia.title);
+                    let tb = ib.anime_title.as_deref().unwrap_or(&ib.title);
+                    ta.to_lowercase().cmp(&tb.to_lowercase())
+                }
+                FeedSort::Episode => ia.episode.cmp(&ib.episode),
+                FeedSort::Seeders => ia.seeders.cmp(&ib.seeders),
+                FeedSort::Size => ia.size.cmp(&ib.size),
+            };
+            if self.sort_ascending {
+                ord
+            } else {
+                ord.reverse()
+            }
+        });
+
+        indices
+    }
+
     // ── View ─────────────────────────────────────────────────────
 
-    pub fn view(&self, cs: &ColorScheme) -> Element<'_, Message> {
+    pub fn view<'a>(&'a self, cs: &ColorScheme, cover_cache: &'a CoverCache) -> Element<'a, Message> {
         let tabs = self.tab_bar(cs);
 
         let content: Element<'_, Message> = match self.tab {
-            TorrentTab::Feed => self.feed_view(cs),
+            TorrentTab::Feed => self.feed_view(cs, cover_cache),
             TorrentTab::Filters => self.filter_view(cs),
             TorrentTab::Sources => self.sources_view(cs),
         };
@@ -490,9 +627,11 @@ impl Torrents {
                     ]
                     .spacing(style::SPACE_MD),
                 )
-                .padding(iced::Padding::new(style::SPACE_XL)
-                    .top(style::SPACE_LG)
-                    .bottom(style::SPACE_SM)),
+                .padding(
+                    iced::Padding::new(style::SPACE_XL)
+                        .top(style::SPACE_LG)
+                        .bottom(style::SPACE_SM),
+                ),
                 content,
             ]
             .width(Length::Fill)
@@ -523,7 +662,8 @@ impl Torrents {
 
     // ── Feed tab view ────────────────────────────────────────────
 
-    fn feed_view(&self, cs: &ColorScheme) -> Element<'_, Message> {
+    fn feed_view<'a>(&'a self, cs: &ColorScheme, cover_cache: &'a CoverCache) -> Element<'a, Message> {
+        // Toolbar: refresh + download + search
         let toolbar = row![
             button(text("Refresh").size(style::TEXT_SM))
                 .padding([style::SPACE_SM, style::SPACE_LG])
@@ -551,6 +691,9 @@ impl Torrents {
         .spacing(style::SPACE_SM)
         .align_y(Alignment::Center);
 
+        // Filter chips
+        let filter_chips = self.feed_filter_chips(cs);
+
         if self.feed_items.is_empty() {
             let msg = if self.loading {
                 "Loading..."
@@ -559,6 +702,7 @@ impl Torrents {
             };
             return column![
                 toolbar,
+                filter_chips,
                 container(
                     text(msg)
                         .size(style::TEXT_SM)
@@ -575,48 +719,18 @@ impl Torrents {
             .into();
         }
 
-        let query_lower = self.search_query.to_lowercase();
-        let mut list = column![].spacing(style::SPACE_XXS);
+        let visible = self.visible_feed_indices();
+        let count_text = format!("{} of {} torrents", visible.len(), self.feed_items.len());
 
-        // Header row
-        list = list.push(
-            container(
-                row![
-                    Space::new().width(Length::Fixed(32.0)),
-                    text("Title")
-                        .size(style::TEXT_XS)
-                        .color(cs.on_surface_variant)
-                        .width(Length::Fill),
-                    text("Ep")
-                        .size(style::TEXT_XS)
-                        .color(cs.on_surface_variant)
-                        .width(Length::Fixed(40.0)),
-                    text("Group")
-                        .size(style::TEXT_XS)
-                        .color(cs.on_surface_variant)
-                        .width(Length::Fixed(100.0)),
-                    text("Size")
-                        .size(style::TEXT_XS)
-                        .color(cs.on_surface_variant)
-                        .width(Length::Fixed(70.0)),
-                    text("S/L")
-                        .size(style::TEXT_XS)
-                        .color(cs.on_surface_variant)
-                        .width(Length::Fixed(60.0)),
-                ]
-                .spacing(style::SPACE_SM)
-                .align_y(Alignment::Center),
-            )
-            .padding([style::SPACE_XS, style::SPACE_SM]),
-        );
+        // Sortable column headers
+        let header_row = self.feed_column_headers(cs);
 
-        for item in &self.feed_items {
-            // Filter by search query.
-            if !query_lower.is_empty() && !item.title.to_lowercase().contains(&query_lower) {
-                continue;
-            }
+        let mut list = column![header_row].spacing(style::SPACE_XXS);
 
+        for idx in &visible {
+            let item = &self.feed_items[*idx];
             let is_checked = self.selected_items.contains(&item.guid);
+            let is_selected = self.selected_torrent.as_deref() == Some(&item.guid);
             let guid = item.guid.clone();
 
             let title_display = item
@@ -627,10 +741,10 @@ impl Torrents {
                 cs.primary
             } else {
                 match item.filter_state {
-                    kurozumi_core::torrent::FilterState::Discarded => cs.outline,
-                    kurozumi_core::torrent::FilterState::Selected => cs.on_secondary_container,
-                    kurozumi_core::torrent::FilterState::Preferred => cs.tertiary,
-                    kurozumi_core::torrent::FilterState::None => cs.on_surface,
+                    FilterState::Discarded => cs.outline,
+                    FilterState::Selected => cs.on_secondary_container,
+                    FilterState::Preferred => cs.tertiary,
+                    FilterState::None => cs.on_surface,
                 }
             };
 
@@ -678,23 +792,167 @@ impl Torrents {
                 .spacing(style::SPACE_SM)
                 .align_y(Alignment::Center),
             )
-            .on_press(Message::ToggleItem(item.guid.clone()))
+            .on_press(Message::TorrentSelected(item.guid.clone()))
             .padding([style::SPACE_XS, style::SPACE_SM])
             .width(Length::Fill)
-            .style(theme::list_item(is_checked, cs));
+            .style(theme::list_item(is_selected, cs));
 
             list = list.push(item_row);
         }
 
-        column![
+        let list_content = column![
             toolbar,
+            row![
+                filter_chips,
+                Space::new().width(Length::Fill),
+                text(count_text)
+                    .size(style::TEXT_XS)
+                    .color(cs.outline)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            ]
+            .align_y(Alignment::Center),
             crate::widgets::styled_scrollable(list.width(Length::Fill), cs)
                 .height(Length::Fill),
         ]
         .spacing(style::SPACE_SM)
         .padding([style::SPACE_SM, style::SPACE_XL])
         .width(Length::Fill)
-        .height(Length::Fill)
+        .height(Length::Fill);
+
+        // Detail panel
+        if let Some(ref guid) = self.selected_torrent {
+            if let Some(item) = self.feed_items.iter().find(|i| &i.guid == guid) {
+                let detail = torrent_detail_panel(item, cs, cover_cache);
+                return row![
+                    container(list_content)
+                        .width(Length::FillPortion(3))
+                        .height(Length::Fill),
+                    rule::vertical(1),
+                    container(detail)
+                        .width(Length::FillPortion(2))
+                        .height(Length::Fill),
+                ]
+                .height(Length::Fill)
+                .into();
+            }
+        }
+
+        list_content.into()
+    }
+
+    /// Filter chips row for the Feed tab.
+    fn feed_filter_chips(&self, cs: &ColorScheme) -> Element<'_, Message> {
+        let chips: Vec<Element<'_, Message>> = FeedFilter::ALL
+            .iter()
+            .map(|&filter| {
+                let is_active = self.feed_filter == filter;
+                let mut chip_content = row![].spacing(style::SPACE_XXS).align_y(Alignment::Center);
+                if is_active {
+                    chip_content =
+                        chip_content.push(lucide_icons::iced::icon_check().size(style::TEXT_XS));
+                }
+                chip_content = chip_content.push(
+                    text(filter.label())
+                        .size(style::TEXT_XS)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                );
+
+                button(container(chip_content).center_y(Length::Fill))
+                    .height(Length::Fixed(style::CHIP_HEIGHT))
+                    .padding([style::SPACE_XS, style::SPACE_MD])
+                    .on_press(Message::FeedFilterChanged(filter))
+                    .style(theme::filter_chip(is_active, cs))
+                    .into()
+            })
+            .collect();
+
+        row(chips).spacing(style::SPACE_XS).into()
+    }
+
+    /// Sortable column header row for the Feed tab.
+    fn feed_column_headers(&self, cs: &ColorScheme) -> Element<'_, Message> {
+        let sort_indicator = |sort: FeedSort| -> String {
+            if self.feed_sort == sort {
+                if self.sort_ascending {
+                    " \u{25B2}".into() // ▲
+                } else {
+                    " \u{25BC}".into() // ▼
+                }
+            } else {
+                String::new()
+            }
+        };
+
+        container(
+            row![
+                // Checkbox spacer
+                Space::new().width(Length::Fixed(32.0)),
+                // Title header (sortable)
+                button(
+                    text(format!("Title{}", sort_indicator(FeedSort::Title)))
+                        .size(style::TEXT_XS)
+                        .color(if self.feed_sort == FeedSort::Title {
+                            cs.primary
+                        } else {
+                            cs.on_surface_variant
+                        })
+                )
+                .on_press(Message::FeedSortChanged(FeedSort::Title))
+                .padding(0)
+                .style(theme::ghost_button(cs))
+                .width(Length::Fill),
+                // Episode header (sortable)
+                button(
+                    text(format!("Ep{}", sort_indicator(FeedSort::Episode)))
+                        .size(style::TEXT_XS)
+                        .color(if self.feed_sort == FeedSort::Episode {
+                            cs.primary
+                        } else {
+                            cs.on_surface_variant
+                        })
+                )
+                .on_press(Message::FeedSortChanged(FeedSort::Episode))
+                .padding(0)
+                .style(theme::ghost_button(cs))
+                .width(Length::Fixed(40.0)),
+                // Group (not sortable)
+                text("Group")
+                    .size(style::TEXT_XS)
+                    .color(cs.on_surface_variant)
+                    .width(Length::Fixed(100.0)),
+                // Size header (sortable)
+                button(
+                    text(format!("Size{}", sort_indicator(FeedSort::Size)))
+                        .size(style::TEXT_XS)
+                        .color(if self.feed_sort == FeedSort::Size {
+                            cs.primary
+                        } else {
+                            cs.on_surface_variant
+                        })
+                )
+                .on_press(Message::FeedSortChanged(FeedSort::Size))
+                .padding(0)
+                .style(theme::ghost_button(cs))
+                .width(Length::Fixed(70.0)),
+                // S/L header (sortable)
+                button(
+                    text(format!("S/L{}", sort_indicator(FeedSort::Seeders)))
+                        .size(style::TEXT_XS)
+                        .color(if self.feed_sort == FeedSort::Seeders {
+                            cs.primary
+                        } else {
+                            cs.on_surface_variant
+                        })
+                )
+                .on_press(Message::FeedSortChanged(FeedSort::Seeders))
+                .padding(0)
+                .style(theme::ghost_button(cs))
+                .width(Length::Fixed(60.0)),
+            ]
+            .spacing(style::SPACE_SM)
+            .align_y(Alignment::Center),
+        )
+        .padding([style::SPACE_XS, style::SPACE_SM])
         .into()
     }
 
@@ -725,19 +983,21 @@ impl Torrents {
                         .on_input(Message::FeedUrlChanged)
                         .size(style::TEXT_SM),
                     row![
-                        button(text("Save").size(style::TEXT_SM))
-                            .padding([style::SPACE_SM, style::SPACE_LG])
-                            .on_press(Message::SaveFeed)
-                            .style(theme::ghost_button(cs)),
+                        Space::new().width(Length::Fill),
                         button(text("Cancel").size(style::TEXT_SM))
                             .padding([style::SPACE_SM, style::SPACE_LG])
                             .on_press(Message::CancelEdit)
+                            .style(theme::ghost_button(cs)),
+                        button(text("Save").size(style::TEXT_SM))
+                            .padding([style::SPACE_SM, style::SPACE_LG])
+                            .on_press(Message::SaveFeed)
                             .style(theme::ghost_button(cs)),
                     ]
                     .spacing(style::SPACE_SM),
                 ]
                 .spacing(style::SPACE_SM),
             )
+            .style(theme::card(cs))
             .padding(style::SPACE_LG);
             content = content.push(form);
         }
@@ -746,6 +1006,12 @@ impl Torrents {
         for feed in &self.feeds {
             let feed_id = feed.id;
             let enabled = feed.enabled;
+
+            // "last checked" label
+            let checked_label = match &feed.last_checked {
+                Some(dt) => crate::format::relative_time(dt),
+                None => "never checked".into(),
+            };
 
             let feed_row = container(
                 row![
@@ -759,6 +1025,10 @@ impl Torrents {
                         text(&feed.url)
                             .size(style::TEXT_XS)
                             .color(cs.on_surface_variant)
+                            .line_height(style::LINE_HEIGHT_LOOSE),
+                        text(checked_label)
+                            .size(style::TEXT_XS)
+                            .color(cs.outline)
                             .line_height(style::LINE_HEIGHT_LOOSE),
                     ]
                     .spacing(style::SPACE_XXS)
@@ -775,6 +1045,7 @@ impl Torrents {
                 .spacing(style::SPACE_MD)
                 .align_y(Alignment::Center),
             )
+            .style(theme::card(cs))
             .padding([style::SPACE_SM, style::SPACE_MD]);
 
             content = content.push(feed_row);
@@ -877,7 +1148,7 @@ impl Torrents {
                         .on_input(move |v| Message::ConditionValueChanged(i, v))
                         .size(style::TEXT_SM)
                         .width(Length::Fill),
-                    button(text("×").size(style::TEXT_SM))
+                    button(text("\u{00D7}").size(style::TEXT_SM))
                         .padding([style::SPACE_XS, style::SPACE_SM])
                         .on_press(Message::RemoveCondition(idx))
                         .style(theme::ghost_button(cs)),
@@ -906,7 +1177,11 @@ impl Torrents {
                 .spacing(style::SPACE_SM),
             );
 
-            content = content.push(container(form).padding(style::SPACE_LG));
+            content = content.push(
+                container(form)
+                    .style(theme::card(cs))
+                    .padding(style::SPACE_LG),
+            );
         }
 
         // Filter list
@@ -914,7 +1189,18 @@ impl Torrents {
             let filter_id = filter.id;
             let enabled = filter.enabled;
             let action_label = filter.action.to_string();
-            let cond_count = format!("{} condition(s)", filter.conditions.len());
+            let cond_count = format!(
+                "{} condition{}",
+                filter.conditions.len(),
+                if filter.conditions.len() == 1 { "" } else { "s" }
+            );
+
+            // Color-code the action badge
+            let action_color = match filter.action {
+                FilterAction::Discard => cs.error,
+                FilterAction::Select => cs.on_secondary_container,
+                FilterAction::Prefer => cs.tertiary,
+            };
 
             let filter_row = container(
                 row![
@@ -926,15 +1212,21 @@ impl Torrents {
                             .size(style::TEXT_SM)
                             .line_height(style::LINE_HEIGHT_NORMAL),
                         row![
-                            text(action_label)
-                                .size(style::TEXT_XS)
-                                .color(cs.on_secondary_container),
-                            text("·").size(style::TEXT_XS).color(cs.outline),
+                            container(
+                                text(action_label)
+                                    .size(style::TEXT_XS)
+                                    .color(action_color)
+                                    .line_height(style::LINE_HEIGHT_NORMAL),
+                            )
+                            .style(theme::status_badge(cs, action_color))
+                            .padding([style::SPACE_XXS, style::SPACE_SM]),
+                            text("\u{00B7}").size(style::TEXT_XS).color(cs.outline),
                             text(cond_count)
                                 .size(style::TEXT_XS)
                                 .color(cs.on_surface_variant),
                         ]
-                        .spacing(style::SPACE_XS),
+                        .spacing(style::SPACE_XS)
+                        .align_y(Alignment::Center),
                     ]
                     .spacing(style::SPACE_XXS)
                     .width(Length::Fill),
@@ -950,6 +1242,7 @@ impl Torrents {
                 .spacing(style::SPACE_MD)
                 .align_y(Alignment::Center),
             )
+            .style(theme::card(cs))
             .padding([style::SPACE_SM, style::SPACE_MD]);
 
             content = content.push(filter_row);
@@ -964,4 +1257,185 @@ impl Torrents {
         .height(Length::Fill)
         .into()
     }
+}
+
+// ── Torrent detail panel ─────────────────────────────────────────
+
+/// Detail panel for a selected torrent item.
+fn torrent_detail_panel<'a>(
+    item: &'a TorrentItem,
+    cs: &ColorScheme,
+    cover_cache: &'a CoverCache,
+) -> Element<'a, Message> {
+    // Close button
+    let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
+    let close_btn = button(
+        container(
+            lucide_icons::iced::icon_x()
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill),
+    )
+    .on_press(Message::CloseTorrentDetail)
+    .padding(0)
+    .width(Length::Fixed(close_size))
+    .height(Length::Fixed(close_size))
+    .style(theme::icon_button(cs));
+
+    let top_bar = row![container("").width(Length::Fill), close_btn]
+        .align_y(Alignment::Start);
+
+    let mut detail = column![top_bar].spacing(style::SPACE_MD);
+
+    // Cover image (if matched to an anime)
+    if let Some(anime_id) = item.anime_id {
+        let cover = crate::widgets::rounded_cover(
+            cs,
+            cover_cache,
+            anime_id,
+            style::COVER_WIDTH,
+            style::COVER_HEIGHT,
+            style::RADIUS_MD,
+        );
+        detail = detail.push(container(cover).center_x(Length::Fill));
+    }
+
+    // Title
+    detail = detail.push(
+        text(&item.title)
+            .size(style::TEXT_BASE)
+            .font(style::FONT_HEADING)
+            .line_height(style::LINE_HEIGHT_NORMAL),
+    );
+
+    // Matched anime name (if different from raw title)
+    if let Some(ref anime_title) = item.anime_title {
+        detail = detail.push(
+            row![
+                text("Matched: ")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant),
+                text(anime_title.as_str())
+                    .size(style::TEXT_SM)
+                    .color(cs.primary),
+            ]
+        );
+    }
+
+    // Details card
+    let info_label_width = Length::Fixed(90.0);
+    let mut info_rows = column![].spacing(style::SPACE_XS);
+
+    let info_row = |label: &'static str, value: String, cs: &ColorScheme| {
+        row![
+            text(label)
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant)
+                .width(info_label_width),
+            text(value)
+                .size(style::TEXT_SM)
+                .color(cs.on_surface)
+                .line_height(style::LINE_HEIGHT_NORMAL),
+        ]
+    };
+
+    if let Some(ep) = item.episode {
+        info_rows = info_rows.push(info_row("Episode", ep.to_string(), cs));
+    }
+    if let Some(ref group) = item.release_group {
+        info_rows = info_rows.push(info_row("Group", group.clone(), cs));
+    }
+    if let Some(ref res) = item.resolution {
+        info_rows = info_rows.push(info_row("Resolution", res.clone(), cs));
+    }
+    if let Some(ref size) = item.size {
+        info_rows = info_rows.push(info_row("Size", size.clone(), cs));
+    }
+    if let (Some(s), Some(l)) = (item.seeders, item.leechers) {
+        info_rows = info_rows.push(info_row("Seeders", format!("{s} / {l} leechers"), cs));
+    }
+    if let Some(ref dt) = item.pub_date {
+        info_rows = info_rows.push(info_row("Published", crate::format::relative_time(dt), cs));
+    }
+
+    // Filter state badge
+    let state_label = match item.filter_state {
+        FilterState::None => "Unfiltered",
+        FilterState::Discarded => "Discarded",
+        FilterState::Selected => "Selected",
+        FilterState::Preferred => "Preferred",
+    };
+    let state_color = match item.filter_state {
+        FilterState::None => cs.on_surface_variant,
+        FilterState::Discarded => cs.error,
+        FilterState::Selected => cs.on_secondary_container,
+        FilterState::Preferred => cs.tertiary,
+    };
+    info_rows = info_rows.push(
+        row![
+            text("Status")
+                .size(style::TEXT_SM)
+                .color(cs.on_surface_variant)
+                .width(info_label_width),
+            container(
+                text(state_label)
+                    .size(style::TEXT_XS)
+                    .color(state_color)
+                    .line_height(style::LINE_HEIGHT_NORMAL),
+            )
+            .style(theme::status_badge(cs, state_color))
+            .padding([style::SPACE_XXS, style::SPACE_SM]),
+        ]
+        .align_y(Alignment::Center),
+    );
+
+    detail = detail.push(
+        container(info_rows)
+            .style(theme::card(cs))
+            .padding(style::SPACE_MD)
+            .width(Length::Fill),
+    );
+
+    // Description
+    if let Some(ref desc) = item.description {
+        if !desc.is_empty() {
+            detail = detail.push(
+                column![
+                    text("Description")
+                        .size(style::TEXT_SM)
+                        .font(style::FONT_HEADING)
+                        .color(cs.on_surface_variant),
+                    text(desc.as_str())
+                        .size(style::TEXT_SM)
+                        .color(cs.on_surface)
+                        .line_height(style::LINE_HEIGHT_NORMAL),
+                ]
+                .spacing(style::SPACE_XS),
+            );
+        }
+    }
+
+    // Download button
+    let has_link = item.magnet_link.is_some() || item.link.is_some();
+    if has_link {
+        let guid = item.guid.clone();
+        detail = detail.push(
+            button(text("Download").size(style::TEXT_SM).center())
+                .padding([style::SPACE_SM, style::SPACE_LG])
+                .width(Length::Fill)
+                .on_press(Message::ToggleItem(guid))
+                .style(theme::ghost_button(cs)),
+        );
+    }
+
+    crate::widgets::styled_scrollable(
+        container(detail)
+            .padding(style::SPACE_LG)
+            .width(Length::Fill),
+        cs,
+    )
+    .height(Length::Fill)
+    .into()
 }

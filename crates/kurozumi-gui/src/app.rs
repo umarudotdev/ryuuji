@@ -279,7 +279,24 @@ impl Kurozumi {
                 }
             },
             Message::History(msg) => {
-                let action = self.history.update(msg);
+                // Request cover for newly selected anime.
+                let cover_task = match &msg {
+                    history::Message::AnimeSelected(id) => {
+                        let info = self
+                            .history
+                            .entries
+                            .iter()
+                            .find(|r| r.anime.id == *id)
+                            .map(|r| (r.anime.id, r.anime.cover_url.clone()));
+                        if let Some((id, url)) = info {
+                            self.request_cover(id, url.as_deref())
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    _ => Task::none(),
+                };
+                let action = self.history.update(msg, self.db.as_ref());
                 let action_task = self.handle_action(action);
                 // Batch-request covers for history entries.
                 let info: Vec<(i64, Option<String>)> = self
@@ -289,7 +306,7 @@ impl Kurozumi {
                     .map(|e| (e.anime.id, e.anime.cover_url.clone()))
                     .collect();
                 let batch_covers = self.batch_request_covers(info);
-                Task::batch([action_task, batch_covers])
+                Task::batch([cover_task, action_task, batch_covers])
             }
             Message::Library(msg) => {
                 // Request cover for newly selected anime.
@@ -768,7 +785,10 @@ impl Kurozumi {
                 .view(cs, &self.cover_cache)
                 .map(Message::History),
             Page::Search => self.search.view(cs, &self.cover_cache).map(Message::Search),
-            Page::Torrents => self.torrents.view(cs).map(Message::Torrents),
+            Page::Torrents => self
+                .torrents
+                .view(cs, &self.cover_cache)
+                .map(Message::Torrents),
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
@@ -791,6 +811,7 @@ impl Kurozumi {
             let dismiss_msg = match modal_kind {
                 ModalKind::ConfirmDelete { source, .. } => match source {
                     Page::Search => Message::Search(search::Message::CancelModal),
+                    Page::History => Message::History(history::Message::CancelModal),
                     _ => Message::Library(library::Message::CancelModal),
                 },
             };
@@ -855,10 +876,12 @@ impl Kurozumi {
                 let source = *source;
                 let cancel_msg = match source {
                     Page::Search => Message::Search(search::Message::CancelModal),
+                    Page::History => Message::History(history::Message::CancelModal),
                     _ => Message::Library(library::Message::CancelModal),
                 };
                 let confirm_msg = match source {
                     Page::Search => Message::Search(search::Message::ConfirmDelete(anime_id)),
+                    Page::History => Message::History(history::Message::ConfirmDelete(anime_id)),
                     _ => Message::Library(library::Message::ConfirmDelete(anime_id)),
                 };
                 container(
