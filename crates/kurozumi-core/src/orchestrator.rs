@@ -211,6 +211,7 @@ mod tests {
             release_group: None,
             resolution: None,
             raw_title: format!("[Group] {title} - {episode:02} [1080p].mkv"),
+            service_name: None,
         }
     }
 

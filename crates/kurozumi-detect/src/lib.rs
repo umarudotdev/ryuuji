@@ -1,9 +1,11 @@
 pub mod platform;
 pub mod player_db;
+pub mod stream;
 
 use serde::{Deserialize, Serialize};
 
 pub use player_db::{PlayerDatabase, PlayerDef};
+pub use stream::{StreamDatabase, StreamDef, StreamMatch};
 
 /// Information about a detected media player and what it's playing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +16,8 @@ pub struct PlayerInfo {
     pub media_title: Option<String>,
     /// The file path currently being played, if available.
     pub file_path: Option<String>,
+    /// Whether this player is a web browser.
+    pub is_browser: bool,
 }
 
 /// Detect what's currently playing across all supported media players.

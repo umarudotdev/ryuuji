@@ -167,3 +167,41 @@ mpris_identities = []
 window_classes = ["Microsoft.Media.Player"]
 title_patterns = []
 enabled = true
+
+# ── Browsers ────────────────────────────────────────────────────
+
+[[player]]
+name = "Firefox"
+executables = ["firefox", "firefox-esr"]
+mpris_identities = ["firefox", "Firefox"]
+window_classes = ["MozillaWindowClass", "Navigator"]
+title_patterns = []
+enabled = true
+is_browser = true
+
+[[player]]
+name = "Chrome"
+executables = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
+mpris_identities = ["chrome", "chromium", "Chrome", "Chromium"]
+window_classes = ["Google-chrome", "Chromium", "Chromium-browser", "Chrome_WidgetWin_1"]
+title_patterns = []
+enabled = true
+is_browser = true
+
+[[player]]
+name = "Edge"
+executables = ["microsoft-edge", "msedge"]
+mpris_identities = ["msedge", "Microsoft Edge"]
+window_classes = ["Microsoft-edge", "Chrome_WidgetWin_1"]
+title_patterns = []
+enabled = true
+is_browser = true
+
+[[player]]
+name = "Brave"
+executables = ["brave", "brave-browser"]
+mpris_identities = ["brave", "Brave"]
+window_classes = ["Brave-browser"]
+title_patterns = []
+enabled = true
+is_browser = true

@@ -1456,6 +1456,25 @@ async fn detect_and_parse() -> Option<DetectedMedia> {
     let players = kurozumi_detect::detect_players();
     let player = players.into_iter().next()?;
 
+    if player.is_browser {
+        // Browser detected — try stream service matching.
+        let stream_db = kurozumi_detect::StreamDatabase::embedded();
+        let stream_match = kurozumi_detect::stream::detect_stream(&player, &stream_db)?;
+        let raw_title = stream_match.extracted_title;
+        let parsed = kurozumi_parse::parse(&raw_title);
+
+        return Some(DetectedMedia {
+            player_name: player.player_name,
+            anime_title: parsed.title,
+            episode: parsed.episode_number,
+            release_group: parsed.release_group,
+            resolution: parsed.resolution,
+            raw_title,
+            service_name: Some(stream_match.service_name),
+        });
+    }
+
+    // Regular media player — extract basename from file path or use media title.
     let raw_title = player
         .file_path
         .as_deref()
@@ -1476,5 +1495,6 @@ async fn detect_and_parse() -> Option<DetectedMedia> {
         release_group: parsed.release_group,
         resolution: parsed.resolution,
         raw_title,
+        service_name: None,
     })
 }

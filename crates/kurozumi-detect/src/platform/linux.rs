@@ -39,10 +39,11 @@ pub fn detect_mpris(db: &PlayerDatabase) -> Vec<PlayerInfo> {
             });
 
             // Resolve the player name using the database.
-            let player_name = db
-                .find_by_mpris(&identity)
+            let player_def = db.find_by_mpris(&identity);
+            let player_name = player_def
                 .map(|p| p.name.clone())
                 .unwrap_or_else(|| identity.clone());
+            let is_browser = player_def.map(|p| p.is_browser).unwrap_or(false);
 
             debug!(player = %identity, resolved = %player_name, title = ?media_title, "Detected MPRIS player");
 
@@ -50,6 +51,7 @@ pub fn detect_mpris(db: &PlayerDatabase) -> Vec<PlayerInfo> {
                 player_name,
                 media_title,
                 file_path,
+                is_browser,
             })
         })
         .collect()
