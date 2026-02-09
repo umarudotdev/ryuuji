@@ -11,6 +11,7 @@ mod window_state;
 
 const GEIST_SANS: &[u8] = include_bytes!("../assets/fonts/Geist-Variable.ttf");
 const GEIST_MONO: &[u8] = include_bytes!("../assets/fonts/GeistMono-Variable.ttf");
+const APP_ICON: &[u8] = include_bytes!("../assets/icon.png");
 
 fn main() -> iced::Result {
     tracing_subscriber::fmt()
@@ -18,8 +19,21 @@ fn main() -> iced::Result {
         .init();
 
     let ws = window_state::WindowState::load();
+    let icon = iced::window::icon::from_file_data(APP_ICON, None).ok();
 
-    let mut app = iced::application(
+    let mut win = iced::window::Settings {
+        size: ws.size(),
+        icon,
+        ..Default::default()
+    };
+
+    if let Some(pos) = ws.position() {
+        win.position = iced::window::Position::Specific(pos);
+    } else {
+        win.position = iced::window::Position::Centered;
+    }
+
+    iced::application(
         app::Ryuuji::new,
         app::Ryuuji::update,
         app::Ryuuji::view,
@@ -31,13 +45,6 @@ fn main() -> iced::Result {
     .font(GEIST_MONO)
     .font(lucide_icons::LUCIDE_FONT_BYTES)
     .default_font(iced::Font::with_name("Geist"))
-    .window_size(ws.size());
-
-    if let Some(pos) = ws.position() {
-        app = app.position(iced::window::Position::Specific(pos));
-    } else {
-        app = app.centered();
-    }
-
-    app.run()
+    .window(win)
+    .run()
 }

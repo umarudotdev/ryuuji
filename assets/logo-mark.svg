@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!--
+    Ryuuji Logomark — Dragon's Eye
+    A stylized dragon eye: almond shape with vertical slit pupil.
+    Designed for the warm rose palette of the Ryuuji theme.
+  -->
+  <defs>
+    <linearGradient id="iris-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFC4D0"/>
+      <stop offset="45%" stop-color="#FFB1C1"/>
+      <stop offset="100%" stop-color="#E89AAB"/>
+    </linearGradient>
+    <linearGradient id="spark-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E8C68F"/>
+      <stop offset="100%" stop-color="#D4A85A"/>
+    </linearGradient>
+    <!-- Subtle inner shadow on the eye -->
+    <radialGradient id="depth" cx="0.5" cy="0.65" r="0.5">
+      <stop offset="60%" stop-color="#FFB1C1" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#7A2E3E" stop-opacity="0.25"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Eye shape — angular almond, slightly tilted for fierceness -->
+  <path d="
+    M 20,128
+    Q 72,52  148,56
+    Q 210,60 240,118
+    Q 242,124 240,132
+    Q 210,200 148,204
+    Q 72,208 20,132
+    Q 18,130 20,128
+    Z
+  " fill="url(#iris-grad)"/>
+
+  <!-- Depth overlay -->
+  <path d="
+    M 20,128
+    Q 72,52  148,56
+    Q 210,60 240,118
+    Q 242,124 240,132
+    Q 210,200 148,204
+    Q 72,208 20,132
+    Q 18,130 20,128
+    Z
+  " fill="url(#depth)"/>
+
+  <!-- Pupil — vertical slit with slight curve -->
+  <path d="
+    M 142,52
+    Q 164,128 142,208
+    Q 124,128 142,52
+    Z
+  " fill="#1A1114"/>
+
+  <!-- Specular highlights -->
+  <ellipse cx="118" cy="108" rx="16" ry="18" fill="white" opacity="0.22"/>
+  <circle cx="115" cy="104" r="7" fill="white" opacity="0.38"/>
+
+  <!-- Small secondary highlight on the other side of pupil -->
+  <circle cx="166" cy="152" r="4" fill="white" opacity="0.15"/>
+
+  <!-- Golden spark / dragon fire at outer corner -->
+  <path d="
+    M 236,122
+    L 252,112
+    L 248,128
+    L 256,132
+    L 244,136
+    L 236,132
+    Z
+  " fill="url(#spark-grad)" opacity="0.85"/>
+</svg>

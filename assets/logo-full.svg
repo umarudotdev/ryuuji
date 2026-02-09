@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200">
+  <!--
+    Ryuuji Full Logo — Dragon's Eye mark + wordmark
+    Horizontal layout for headers, splash screens, README badges.
+  -->
+  <defs>
+    <linearGradient id="f-iris" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFC4D0"/>
+      <stop offset="45%" stop-color="#FFB1C1"/>
+      <stop offset="100%" stop-color="#E89AAB"/>
+    </linearGradient>
+    <linearGradient id="f-spark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E8C68F"/>
+      <stop offset="100%" stop-color="#D4A85A"/>
+    </linearGradient>
+    <radialGradient id="f-depth" cx="0.5" cy="0.62" r="0.5">
+      <stop offset="55%" stop-color="#FFB1C1" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#7A2E3E" stop-opacity="0.3"/>
+    </radialGradient>
+    <linearGradient id="text-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFB1C1"/>
+      <stop offset="100%" stop-color="#E89AAB"/>
+    </linearGradient>
+  </defs>
+
+  <!-- === Eye Mark (centered vertically in 200px height) === -->
+  <g transform="translate(16, 24) scale(0.6)">
+    <!-- Eye shape -->
+    <path d="
+      M 20,128
+      Q 72,52  148,56
+      Q 210,60 240,118
+      Q 242,124 240,132
+      Q 210,200 148,204
+      Q 72,208 20,132
+      Q 18,130 20,128
+      Z
+    " fill="url(#f-iris)"/>
+    <path d="
+      M 20,128
+      Q 72,52  148,56
+      Q 210,60 240,118
+      Q 242,124 240,132
+      Q 210,200 148,204
+      Q 72,208 20,132
+      Q 18,130 20,128
+      Z
+    " fill="url(#f-depth)"/>
+
+    <!-- Pupil -->
+    <path d="
+      M 142,52
+      Q 164,128 142,208
+      Q 124,128 142,52
+      Z
+    " fill="#1A1114"/>
+
+    <!-- Highlights -->
+    <ellipse cx="118" cy="108" rx="16" ry="18" fill="white" opacity="0.22"/>
+    <circle cx="115" cy="104" r="7" fill="white" opacity="0.38"/>
+    <circle cx="166" cy="152" r="4" fill="white" opacity="0.15"/>
+
+    <!-- Spark -->
+    <path d="
+      M 236,122 L 252,112 L 248,128 L 256,132 L 244,136 L 236,132 Z
+    " fill="url(#f-spark)" opacity="0.85"/>
+  </g>
+
+  <!-- === Wordmark === -->
+  <!-- Using a clean sans-serif at 600 weight to match Geist Sans -->
+  <text x="196" y="126"
+        font-family="'Geist', 'Inter', 'SF Pro Display', system-ui, sans-serif"
+        font-size="72"
+        font-weight="500"
+        letter-spacing="2"
+        fill="url(#text-grad)">ryuuji</text>
+
+  <!-- Subtle tagline -->
+  <text x="198" y="158"
+        font-family="'Geist', 'Inter', 'SF Pro Display', system-ui, sans-serif"
+        font-size="16"
+        font-weight="400"
+        letter-spacing="4"
+        fill="#9E8E92"
+        opacity="0.8">ANIME TRACKER</text>
+</svg>

@@ -42,7 +42,7 @@ pub enum ThemeMode {
 impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
-            theme: "Ryuuji Dark".into(),
+            theme: "Ryuuji".into(),
             mode: ThemeMode::Dark,
         }
     }
