@@ -2,10 +2,18 @@ use reqwest::Client;
 
 use super::auth;
 use super::error::MalError;
-use super::types::{MalAnimeListItem, MalListResponse, MalSearchResponse};
-use crate::traits::{AnimeSearchResult, AnimeService, UserListEntry};
+use super::types::{
+    map_status_to_mal, MalAnimeListItem, MalAnimeNode, MalListResponse, MalSearchResponse,
+    MalSeasonResponse,
+};
+use crate::traits::{AnimeSearchResult, AnimeSeason, AnimeService, SeasonPage, UserListEntry};
 
 const BASE_URL: &str = "https://api.myanimelist.net";
+
+/// Shared fields parameter for MAL anime queries.
+const ANIME_FIELDS: &str = "id,title,alternative_titles,num_episodes,main_picture,media_type,\
+                             status,synopsis,genres,mean,studios,source,rating,start_date,\
+                             end_date,start_season";
 
 /// MyAnimeList API v2 client.
 pub struct MalClient {
@@ -49,9 +57,7 @@ impl MalClient {
         let mut items = Vec::new();
         let mut url = format!(
             "{BASE_URL}/v2/users/@me/animelist\
-             ?fields=list_status,alternative_titles,num_episodes,main_picture,\
-             synopsis,genres,mean,studios,source,rating,start_date,end_date,\
-             start_season,media_type,status\
+             ?fields=list_status,{ANIME_FIELDS}\
              &limit=100&nsfw=true"
         );
 
@@ -94,15 +100,7 @@ impl AnimeService for MalClient {
             .http
             .get(format!("{BASE_URL}/v2/anime"))
             .header("Authorization", self.auth_header())
-            .query(&[
-                ("q", query),
-                ("limit", "10"),
-                (
-                    "fields",
-                    "id,title,alternative_titles,num_episodes,main_picture,media_type,status,\
-                     synopsis,genres,mean,studios,source,rating,start_date,end_date,start_season",
-                ),
-            ])
+            .query(&[("q", query), ("limit", "10"), ("fields", ANIME_FIELDS)])
             .send()
             .await?;
 
@@ -141,5 +139,102 @@ impl AnimeService for MalClient {
 
         Self::check_response(resp).await?;
         Ok(())
+    }
+
+    async fn get_anime(&self, anime_id: u64) -> Result<AnimeSearchResult, MalError> {
+        let resp = self
+            .http
+            .get(format!("{BASE_URL}/v2/anime/{anime_id}"))
+            .header("Authorization", self.auth_header())
+            .query(&[("fields", ANIME_FIELDS)])
+            .send()
+            .await?;
+
+        let resp = Self::check_response(resp).await?;
+        let node: MalAnimeNode = resp
+            .json()
+            .await
+            .map_err(|e| MalError::Parse(e.to_string()))?;
+
+        Ok(node.into_search_result())
+    }
+
+    async fn add_library_entry(&self, anime_id: u64, status: &str) -> Result<(), MalError> {
+        // MAL's PATCH my_list_status is an upsert — creates if absent.
+        let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
+        let mal_status = map_status_to_mal(status);
+
+        let resp = self
+            .http
+            .patch(&url)
+            .header("Authorization", self.auth_header())
+            .form(&[("status", mal_status)])
+            .send()
+            .await?;
+
+        Self::check_response(resp).await?;
+        Ok(())
+    }
+
+    async fn delete_library_entry(&self, anime_id: u64) -> Result<(), MalError> {
+        let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
+
+        let resp = self
+            .http
+            .delete(&url)
+            .header("Authorization", self.auth_header())
+            .send()
+            .await?;
+
+        // Treat 404 as success — entry already gone.
+        if resp.status().as_u16() == 404 {
+            return Ok(());
+        }
+        Self::check_response(resp).await?;
+        Ok(())
+    }
+
+    async fn browse_season(
+        &self,
+        season: AnimeSeason,
+        year: u32,
+        page: u32,
+    ) -> Result<SeasonPage, MalError> {
+        let offset = (page.saturating_sub(1)) * 100;
+        let url = format!(
+            "{BASE_URL}/v2/anime/season/{year}/{}",
+            season.to_mal_str()
+        );
+
+        let resp = self
+            .http
+            .get(&url)
+            .header("Authorization", self.auth_header())
+            .query(&[
+                ("fields", ANIME_FIELDS),
+                ("limit", "100"),
+                ("offset", &offset.to_string()),
+                ("sort", "anime_num_list_users"),
+                ("nsfw", "true"),
+            ])
+            .send()
+            .await?;
+
+        let resp = Self::check_response(resp).await?;
+        let season_resp: MalSeasonResponse = resp
+            .json()
+            .await
+            .map_err(|e| MalError::Parse(e.to_string()))?;
+
+        let items = season_resp
+            .data
+            .into_iter()
+            .map(|n| n.node.into_search_result())
+            .collect();
+
+        Ok(SeasonPage {
+            items,
+            has_next: season_resp.paging.next.is_some(),
+        })
     }
 }

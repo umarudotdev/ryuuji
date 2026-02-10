@@ -343,6 +343,20 @@ impl Ryuuji {
                 }
             },
             Message::History(msg) => {
+                // Intercept ConfirmDelete to fire remote sync before local delete.
+                if let history::Message::ConfirmDelete(anime_id) = &msg {
+                    let sync_task = self.spawn_sync_delete(*anime_id);
+                    let action = self.history.update(msg, self.db.as_ref());
+                    let action_task = self.handle_action(action);
+                    let info: Vec<(i64, Option<String>)> = self
+                        .history
+                        .entries
+                        .iter()
+                        .map(|e| (e.anime.id, e.anime.cover_url.clone()))
+                        .collect();
+                    let batch_covers = self.batch_request_covers(info);
+                    return Task::batch([sync_task, action_task, batch_covers]);
+                }
                 // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     history::Message::AnimeSelected(id) => {
@@ -373,6 +387,15 @@ impl Ryuuji {
                 Task::batch([cover_task, action_task, batch_covers])
             }
             Message::Library(msg) => {
+                // Intercept ConfirmDelete to fire remote sync before local delete.
+                if let library::Message::ConfirmDelete(anime_id) = &msg {
+                    let sync_task = self.spawn_sync_delete(*anime_id);
+                    let action = self.library.update(msg, self.db.as_ref());
+                    let action_task = self.handle_action(action);
+                    let info = Self::cover_info_from_rows(&self.library.entries);
+                    let batch_covers = self.batch_request_covers(info);
+                    return Task::batch([sync_task, action_task, batch_covers]);
+                }
                 // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     library::Message::AnimeSelected(id) => {
@@ -411,6 +434,12 @@ impl Ryuuji {
                             return self.spawn_add_to_library(result);
                         }
                         return Task::none();
+                    }
+                    search::Message::ConfirmDelete(anime_id) => {
+                        let sync_task = self.spawn_sync_delete(*anime_id);
+                        let action = self.search.update(msg, self.db.as_ref());
+                        let action_task = self.handle_action(action);
+                        return Task::batch([sync_task, action_task]);
                     }
                     search::Message::OnlineResultsLoaded(_) => {
                         // After online results load, batch-request covers.
@@ -1078,34 +1107,59 @@ impl Ryuuji {
         )
     }
 
-    /// Spawn a season browse request via the AniList API.
+    /// Spawn a season browse request via the primary service.
     fn spawn_season_browse(&self) -> Task<Message> {
         let Some(db) = self.db.clone() else {
             return Task::none();
         };
         let season = self.seasons.season;
         let year = self.seasons.year;
+        let primary = self.config.services.primary.clone();
 
         Task::perform(
             async move {
+                use ryuuji_api::traits::AnimeService;
+
                 let token = db
-                    .get_service_token("anilist")
+                    .get_service_token(&primary)
                     .await
                     .map_err(|e| e.to_string())?
-                    .ok_or_else(|| "Not logged in to AniList".to_string())?;
+                    .ok_or_else(|| format!("Not logged in to {primary}"))?;
 
-                let client = ryuuji_api::anilist::AniListClient::new(token);
-                let page = client
-                    .browse_season(season, year, 1)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                let page = match primary.as_str() {
+                    "anilist" => {
+                        let client = ryuuji_api::anilist::AniListClient::new(token);
+                        client
+                            .browse_season(season, year, 1)
+                            .await
+                            .map_err(|e| e.to_string())?
+                    }
+                    "kitsu" => {
+                        let client = ryuuji_api::kitsu::KitsuClient::new(token);
+                        client
+                            .browse_season(season, year, 1)
+                            .await
+                            .map_err(|e| e.to_string())?
+                    }
+                    _ => {
+                        let client_id = ryuuji_core::config::AppConfig::load()
+                            .ok()
+                            .and_then(|c| c.services.mal.client_id)
+                            .unwrap_or_default();
+                        let client = ryuuji_api::mal::MalClient::new(client_id, token);
+                        client
+                            .browse_season(season, year, 1)
+                            .await
+                            .map_err(|e| e.to_string())?
+                    }
+                };
                 Ok(page.items)
             },
             |result| Message::Seasons(seasons::Message::DataLoaded(result)),
         )
     }
 
-    /// Add a season browse result to the local library.
+    /// Add a season browse result to the local library + push to remote service.
     fn spawn_add_to_library_from_seasons(
         &self,
         result: ryuuji_api::traits::AnimeSearchResult,
@@ -1113,67 +1167,8 @@ impl Ryuuji {
         let Some(db) = self.db.clone() else {
             return Task::none();
         };
-
-        Task::perform(
-            async move {
-                let ids = AnimeIds {
-                    anilist: Some(result.service_id),
-                    kitsu: None,
-                    mal: None,
-                };
-
-                let anime = Anime {
-                    id: 0,
-                    ids,
-                    title: AnimeTitle {
-                        romaji: Some(result.title.clone()),
-                        english: result.title_english.clone(),
-                        native: None,
-                    },
-                    synonyms: Vec::new(),
-                    episodes: result.episodes,
-                    cover_url: result.cover_url.clone(),
-                    season: result.season.clone(),
-                    year: result.year,
-                    synopsis: result.synopsis.clone(),
-                    genres: result.genres.clone(),
-                    media_type: result.media_type.clone(),
-                    airing_status: result.status.clone(),
-                    mean_score: result.mean_score,
-                    studios: Vec::new(),
-                    source: None,
-                    rating: None,
-                    start_date: None,
-                    end_date: None,
-                };
-
-                let entry = LibraryEntry {
-                    id: 0,
-                    anime_id: 0,
-                    status: WatchStatus::PlanToWatch,
-                    watched_episodes: 0,
-                    score: None,
-                    updated_at: Utc::now(),
-                };
-
-                db.service_import_batch("anilist", vec![(anime, Some(entry))])
-                    .await
-                    .map(|_| ())
-                    .map_err(|e| e.to_string())
-            },
-            |result| Message::Seasons(seasons::Message::AddedToLibrary(result)),
-        )
-    }
-
-    /// Add an online search result to the local library.
-    fn spawn_add_to_library(
-        &self,
-        result: ryuuji_api::traits::AnimeSearchResult,
-    ) -> Task<Message> {
-        let Some(db) = self.db.clone() else {
-            return Task::none();
-        };
         let primary = self.config.services.primary.clone();
+        let authenticated = self.is_primary_service_authenticated();
 
         Task::perform(
             async move {
@@ -1232,7 +1227,113 @@ impl Ryuuji {
                 db.service_import_batch(&primary, vec![(anime, Some(entry))])
                     .await
                     .map(|_| ())
-                    .map_err(|e| e.to_string())
+                    .map_err(|e| e.to_string())?;
+
+                // Best-effort remote push.
+                if authenticated {
+                    if let Err(e) = sync_add_to_remote(
+                        &db,
+                        &primary,
+                        result.service_id,
+                        "plan_to_watch",
+                    )
+                    .await
+                    {
+                        tracing::warn!("Remote add (seasons) failed: {e}");
+                    }
+                }
+
+                Ok(())
+            },
+            |result| Message::Seasons(seasons::Message::AddedToLibrary(result)),
+        )
+    }
+
+    /// Add an online search result to the local library + push to remote service.
+    fn spawn_add_to_library(
+        &self,
+        result: ryuuji_api::traits::AnimeSearchResult,
+    ) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let primary = self.config.services.primary.clone();
+        let authenticated = self.is_primary_service_authenticated();
+
+        Task::perform(
+            async move {
+                let ids = match primary.as_str() {
+                    "anilist" => AnimeIds {
+                        anilist: Some(result.service_id),
+                        kitsu: None,
+                        mal: None,
+                    },
+                    "kitsu" => AnimeIds {
+                        anilist: None,
+                        kitsu: Some(result.service_id),
+                        mal: None,
+                    },
+                    _ => AnimeIds {
+                        anilist: None,
+                        kitsu: None,
+                        mal: Some(result.service_id),
+                    },
+                };
+
+                let anime = Anime {
+                    id: 0,
+                    ids,
+                    title: AnimeTitle {
+                        romaji: Some(result.title.clone()),
+                        english: result.title_english.clone(),
+                        native: None,
+                    },
+                    synonyms: Vec::new(),
+                    episodes: result.episodes,
+                    cover_url: result.cover_url.clone(),
+                    season: result.season.clone(),
+                    year: result.year,
+                    synopsis: result.synopsis.clone(),
+                    genres: result.genres.clone(),
+                    media_type: result.media_type.clone(),
+                    airing_status: result.status.clone(),
+                    mean_score: result.mean_score,
+                    studios: Vec::new(),
+                    source: None,
+                    rating: None,
+                    start_date: None,
+                    end_date: None,
+                };
+
+                let entry = LibraryEntry {
+                    id: 0,
+                    anime_id: 0,
+                    status: WatchStatus::PlanToWatch,
+                    watched_episodes: 0,
+                    score: None,
+                    updated_at: Utc::now(),
+                };
+
+                db.service_import_batch(&primary, vec![(anime, Some(entry))])
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())?;
+
+                // Best-effort remote push.
+                if authenticated {
+                    if let Err(e) = sync_add_to_remote(
+                        &db,
+                        &primary,
+                        result.service_id,
+                        "plan_to_watch",
+                    )
+                    .await
+                    {
+                        tracing::warn!("Remote add (search) failed: {e}");
+                    }
+                }
+
+                Ok(())
             },
             |result| Message::Search(search::Message::AddedToLibrary(result)),
         )
@@ -1313,6 +1414,44 @@ impl Ryuuji {
                 }
             },
             Message::SyncPushResult,
+        )
+    }
+
+    /// Delete an anime from the primary service's remote list.
+    /// Best-effort: logs a warning on failure, doesn't affect local state.
+    fn spawn_sync_delete(&self, anime_id: i64) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        if !self.is_primary_service_authenticated() {
+            return Task::none();
+        }
+        let primary = self.config.services.primary.clone();
+
+        Task::perform(
+            async move {
+                // Look up the anime to get its service IDs before it's deleted locally.
+                let row = db
+                    .get_library_row(anime_id)
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| "Anime not found in library".to_string())?;
+                let ids = &row.anime.ids;
+
+                let service_id = match primary.as_str() {
+                    "anilist" => ids.anilist,
+                    "kitsu" => ids.kitsu,
+                    _ => ids.mal,
+                };
+
+                if let Some(service_id) = service_id {
+                    sync_delete_from_remote(&db, &primary, service_id).await
+                } else {
+                    tracing::warn!("No {primary} ID for anime {anime_id}, skipping remote delete");
+                    Ok(())
+                }
+            },
+            Message::SyncPushResult, // Reuse existing result handler.
         )
     }
 
@@ -1635,4 +1774,91 @@ async fn detect_and_parse() -> Option<DetectedMedia> {
         raw_title,
         service_name: None,
     })
+}
+
+/// Best-effort: add an anime to the remote service's list.
+async fn sync_add_to_remote(
+    db: &DbHandle,
+    primary: &str,
+    service_id: u64,
+    status: &str,
+) -> Result<(), String> {
+    use ryuuji_api::traits::AnimeService;
+
+    let token = db
+        .get_service_token(primary)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("No {primary} token"))?;
+
+    match primary {
+        "anilist" => {
+            let client = ryuuji_api::anilist::AniListClient::new(token);
+            client
+                .add_library_entry(service_id, status)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        "kitsu" => {
+            let client = ryuuji_api::kitsu::KitsuClient::new(token);
+            client
+                .add_library_entry(service_id, status)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        _ => {
+            let client_id = ryuuji_core::config::AppConfig::load()
+                .ok()
+                .and_then(|c| c.services.mal.client_id)
+                .unwrap_or_default();
+            let client = ryuuji_api::mal::MalClient::new(client_id, token);
+            client
+                .add_library_entry(service_id, status)
+                .await
+                .map_err(|e| e.to_string())
+        }
+    }
+}
+
+/// Best-effort: delete an anime from the remote service's list.
+async fn sync_delete_from_remote(
+    db: &DbHandle,
+    primary: &str,
+    service_id: u64,
+) -> Result<(), String> {
+    use ryuuji_api::traits::AnimeService;
+
+    let token = db
+        .get_service_token(primary)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("No {primary} token"))?;
+
+    match primary {
+        "anilist" => {
+            let client = ryuuji_api::anilist::AniListClient::new(token);
+            client
+                .delete_library_entry(service_id)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        "kitsu" => {
+            let client = ryuuji_api::kitsu::KitsuClient::new(token);
+            client
+                .delete_library_entry(service_id)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        _ => {
+            let client_id = ryuuji_core::config::AppConfig::load()
+                .ok()
+                .and_then(|c| c.services.mal.client_id)
+                .unwrap_or_default();
+            let client = ryuuji_api::mal::MalClient::new(client_id, token);
+            client
+                .delete_library_entry(service_id)
+                .await
+                .map_err(|e| e.to_string())
+        }
+    }
 }

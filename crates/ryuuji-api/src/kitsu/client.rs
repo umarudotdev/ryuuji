@@ -2,10 +2,10 @@ use reqwest::Client;
 
 use super::error::KitsuError;
 use super::types::{
-    JsonApiListResponse, JsonApiSingleResponse, KitsuAnimeAttributes, KitsuLibraryAttributes,
-    KitsuListItem,
+    map_status_to_kitsu, JsonApiListResponse, JsonApiSingleResourceResponse,
+    JsonApiSingleResponse, KitsuAnimeAttributes, KitsuLibraryAttributes, KitsuListItem,
 };
-use crate::traits::{AnimeSearchResult, AnimeService, UserListEntry};
+use crate::traits::{AnimeSearchResult, AnimeSeason, AnimeService, SeasonPage, UserListEntry};
 
 const BASE_URL: &str = "https://kitsu.app/api/edge";
 
@@ -61,6 +61,34 @@ impl KitsuClient {
             .first()
             .map(|r| r.id.clone())
             .ok_or_else(|| KitsuError::Auth("could not find authenticated user".into()))
+    }
+
+    /// Find the library entry ID for a given anime, or `None` if not in the user's list.
+    async fn find_library_entry_id(
+        &self,
+        user_id: &str,
+        anime_id: u64,
+    ) -> Result<Option<String>, KitsuError> {
+        let resp = self
+            .http
+            .get(format!("{BASE_URL}/library-entries"))
+            .header("Authorization", self.auth_header())
+            .header("Accept", "application/vnd.api+json")
+            .query(&[
+                ("filter[userId]", user_id),
+                ("filter[animeId]", &anime_id.to_string()),
+                ("page[limit]", "1"),
+            ])
+            .send()
+            .await?;
+
+        let resp = Self::check_response(resp).await?;
+        let body: JsonApiListResponse = resp
+            .json()
+            .await
+            .map_err(|e| KitsuError::Parse(e.to_string()))?;
+
+        Ok(body.data.first().map(|r| r.id.clone()))
     }
 
     /// Fetch the user's full anime library with included anime data.
@@ -188,33 +216,12 @@ impl AnimeService for KitsuClient {
     async fn update_progress(&self, anime_id: u64, episode: u32) -> Result<(), KitsuError> {
         // First, find the library entry ID for this anime.
         let user_id = self.get_user_id().await?;
-        let resp = self
-            .http
-            .get(format!("{BASE_URL}/library-entries"))
-            .header("Authorization", self.auth_header())
-            .header("Accept", "application/vnd.api+json")
-            .query(&[
-                ("filter[userId]", user_id.as_str()),
-                ("filter[animeId]", &anime_id.to_string()),
-                ("page[limit]", "1"),
-            ])
-            .send()
-            .await?;
+        let entry_id = self.find_library_entry_id(&user_id, anime_id).await?;
 
-        let resp = Self::check_response(resp).await?;
-        let body: JsonApiListResponse = resp
-            .json()
-            .await
-            .map_err(|e| KitsuError::Parse(e.to_string()))?;
-
-        let entry_id = body
-            .data
-            .first()
-            .map(|r| r.id.clone())
-            .ok_or_else(|| KitsuError::Api {
-                status: 404,
-                message: "library entry not found".into(),
-            })?;
+        let entry_id = entry_id.ok_or_else(|| KitsuError::Api {
+            status: 404,
+            message: "library entry not found".into(),
+        })?;
 
         // PATCH the library entry.
         let patch_body = serde_json::json!({
@@ -239,5 +246,152 @@ impl AnimeService for KitsuClient {
 
         Self::check_response(resp).await?;
         Ok(())
+    }
+
+    async fn get_anime(&self, anime_id: u64) -> Result<AnimeSearchResult, KitsuError> {
+        let resp = self
+            .http
+            .get(format!("{BASE_URL}/anime/{anime_id}"))
+            .header("Authorization", self.auth_header())
+            .header("Accept", "application/vnd.api+json")
+            .query(&[(
+                "fields[anime]",
+                "canonicalTitle,titles,episodeCount,posterImage,averageRating,synopsis,subtype,\
+                 status,startDate,endDate",
+            )])
+            .send()
+            .await?;
+
+        let resp = Self::check_response(resp).await?;
+        let body: JsonApiSingleResourceResponse = resp
+            .json()
+            .await
+            .map_err(|e| KitsuError::Parse(e.to_string()))?;
+
+        let id: u64 = body.data.id.parse().map_err(|_| KitsuError::Parse(
+            "invalid anime id in response".into(),
+        ))?;
+        let attrs: KitsuAnimeAttributes = serde_json::from_value(body.data.attributes)
+            .map_err(|e| KitsuError::Parse(e.to_string()))?;
+
+        Ok(attrs.into_search_result(id))
+    }
+
+    async fn add_library_entry(&self, anime_id: u64, status: &str) -> Result<(), KitsuError> {
+        let user_id = self.get_user_id().await?;
+        let kitsu_status = map_status_to_kitsu(status);
+
+        let body = serde_json::json!({
+            "data": {
+                "type": "libraryEntries",
+                "attributes": {
+                    "status": kitsu_status
+                },
+                "relationships": {
+                    "user": {
+                        "data": {
+                            "id": user_id,
+                            "type": "users"
+                        }
+                    },
+                    "anime": {
+                        "data": {
+                            "id": anime_id.to_string(),
+                            "type": "anime"
+                        }
+                    }
+                }
+            }
+        });
+
+        let resp = self
+            .http
+            .post(format!("{BASE_URL}/library-entries"))
+            .header("Authorization", self.auth_header())
+            .header("Content-Type", "application/vnd.api+json")
+            .header("Accept", "application/vnd.api+json")
+            .json(&body)
+            .send()
+            .await?;
+
+        // Treat 422 as success — entry already exists (Kitsu doesn't upsert).
+        if resp.status().as_u16() == 422 {
+            return Ok(());
+        }
+        Self::check_response(resp).await?;
+        Ok(())
+    }
+
+    async fn delete_library_entry(&self, anime_id: u64) -> Result<(), KitsuError> {
+        let user_id = self.get_user_id().await?;
+        let entry_id = self.find_library_entry_id(&user_id, anime_id).await?;
+
+        let entry_id = match entry_id {
+            Some(id) => id,
+            None => return Ok(()), // Not in list — already deleted.
+        };
+
+        let resp = self
+            .http
+            .delete(format!("{BASE_URL}/library-entries/{entry_id}"))
+            .header("Authorization", self.auth_header())
+            .header("Accept", "application/vnd.api+json")
+            .send()
+            .await?;
+
+        // Treat 404 as success — entry already gone.
+        if resp.status().as_u16() == 404 {
+            return Ok(());
+        }
+        Self::check_response(resp).await?;
+        Ok(())
+    }
+
+    async fn browse_season(
+        &self,
+        season: AnimeSeason,
+        year: u32,
+        page: u32,
+    ) -> Result<SeasonPage, KitsuError> {
+        let offset = (page.saturating_sub(1)) * 20;
+
+        let resp = self
+            .http
+            .get(format!("{BASE_URL}/anime"))
+            .header("Authorization", self.auth_header())
+            .header("Accept", "application/vnd.api+json")
+            .query(&[
+                ("filter[season]", season.to_kitsu_str()),
+                ("filter[seasonYear]", &year.to_string()),
+                ("sort", "-user_count"),
+                ("page[limit]", "20"),
+                ("page[offset]", &offset.to_string()),
+                (
+                    "fields[anime]",
+                    "canonicalTitle,titles,episodeCount,posterImage,averageRating,synopsis,subtype,\
+                     status,startDate,endDate",
+                ),
+            ])
+            .send()
+            .await?;
+
+        let resp = Self::check_response(resp).await?;
+        let body: JsonApiListResponse = resp
+            .json()
+            .await
+            .map_err(|e| KitsuError::Parse(e.to_string()))?;
+
+        let has_next = body.links.as_ref().and_then(|l| l.next.as_ref()).is_some();
+        let items = body
+            .data
+            .into_iter()
+            .filter_map(|r| {
+                let id: u64 = r.id.parse().ok()?;
+                let attrs: KitsuAnimeAttributes = serde_json::from_value(r.attributes).ok()?;
+                Some(attrs.into_search_result(id))
+            })
+            .collect();
+
+        Ok(SeasonPage { items, has_next })
     }
 }

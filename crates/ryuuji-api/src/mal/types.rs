@@ -65,6 +65,28 @@ pub struct MalSeason {
     pub season: String,
 }
 
+// ── Season browse response ──────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct MalSeasonResponse {
+    pub data: Vec<MalSearchNode>,
+    pub paging: MalPaging,
+}
+
+// ── Status mapping ──────────────────────────────────────────────
+
+/// Map internal status strings to MAL API status values.
+pub fn map_status_to_mal(status: &str) -> &'static str {
+    match status {
+        "watching" => "watching",
+        "completed" => "completed",
+        "on_hold" => "on_hold",
+        "dropped" => "dropped",
+        "plan_to_watch" => "plan_to_watch",
+        _ => "plan_to_watch",
+    }
+}
+
 // ── User anime list responses ───────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -233,6 +255,56 @@ mod tests {
         assert_eq!(entry.total_episodes, Some(28));
         assert_eq!(entry.status, "watching");
         assert_eq!(entry.score, Some(9.0));
+    }
+
+    #[test]
+    fn test_deserialize_season_response() {
+        let json = r#"{
+            "data": [
+                {
+                    "node": {
+                        "id": 52991,
+                        "title": "Sousou no Frieren",
+                        "num_episodes": 28,
+                        "start_season": {"year": 2023, "season": "fall"}
+                    }
+                },
+                {
+                    "node": {
+                        "id": 54898,
+                        "title": "Jujutsu Kaisen 2nd Season",
+                        "num_episodes": 23
+                    }
+                }
+            ],
+            "paging": {
+                "next": "https://api.myanimelist.net/v2/anime/season/2023/fall?offset=100"
+            }
+        }"#;
+
+        let resp: MalSeasonResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.data.len(), 2);
+        assert_eq!(
+            resp.paging.next.as_deref(),
+            Some("https://api.myanimelist.net/v2/anime/season/2023/fall?offset=100")
+        );
+
+        let mut items = resp.data.into_iter();
+        let first = items.next().unwrap().node.into_search_result();
+        assert_eq!(first.service_id, 52991);
+        assert_eq!(first.title, "Sousou no Frieren");
+        let second = items.next().unwrap().node.into_search_result();
+        assert_eq!(second.service_id, 54898);
+    }
+
+    #[test]
+    fn test_status_mapping() {
+        assert_eq!(map_status_to_mal("watching"), "watching");
+        assert_eq!(map_status_to_mal("completed"), "completed");
+        assert_eq!(map_status_to_mal("on_hold"), "on_hold");
+        assert_eq!(map_status_to_mal("dropped"), "dropped");
+        assert_eq!(map_status_to_mal("plan_to_watch"), "plan_to_watch");
+        assert_eq!(map_status_to_mal("unknown"), "plan_to_watch");
     }
 
     #[test]
