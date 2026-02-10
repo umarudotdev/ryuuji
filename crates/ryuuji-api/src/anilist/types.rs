@@ -156,6 +156,12 @@ pub struct MediaListEntry {
     pub progress: u32,
     pub score: Option<f32>,
     pub status: Option<String>,
+    #[serde(rename = "startedAt")]
+    pub started_at: Option<FuzzyDate>,
+    #[serde(rename = "completedAt")]
+    pub completed_at: Option<FuzzyDate>,
+    pub notes: Option<String>,
+    pub repeat: Option<u32>,
     pub media: AniListMedia,
 }
 
@@ -181,6 +187,28 @@ impl FuzzyDate {
         let m = self.month.unwrap_or(1);
         let d = self.day.unwrap_or(1);
         Some(format!("{y:04}-{m:02}-{d:02}"))
+    }
+
+    /// Parse a `"YYYY-MM-DD"` string into a `FuzzyDate`.
+    pub fn from_date_string(s: &str) -> Option<Self> {
+        let mut parts = s.splitn(3, '-');
+        let year = parts.next()?.parse().ok()?;
+        let month = parts.next().and_then(|p| p.parse().ok());
+        let day = parts.next().and_then(|p| p.parse().ok());
+        Some(Self {
+            year: Some(year),
+            month,
+            day,
+        })
+    }
+
+    /// Convert to the `FuzzyDateInput` JSON shape AniList mutations expect.
+    pub fn to_input_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "year": self.year,
+            "month": self.month,
+            "day": self.day,
+        })
     }
 }
 
@@ -251,6 +279,8 @@ impl MediaListEntry {
             .and_then(|t| t.romaji.clone())
             .unwrap_or_default();
 
+        let is_repeating = self.status.as_deref() == Some("REPEATING");
+
         UserListEntry {
             service_id: self.media_id,
             title,
@@ -263,6 +293,11 @@ impl MediaListEntry {
                 .unwrap_or("watching")
                 .to_string(),
             score: self.score.map(|s| s / 10.0),
+            start_date: self.started_at.and_then(|d| d.to_string_opt()),
+            finish_date: self.completed_at.and_then(|d| d.to_string_opt()),
+            notes: self.notes,
+            rewatching: is_repeating,
+            rewatch_count: self.repeat.unwrap_or(0),
         }
     }
 }

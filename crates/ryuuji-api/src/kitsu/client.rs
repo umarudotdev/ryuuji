@@ -5,7 +5,9 @@ use super::types::{
     map_status_to_kitsu, JsonApiListResponse, JsonApiSingleResourceResponse,
     JsonApiSingleResponse, KitsuAnimeAttributes, KitsuLibraryAttributes, KitsuListItem,
 };
-use crate::traits::{AnimeSearchResult, AnimeSeason, AnimeService, SeasonPage, UserListEntry};
+use crate::traits::{
+    AnimeSearchResult, AnimeSeason, AnimeService, LibraryEntryUpdate, SeasonPage, UserListEntry,
+};
 
 const BASE_URL: &str = "https://kitsu.app/api/edge";
 
@@ -99,7 +101,7 @@ impl KitsuClient {
             "{BASE_URL}/users/{user_id}/library-entries\
              ?filter[kind]=anime\
              &include=anime\
-             &fields[libraryEntries]=progress,ratingTwenty,status,anime\
+             &fields[libraryEntries]=progress,ratingTwenty,status,startedAt,finishedAt,notes,reconsuming,reconsumeCount,anime\
              &fields[anime]=canonicalTitle,titles,episodeCount,posterImage,averageRating,synopsis,subtype,status,startDate,endDate\
              &page[limit]=50"
         );
@@ -213,7 +215,11 @@ impl AnimeService for KitsuClient {
             .collect())
     }
 
-    async fn update_progress(&self, anime_id: u64, episode: u32) -> Result<(), KitsuError> {
+    async fn update_library_entry(
+        &self,
+        anime_id: u64,
+        update: LibraryEntryUpdate,
+    ) -> Result<(), KitsuError> {
         // First, find the library entry ID for this anime.
         let user_id = self.get_user_id().await?;
         let entry_id = self.find_library_entry_id(&user_id, anime_id).await?;
@@ -223,14 +229,51 @@ impl AnimeService for KitsuClient {
             message: "library entry not found".into(),
         })?;
 
-        // PATCH the library entry.
+        // Build attributes conditionally — only send fields that are Some.
+        let mut attrs = serde_json::Map::new();
+        if let Some(ep) = update.episode {
+            attrs.insert("progress".into(), serde_json::json!(ep));
+        }
+        if let Some(ref status) = update.status {
+            attrs.insert("status".into(), serde_json::json!(map_status_to_kitsu(status)));
+        }
+        if let Some(score) = update.score {
+            // Kitsu ratingTwenty: 2-20 scale; score <= 0 sends null to clear.
+            if score <= 0.0 {
+                attrs.insert("ratingTwenty".into(), serde_json::Value::Null);
+            } else {
+                let rating = ((score * 2.0).round() as u32).clamp(2, 20);
+                attrs.insert("ratingTwenty".into(), serde_json::json!(rating));
+            }
+        }
+        if let Some(ref date) = update.start_date {
+            // Kitsu expects ISO-8601 datetime; append time component.
+            attrs.insert(
+                "startedAt".into(),
+                serde_json::json!(format!("{date}T00:00:00.000Z")),
+            );
+        }
+        if let Some(ref date) = update.finish_date {
+            attrs.insert(
+                "finishedAt".into(),
+                serde_json::json!(format!("{date}T00:00:00.000Z")),
+            );
+        }
+        if let Some(ref notes) = update.notes {
+            attrs.insert("notes".into(), serde_json::json!(notes));
+        }
+        if let Some(reconsuming) = update.rewatching {
+            attrs.insert("reconsuming".into(), serde_json::json!(reconsuming));
+        }
+        if let Some(count) = update.rewatch_count {
+            attrs.insert("reconsumeCount".into(), serde_json::json!(count));
+        }
+
         let patch_body = serde_json::json!({
             "data": {
                 "id": entry_id,
                 "type": "libraryEntries",
-                "attributes": {
-                    "progress": episode
-                }
+                "attributes": attrs
             }
         });
 

@@ -11,6 +11,7 @@ use crate::torrent::models::TorrentFeed;
 const SCHEMA_V1: &str = include_str!("../../../migrations/001_initial.sql");
 const SCHEMA_V2: &str = include_str!("../../../migrations/002_add_anime_metadata.sql");
 const SCHEMA_V3: &str = include_str!("../../../migrations/003_torrent_tables.sql");
+const SCHEMA_V4: &str = include_str!("../../../migrations/004_add_library_fields.sql");
 
 /// Token record: (access_token, refresh_token, expires_at).
 pub type TokenRecord = (String, Option<String>, Option<String>);
@@ -353,19 +354,30 @@ impl Storage {
     /// Insert or update a library entry.
     pub fn upsert_library_entry(&self, entry: &LibraryEntry) -> Result<i64, RyuujiError> {
         self.conn.execute(
-            "INSERT INTO library_entry (anime_id, status, watched_episodes, score, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)
+            "INSERT INTO library_entry (anime_id, status, watched_episodes, score, updated_at,
+             start_date, finish_date, notes, rewatching, rewatch_count)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(anime_id) DO UPDATE SET
                status = excluded.status,
                watched_episodes = excluded.watched_episodes,
                score = excluded.score,
-               updated_at = excluded.updated_at",
+               updated_at = excluded.updated_at,
+               start_date = excluded.start_date,
+               finish_date = excluded.finish_date,
+               notes = excluded.notes,
+               rewatching = excluded.rewatching,
+               rewatch_count = excluded.rewatch_count",
             params![
                 entry.anime_id,
                 entry.status.as_db_str(),
                 entry.watched_episodes,
                 entry.score,
                 entry.updated_at.to_rfc3339(),
+                entry.start_date,
+                entry.finish_date,
+                entry.notes,
+                entry.rewatching as i32,
+                entry.rewatch_count,
             ],
         )?;
         Ok(self.conn.last_insert_rowid())
@@ -378,6 +390,7 @@ impl Storage {
     ) -> Result<Vec<LibraryRow>, RyuujiError> {
         let mut stmt = self.conn.prepare(
             "SELECT le.id, le.anime_id, le.status, le.watched_episodes, le.score, le.updated_at,
+                    le.start_date, le.finish_date, le.notes, le.rewatching, le.rewatch_count,
                     a.id, a.anilist_id, a.kitsu_id, a.mal_id, a.title_romaji, a.title_english,
                     a.title_native, a.synonyms, a.episodes, a.cover_url, a.season, a.year,
                     a.synopsis, a.genres, a.media_type, a.airing_status, a.mean_score,
@@ -391,7 +404,7 @@ impl Storage {
             .query_map(params![status.as_db_str()], |row| {
                 Ok(LibraryRow {
                     entry: row_to_library_entry(row, 0),
-                    anime: row_to_anime_at(row, 6),
+                    anime: row_to_anime_at(row, 11),
                 })
             })?
             .filter_map(|r| r.ok())
@@ -403,6 +416,7 @@ impl Storage {
     pub fn get_all_library(&self) -> Result<Vec<LibraryRow>, RyuujiError> {
         let mut stmt = self.conn.prepare(
             "SELECT le.id, le.anime_id, le.status, le.watched_episodes, le.score, le.updated_at,
+                    le.start_date, le.finish_date, le.notes, le.rewatching, le.rewatch_count,
                     a.id, a.anilist_id, a.kitsu_id, a.mal_id, a.title_romaji, a.title_english,
                     a.title_native, a.synonyms, a.episodes, a.cover_url, a.season, a.year,
                     a.synopsis, a.genres, a.media_type, a.airing_status, a.mean_score,
@@ -415,7 +429,7 @@ impl Storage {
             .query_map([], |row| {
                 Ok(LibraryRow {
                     entry: row_to_library_entry(row, 0),
-                    anime: row_to_anime_at(row, 6),
+                    anime: row_to_anime_at(row, 11),
                 })
             })?
             .filter_map(|r| r.ok())
@@ -430,7 +444,8 @@ impl Storage {
     ) -> Result<Option<LibraryEntry>, RyuujiError> {
         self.conn
             .query_row(
-                "SELECT id, anime_id, status, watched_episodes, score, updated_at
+                "SELECT id, anime_id, status, watched_episodes, score, updated_at,
+                        start_date, finish_date, notes, rewatching, rewatch_count
                  FROM library_entry WHERE anime_id = ?1",
                 params![anime_id],
                 |row| Ok(row_to_library_entry(row, 0)),
@@ -469,6 +484,55 @@ impl Storage {
             "UPDATE library_entry SET score = ?1, updated_at = ?2
              WHERE anime_id = ?3",
             params![score, Utc::now().to_rfc3339(), anime_id],
+        )?;
+        Ok(())
+    }
+
+    /// Update start/finish dates for a library entry.
+    pub fn update_library_dates(
+        &self,
+        anime_id: i64,
+        start_date: Option<&str>,
+        finish_date: Option<&str>,
+    ) -> Result<(), RyuujiError> {
+        self.conn.execute(
+            "UPDATE library_entry SET start_date = ?1, finish_date = ?2, updated_at = ?3
+             WHERE anime_id = ?4",
+            params![start_date, finish_date, Utc::now().to_rfc3339(), anime_id],
+        )?;
+        Ok(())
+    }
+
+    /// Update notes for a library entry.
+    pub fn update_library_notes(
+        &self,
+        anime_id: i64,
+        notes: Option<&str>,
+    ) -> Result<(), RyuujiError> {
+        self.conn.execute(
+            "UPDATE library_entry SET notes = ?1, updated_at = ?2
+             WHERE anime_id = ?3",
+            params![notes, Utc::now().to_rfc3339(), anime_id],
+        )?;
+        Ok(())
+    }
+
+    /// Update rewatching flag and rewatch count for a library entry.
+    pub fn update_library_rewatch(
+        &self,
+        anime_id: i64,
+        rewatching: bool,
+        rewatch_count: u32,
+    ) -> Result<(), RyuujiError> {
+        self.conn.execute(
+            "UPDATE library_entry SET rewatching = ?1, rewatch_count = ?2, updated_at = ?3
+             WHERE anime_id = ?4",
+            params![
+                rewatching as i32,
+                rewatch_count,
+                Utc::now().to_rfc3339(),
+                anime_id
+            ],
         )?;
         Ok(())
     }
@@ -798,6 +862,10 @@ fn run_migrations(conn: &Connection) -> Result<(), RyuujiError> {
         conn.execute_batch(SCHEMA_V3)?;
         conn.pragma_update(None, "user_version", 3)?;
     }
+    if version < 4 {
+        conn.execute_batch(SCHEMA_V4)?;
+        conn.pragma_update(None, "user_version", 4)?;
+    }
     Ok(())
 }
 
@@ -882,6 +950,11 @@ fn row_to_library_entry(row: &rusqlite::Row<'_>, off: usize) -> LibraryEntry {
         watched_episodes: row.get(off + 3).unwrap_or(0),
         score: row.get(off + 4).unwrap_or(None),
         updated_at: parse_datetime(&updated_str),
+        start_date: row.get(off + 6).unwrap_or(None),
+        finish_date: row.get(off + 7).unwrap_or(None),
+        notes: row.get(off + 8).unwrap_or(None),
+        rewatching: row.get::<_, i32>(off + 9).unwrap_or(0) != 0,
+        rewatch_count: row.get(off + 10).unwrap_or(0),
     }
 }
 
@@ -957,6 +1030,11 @@ mod tests {
             watched_episodes: 5,
             score: None,
             updated_at: Utc::now(),
+            start_date: None,
+            finish_date: None,
+            notes: None,
+            rewatching: false,
+            rewatch_count: 0,
         };
         db.upsert_library_entry(&entry).unwrap();
 

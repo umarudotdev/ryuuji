@@ -68,4 +68,9 @@ pub struct LibraryEntry {
     pub watched_episodes: u32,
     pub score: Option<f32>,
     pub updated_at: DateTime<Utc>,
+    pub start_date: Option<String>,
+    pub finish_date: Option<String>,
+    pub notes: Option<String>,
+    pub rewatching: bool,
+    pub rewatch_count: u32,
 }

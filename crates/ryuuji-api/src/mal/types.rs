@@ -108,6 +108,11 @@ pub struct MalListStatus {
     pub score: Option<u32>,
     #[allow(dead_code)]
     pub updated_at: Option<String>,
+    pub start_date: Option<String>,
+    pub finish_date: Option<String>,
+    pub comments: Option<String>,
+    pub is_rewatching: Option<bool>,
+    pub num_times_rewatched: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,6 +164,11 @@ impl MalAnimeListItem {
                 .status
                 .unwrap_or_else(|| "watching".to_string()),
             score: self.list_status.score.map(|s| s as f32),
+            start_date: self.list_status.start_date,
+            finish_date: self.list_status.finish_date,
+            notes: self.list_status.comments,
+            rewatching: self.list_status.is_rewatching.unwrap_or(false),
+            rewatch_count: self.list_status.num_times_rewatched.unwrap_or(0),
         }
     }
 }

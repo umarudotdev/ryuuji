@@ -6,7 +6,9 @@ use super::types::{
     MediaListEntry, MediaListLookupResponse, MediaResponse, PageResponse, SeasonBrowseResponse,
     ViewerResponse,
 };
-use crate::traits::{AnimeSearchResult, AnimeSeason, AnimeService, SeasonPage, UserListEntry};
+use crate::traits::{
+    AnimeSearchResult, AnimeSeason, AnimeService, LibraryEntryUpdate, SeasonPage, UserListEntry,
+};
 
 const API_URL: &str = "https://graphql.anilist.co";
 
@@ -44,6 +46,10 @@ query ($userId: Int) {
                 progress
                 score(format: POINT_100)
                 status
+                startedAt { year month day }
+                completedAt { year month day }
+                notes
+                repeat
                 media {
                     id
                     title { romaji english native }
@@ -103,9 +109,13 @@ query ($season: MediaSeason, $seasonYear: Int, $page: Int) {
 }
 "#;
 
-const UPDATE_PROGRESS_MUTATION: &str = r#"
-mutation ($mediaId: Int, $progress: Int) {
-    SaveMediaListEntry(mediaId: $mediaId, progress: $progress) {
+const UPDATE_LIBRARY_ENTRY_MUTATION: &str = r#"
+mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $score: Float,
+          $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput,
+          $notes: String, $repeat: Int) {
+    SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, scoreRaw: $score,
+                       startedAt: $startedAt, completedAt: $completedAt,
+                       notes: $notes, repeat: $repeat) {
         id
         progress
     }
@@ -264,15 +274,48 @@ impl AnimeService for AniListClient {
             .collect())
     }
 
-    async fn update_progress(&self, anime_id: u64, episode: u32) -> Result<(), AniListError> {
+    async fn update_library_entry(
+        &self,
+        anime_id: u64,
+        update: LibraryEntryUpdate,
+    ) -> Result<(), AniListError> {
+        use super::types::FuzzyDate;
+
+        // Build variables conditionally — AniList ignores null variables.
+        let mut vars = serde_json::json!({ "mediaId": anime_id });
+        if let Some(ep) = update.episode {
+            vars["progress"] = serde_json::json!(ep);
+        }
+        if let Some(ref status) = update.status {
+            vars["status"] = serde_json::json!(map_status_to_anilist(status));
+        }
+        if let Some(score) = update.score {
+            // AniList POINT_100 scale: 0-100; score 0 clears.
+            vars["score"] = serde_json::json!((score * 10.0).round() as u32);
+        }
+        if let Some(ref date) = update.start_date {
+            if let Some(fd) = FuzzyDate::from_date_string(date) {
+                vars["startedAt"] = fd.to_input_json();
+            }
+        }
+        if let Some(ref date) = update.finish_date {
+            if let Some(fd) = FuzzyDate::from_date_string(date) {
+                vars["completedAt"] = fd.to_input_json();
+            }
+        }
+        if let Some(ref notes) = update.notes {
+            vars["notes"] = serde_json::json!(notes);
+        }
+        // AniList has no separate rewatching bool — REPEATING status is used instead.
+        if let Some(true) = update.rewatching {
+            vars["status"] = serde_json::json!("REPEATING");
+        }
+        if let Some(count) = update.rewatch_count {
+            vars["repeat"] = serde_json::json!(count);
+        }
+
         let _: serde_json::Value = self
-            .graphql_request(
-                UPDATE_PROGRESS_MUTATION,
-                serde_json::json!({
-                    "mediaId": anime_id,
-                    "progress": episode,
-                }),
-            )
+            .graphql_request(UPDATE_LIBRARY_ENTRY_MUTATION, vars)
             .await?;
         Ok(())
     }

@@ -24,11 +24,11 @@ pub trait AnimeService: Send + Sync {
     fn get_user_list(&self)
         -> impl Future<Output = Result<Vec<UserListEntry>, Self::Error>> + Send;
 
-    /// Update progress for an anime.
-    fn update_progress(
+    /// Update a library entry with any combination of episode, status, and score.
+    fn update_library_entry(
         &self,
         anime_id: u64,
-        episode: u32,
+        update: LibraryEntryUpdate,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 
     /// Get anime details by service-specific ID.
@@ -82,6 +82,25 @@ pub struct AnimeSearchResult {
     pub year: Option<u32>,
 }
 
+/// A partial update to a library entry.
+///
+/// Only `Some` fields will be sent to the service; `None` fields are left unchanged.
+/// Status values use the same internal format as `add_library_entry`:
+/// "watching", "completed", "on_hold", "dropped", "plan_to_watch".
+/// Score is on a 0.0–10.0 scale; each service converts to its own range.
+/// A score of 0.0 means "unrated" (clears the score).
+#[derive(Debug, Clone, Default)]
+pub struct LibraryEntryUpdate {
+    pub episode: Option<u32>,
+    pub status: Option<String>,
+    pub score: Option<f32>,
+    pub start_date: Option<String>,
+    pub finish_date: Option<String>,
+    pub notes: Option<String>,
+    pub rewatching: Option<bool>,
+    pub rewatch_count: Option<u32>,
+}
+
 /// An entry from a user's anime list.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UserListEntry {
@@ -91,6 +110,11 @@ pub struct UserListEntry {
     pub total_episodes: Option<u32>,
     pub status: String,
     pub score: Option<f32>,
+    pub start_date: Option<String>,
+    pub finish_date: Option<String>,
+    pub notes: Option<String>,
+    pub rewatching: bool,
+    pub rewatch_count: u32,
 }
 
 /// A page of season browse results.

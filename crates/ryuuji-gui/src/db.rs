@@ -126,6 +126,23 @@ enum DbCommand {
         items: Vec<TorrentItem>,
         reply: oneshot::Sender<Vec<TorrentItem>>,
     },
+    UpdateLibraryDates {
+        anime_id: i64,
+        start_date: Option<String>,
+        finish_date: Option<String>,
+        reply: oneshot::Sender<Result<(), RyuujiError>>,
+    },
+    UpdateLibraryNotes {
+        anime_id: i64,
+        notes: Option<String>,
+        reply: oneshot::Sender<Result<(), RyuujiError>>,
+    },
+    UpdateLibraryRewatch {
+        anime_id: i64,
+        rewatching: bool,
+        rewatch_count: u32,
+        reply: oneshot::Sender<Result<(), RyuujiError>>,
+    },
 }
 
 #[allow(dead_code)]
@@ -382,6 +399,55 @@ impl DbHandle {
         rx.await.unwrap_or_default()
     }
 
+    pub async fn update_library_dates(
+        &self,
+        anime_id: i64,
+        start_date: Option<String>,
+        finish_date: Option<String>,
+    ) -> Result<(), RyuujiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::UpdateLibraryDates {
+            anime_id,
+            start_date,
+            finish_date,
+            reply,
+        });
+        rx.await
+            .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn update_library_notes(
+        &self,
+        anime_id: i64,
+        notes: Option<String>,
+    ) -> Result<(), RyuujiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::UpdateLibraryNotes {
+            anime_id,
+            notes,
+            reply,
+        });
+        rx.await
+            .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn update_library_rewatch(
+        &self,
+        anime_id: i64,
+        rewatching: bool,
+        rewatch_count: u32,
+    ) -> Result<(), RyuujiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::UpdateLibraryRewatch {
+            anime_id,
+            rewatching,
+            rewatch_count,
+            reply,
+        });
+        rx.await
+            .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
+    }
+
     /// Import a batch of anime + optional library entries from a service.
     /// Returns the number of anime upserted.
     pub async fn service_import_batch(
@@ -535,6 +601,34 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                     &mut items, &storage, &mut cache,
                 );
                 let _ = reply.send(items);
+            }
+            DbCommand::UpdateLibraryDates {
+                anime_id,
+                start_date,
+                finish_date,
+                reply,
+            } => {
+                let _ = reply.send(storage.update_library_dates(
+                    anime_id,
+                    start_date.as_deref(),
+                    finish_date.as_deref(),
+                ));
+            }
+            DbCommand::UpdateLibraryNotes {
+                anime_id,
+                notes,
+                reply,
+            } => {
+                let _ = reply.send(storage.update_library_notes(anime_id, notes.as_deref()));
+            }
+            DbCommand::UpdateLibraryRewatch {
+                anime_id,
+                rewatching,
+                rewatch_count,
+                reply,
+            } => {
+                let _ =
+                    reply.send(storage.update_library_rewatch(anime_id, rewatching, rewatch_count));
             }
             DbCommand::ServiceImportBatch {
                 service,
