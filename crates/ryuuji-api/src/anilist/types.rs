@@ -96,6 +96,41 @@ pub struct FuzzyDate {
     pub day: Option<u32>,
 }
 
+// ── Single media response (for get_anime) ───────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct MediaResponse {
+    #[serde(rename = "Media")]
+    pub media: AniListMedia,
+}
+
+// ── Media list lookup (for delete) ──────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListLookupResponse {
+    #[serde(rename = "MediaList")]
+    pub media_list: Option<MediaListId>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MediaListId {
+    pub id: u64,
+}
+
+// ── Status mapping ──────────────────────────────────────────────
+
+/// Map internal status strings to AniList API status values.
+pub fn map_status_to_anilist(status: &str) -> &'static str {
+    match status {
+        "watching" => "CURRENT",
+        "completed" => "COMPLETED",
+        "on_hold" => "PAUSED",
+        "dropped" => "DROPPED",
+        "plan_to_watch" => "PLANNING",
+        _ => "PLANNING",
+    }
+}
+
 // ── User list queries ────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -350,5 +385,71 @@ mod tests {
         assert_eq!(map_anilist_status("PAUSED"), "on_hold");
         assert_eq!(map_anilist_status("DROPPED"), "dropped");
         assert_eq!(map_anilist_status("PLANNING"), "plan_to_watch");
+    }
+
+    #[test]
+    fn test_deserialize_media_response() {
+        let json = r#"{
+            "data": {
+                "Media": {
+                    "id": 154587,
+                    "title": {
+                        "romaji": "Sousou no Frieren",
+                        "english": "Frieren: Beyond Journey's End",
+                        "native": "葬送のフリーレン"
+                    },
+                    "episodes": 28,
+                    "coverImage": { "large": "https://example.com/img.jpg" },
+                    "meanScore": 90,
+                    "season": "FALL",
+                    "seasonYear": 2023,
+                    "genres": ["Adventure"],
+                    "format": "TV",
+                    "status": "FINISHED"
+                }
+            }
+        }"#;
+
+        let resp: GraphQLResponse<MediaResponse> = serde_json::from_str(json).unwrap();
+        let result = resp.data.media.into_search_result();
+        assert_eq!(result.service_id, 154587);
+        assert_eq!(result.title, "Sousou no Frieren");
+        assert_eq!(result.episodes, Some(28));
+    }
+
+    #[test]
+    fn test_deserialize_media_list_lookup() {
+        let json = r#"{
+            "data": {
+                "MediaList": {
+                    "id": 42
+                }
+            }
+        }"#;
+
+        let resp: GraphQLResponse<MediaListLookupResponse> = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.data.media_list.unwrap().id, 42);
+    }
+
+    #[test]
+    fn test_deserialize_media_list_lookup_null() {
+        let json = r#"{
+            "data": {
+                "MediaList": null
+            }
+        }"#;
+
+        let resp: GraphQLResponse<MediaListLookupResponse> = serde_json::from_str(json).unwrap();
+        assert!(resp.data.media_list.is_none());
+    }
+
+    #[test]
+    fn test_status_to_anilist_mapping() {
+        assert_eq!(map_status_to_anilist("watching"), "CURRENT");
+        assert_eq!(map_status_to_anilist("completed"), "COMPLETED");
+        assert_eq!(map_status_to_anilist("on_hold"), "PAUSED");
+        assert_eq!(map_status_to_anilist("dropped"), "DROPPED");
+        assert_eq!(map_status_to_anilist("plan_to_watch"), "PLANNING");
+        assert_eq!(map_status_to_anilist("unknown"), "PLANNING");
     }
 }

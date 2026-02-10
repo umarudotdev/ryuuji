@@ -2,8 +2,9 @@ use reqwest::Client;
 
 use super::error::AniListError;
 use super::types::{
-    AniListMedia, GraphQLResponse, MediaListCollectionResponse, MediaListEntry, PageResponse,
-    SeasonBrowseResponse, ViewerResponse,
+    map_status_to_anilist, AniListMedia, GraphQLResponse, MediaListCollectionResponse,
+    MediaListEntry, MediaListLookupResponse, MediaResponse, PageResponse, SeasonBrowseResponse,
+    ViewerResponse,
 };
 use crate::traits::{AnimeSearchResult, AnimeSeason, AnimeService, SeasonPage, UserListEntry};
 
@@ -111,6 +112,53 @@ mutation ($mediaId: Int, $progress: Int) {
 }
 "#;
 
+const GET_ANIME_QUERY: &str = r#"
+query ($id: Int) {
+    Media(id: $id, type: ANIME) {
+        id
+        title { romaji english native }
+        episodes
+        coverImage { large }
+        meanScore
+        season
+        seasonYear
+        genres
+        studios { nodes { name } }
+        format
+        status
+        description
+        source
+        synonyms
+        startDate { year month day }
+        endDate { year month day }
+    }
+}
+"#;
+
+const ADD_LIBRARY_ENTRY_MUTATION: &str = r#"
+mutation ($mediaId: Int, $status: MediaListStatus) {
+    SaveMediaListEntry(mediaId: $mediaId, status: $status) {
+        id
+    }
+}
+"#;
+
+const FIND_MEDIA_LIST_ENTRY_QUERY: &str = r#"
+query ($mediaId: Int) {
+    MediaList(mediaId: $mediaId, type: ANIME) {
+        id
+    }
+}
+"#;
+
+const DELETE_LIBRARY_ENTRY_MUTATION: &str = r#"
+mutation ($id: Int) {
+    DeleteMediaListEntry(id: $id) {
+        deleted
+    }
+}
+"#;
+
 /// AniList GraphQL API client.
 pub struct AniListClient {
     access_token: String,
@@ -183,38 +231,6 @@ impl AniListClient {
         Ok(entries)
     }
 
-    /// Browse anime by season and year with pagination.
-    pub async fn browse_season(
-        &self,
-        season: AnimeSeason,
-        year: u32,
-        page: u32,
-    ) -> Result<SeasonPage, AniListError> {
-        let resp: GraphQLResponse<SeasonBrowseResponse> = self
-            .graphql_request(
-                SEASON_BROWSE_QUERY,
-                serde_json::json!({
-                    "season": season.to_anilist_str(),
-                    "seasonYear": year,
-                    "page": page,
-                }),
-            )
-            .await?;
-
-        let items = resp
-            .data
-            .page
-            .media
-            .into_iter()
-            .map(|m| m.into_search_result())
-            .collect();
-
-        Ok(SeasonPage {
-            items,
-            has_next: resp.data.page.page_info.has_next_page,
-        })
-    }
-
     /// Search for anime (raw types).
     async fn search_raw(&self, query: &str) -> Result<Vec<AniListMedia>, AniListError> {
         let resp: GraphQLResponse<PageResponse> = self
@@ -259,5 +275,84 @@ impl AnimeService for AniListClient {
             )
             .await?;
         Ok(())
+    }
+
+    async fn get_anime(&self, anime_id: u64) -> Result<AnimeSearchResult, AniListError> {
+        let resp: GraphQLResponse<MediaResponse> = self
+            .graphql_request(GET_ANIME_QUERY, serde_json::json!({ "id": anime_id }))
+            .await?;
+        Ok(resp.data.media.into_search_result())
+    }
+
+    async fn add_library_entry(&self, anime_id: u64, status: &str) -> Result<(), AniListError> {
+        let anilist_status = map_status_to_anilist(status);
+        let _: serde_json::Value = self
+            .graphql_request(
+                ADD_LIBRARY_ENTRY_MUTATION,
+                serde_json::json!({
+                    "mediaId": anime_id,
+                    "status": anilist_status,
+                }),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn delete_library_entry(&self, anime_id: u64) -> Result<(), AniListError> {
+        // Step 1: Look up the library entry ID for this media.
+        let lookup: Result<GraphQLResponse<MediaListLookupResponse>, _> = self
+            .graphql_request(
+                FIND_MEDIA_LIST_ENTRY_QUERY,
+                serde_json::json!({ "mediaId": anime_id }),
+            )
+            .await;
+
+        let entry_id = match lookup {
+            Ok(resp) => match resp.data.media_list {
+                Some(entry) => entry.id,
+                None => return Ok(()), // Not in list — already deleted.
+            },
+            Err(_) => return Ok(()), // Lookup failed — treat as not in list.
+        };
+
+        // Step 2: Delete by library entry ID.
+        let _: serde_json::Value = self
+            .graphql_request(
+                DELETE_LIBRARY_ENTRY_MUTATION,
+                serde_json::json!({ "id": entry_id }),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn browse_season(
+        &self,
+        season: AnimeSeason,
+        year: u32,
+        page: u32,
+    ) -> Result<SeasonPage, AniListError> {
+        let resp: GraphQLResponse<SeasonBrowseResponse> = self
+            .graphql_request(
+                SEASON_BROWSE_QUERY,
+                serde_json::json!({
+                    "season": season.to_anilist_str(),
+                    "seasonYear": year,
+                    "page": page,
+                }),
+            )
+            .await?;
+
+        let items = resp
+            .data
+            .page
+            .media
+            .into_iter()
+            .map(|m| m.into_search_result())
+            .collect();
+
+        Ok(SeasonPage {
+            items,
+            has_next: resp.data.page.page_info.has_next_page,
+        })
     }
 }

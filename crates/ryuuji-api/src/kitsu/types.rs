@@ -30,6 +30,27 @@ pub struct Links {
     pub next: Option<String>,
 }
 
+// ── Single resource response (for get_anime) ───────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct JsonApiSingleResourceResponse {
+    pub data: JsonApiResource,
+}
+
+// ── Status mapping ──────────────────────────────────────────────
+
+/// Map internal status strings to Kitsu API status values.
+pub fn map_status_to_kitsu(status: &str) -> &'static str {
+    match status {
+        "watching" => "current",
+        "completed" => "completed",
+        "on_hold" => "on_hold",
+        "dropped" => "dropped",
+        "plan_to_watch" => "planned",
+        _ => "planned",
+    }
+}
+
 // ── Kitsu-specific types ─────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -258,5 +279,46 @@ mod tests {
         assert_eq!(map_kitsu_status("on_hold"), "on_hold");
         assert_eq!(map_kitsu_status("dropped"), "dropped");
         assert_eq!(map_kitsu_status("planned"), "plan_to_watch");
+    }
+
+    #[test]
+    fn test_deserialize_single_resource_response() {
+        let json = r#"{
+            "data": {
+                "id": "12",
+                "type": "anime",
+                "attributes": {
+                    "canonicalTitle": "One Piece",
+                    "titles": { "en": "One Piece", "en_jp": "One Piece" },
+                    "episodeCount": 1000,
+                    "posterImage": { "medium": "https://example.com/img.jpg" },
+                    "averageRating": "83.45",
+                    "synopsis": "Pirates!",
+                    "subtype": "TV",
+                    "status": "current",
+                    "startDate": "1999-10-20",
+                    "endDate": null
+                }
+            }
+        }"#;
+
+        let resp: JsonApiSingleResourceResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.data.id, "12");
+        assert_eq!(resp.data.type_, "anime");
+
+        let attrs: KitsuAnimeAttributes =
+            serde_json::from_value(resp.data.attributes).unwrap();
+        assert_eq!(attrs.canonical_title.as_deref(), Some("One Piece"));
+        assert_eq!(attrs.episode_count, Some(1000));
+    }
+
+    #[test]
+    fn test_status_to_kitsu_mapping() {
+        assert_eq!(map_status_to_kitsu("watching"), "current");
+        assert_eq!(map_status_to_kitsu("completed"), "completed");
+        assert_eq!(map_status_to_kitsu("on_hold"), "on_hold");
+        assert_eq!(map_status_to_kitsu("dropped"), "dropped");
+        assert_eq!(map_status_to_kitsu("plan_to_watch"), "planned");
+        assert_eq!(map_status_to_kitsu("unknown"), "planned");
     }
 }
