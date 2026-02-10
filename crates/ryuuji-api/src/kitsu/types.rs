@@ -88,6 +88,11 @@ pub struct KitsuLibraryAttributes {
     pub progress: Option<u32>,
     pub rating_twenty: Option<u32>,
     pub status: Option<String>,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+    pub notes: Option<String>,
+    pub reconsuming: Option<bool>,
+    pub reconsume_count: Option<u32>,
 }
 
 // ── Conversions ──────────────────────────────────────────────────
@@ -142,6 +147,11 @@ pub struct KitsuListItem {
     pub entry: KitsuLibraryAttributes,
 }
 
+/// Truncate a Kitsu ISO-8601 datetime (e.g. `"2024-01-15T00:00:00.000Z"`) to `"2024-01-15"`.
+fn kitsu_datetime_to_date(dt: &str) -> String {
+    dt.split('T').next().unwrap_or(dt).to_string()
+}
+
 impl KitsuListItem {
     pub fn into_user_list_entry(self) -> UserListEntry {
         let title = self
@@ -164,6 +174,19 @@ impl KitsuListItem {
                 .to_string(),
             // Kitsu ratingTwenty is 2-20 scale; divide by 2 to get 1-10
             score: self.entry.rating_twenty.map(|r| r as f32 / 2.0),
+            start_date: self
+                .entry
+                .started_at
+                .as_deref()
+                .map(kitsu_datetime_to_date),
+            finish_date: self
+                .entry
+                .finished_at
+                .as_deref()
+                .map(kitsu_datetime_to_date),
+            notes: self.entry.notes,
+            rewatching: self.entry.reconsuming.unwrap_or(false),
+            rewatch_count: self.entry.reconsume_count.unwrap_or(0),
         }
     }
 }

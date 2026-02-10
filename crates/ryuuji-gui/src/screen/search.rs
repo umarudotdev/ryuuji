@@ -69,6 +69,10 @@ pub struct Search {
     online_error: Option<String>,
     pub service_authenticated: bool,
     selected_online: Option<usize>,
+    pub start_date_input: String,
+    pub finish_date_input: String,
+    pub notes_input: String,
+    pub rewatch_count_input: String,
 }
 
 // ── Messages ──────────────────────────────────────────────────────
@@ -92,6 +96,16 @@ pub enum Message {
     DbOperationDone(Result<(), String>),
     ClearQuery,
     CloseDetail,
+    StartDateInputChanged(String),
+    StartDateInputSubmitted,
+    FinishDateInputChanged(String),
+    FinishDateInputSubmitted,
+    NotesInputChanged(String),
+    NotesInputSubmitted,
+    RewatchToggled(i64, bool),
+    RewatchCountChanged(i64, u32),
+    RewatchCountInputChanged(String),
+    RewatchCountInputSubmitted,
     // Filter & sort
     StatusFilterChanged(Option<WatchStatus>),
     SortChanged(SearchSort),
@@ -124,6 +138,10 @@ impl Search {
             online_error: None,
             service_authenticated: false,
             selected_online: None,
+            start_date_input: String::new(),
+            finish_date_input: String::new(),
+            notes_input: String::new(),
+            rewatch_count_input: String::new(),
         }
     }
 
@@ -241,6 +259,12 @@ impl Search {
                         if let Some(row) = self.all_entries.iter().find(|r| r.anime.id == id) {
                             self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
                             self.episode_input = row.entry.watched_episodes.to_string();
+                            self.start_date_input =
+                                row.entry.start_date.clone().unwrap_or_default();
+                            self.finish_date_input =
+                                row.entry.finish_date.clone().unwrap_or_default();
+                            self.notes_input = row.entry.notes.clone().unwrap_or_default();
+                            self.rewatch_count_input = row.entry.rewatch_count.to_string();
                         }
                     }
                 }
@@ -251,6 +275,12 @@ impl Search {
                 if let Some(row) = self.all_entries.iter().find(|r| r.anime.id == id) {
                     self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
                     self.episode_input = row.entry.watched_episodes.to_string();
+                    self.start_date_input =
+                        row.entry.start_date.clone().unwrap_or_default();
+                    self.finish_date_input =
+                        row.entry.finish_date.clone().unwrap_or_default();
+                    self.notes_input = row.entry.notes.clone().unwrap_or_default();
+                    self.rewatch_count_input = row.entry.rewatch_count.to_string();
                 }
                 Action::None
             }
@@ -420,6 +450,143 @@ impl Search {
             }
             Message::OnlineSelected(idx) => {
                 self.selected_online = Some(idx);
+                Action::None
+            }
+            Message::StartDateInputChanged(val) => {
+                self.start_date_input = val;
+                Action::None
+            }
+            Message::StartDateInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    if let Some(db) = db {
+                        let db = db.clone();
+                        let start = if self.start_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.start_date_input.clone())
+                        };
+                        let finish = if self.finish_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.finish_date_input.clone())
+                        };
+                        return Action::RunTask(Task::perform(
+                            async move { db.update_library_dates(anime_id, start, finish).await },
+                            |r| {
+                                app::Message::Search(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
+                        ));
+                    }
+                }
+                Action::None
+            }
+            Message::FinishDateInputChanged(val) => {
+                self.finish_date_input = val;
+                Action::None
+            }
+            Message::FinishDateInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    if let Some(db) = db {
+                        let db = db.clone();
+                        let start = if self.start_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.start_date_input.clone())
+                        };
+                        let finish = if self.finish_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.finish_date_input.clone())
+                        };
+                        return Action::RunTask(Task::perform(
+                            async move { db.update_library_dates(anime_id, start, finish).await },
+                            |r| {
+                                app::Message::Search(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
+                        ));
+                    }
+                }
+                Action::None
+            }
+            Message::NotesInputChanged(val) => {
+                self.notes_input = val;
+                Action::None
+            }
+            Message::NotesInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    if let Some(db) = db {
+                        let db = db.clone();
+                        let notes = if self.notes_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.notes_input.clone())
+                        };
+                        return Action::RunTask(Task::perform(
+                            async move { db.update_library_notes(anime_id, notes).await },
+                            |r| {
+                                app::Message::Search(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
+                        ));
+                    }
+                }
+                Action::None
+            }
+            Message::RewatchToggled(anime_id, toggled) => {
+                if let Some(db) = db {
+                    let db = db.clone();
+                    let count = self.rewatch_count_input.parse::<u32>().unwrap_or(0);
+                    return Action::RunTask(Task::perform(
+                        async move {
+                            db.update_library_rewatch(anime_id, toggled, count).await
+                        },
+                        |r| {
+                            app::Message::Search(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    ));
+                }
+                Action::None
+            }
+            Message::RewatchCountChanged(anime_id, count) => {
+                self.rewatch_count_input = count.to_string();
+                if let Some(db) = db {
+                    let db = db.clone();
+                    let rewatching = self
+                        .all_entries
+                        .iter()
+                        .find(|r| r.anime.id == anime_id)
+                        .map(|r| r.entry.rewatching)
+                        .unwrap_or(false);
+                    return Action::RunTask(Task::perform(
+                        async move {
+                            db.update_library_rewatch(anime_id, rewatching, count).await
+                        },
+                        |r| {
+                            app::Message::Search(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
+                    ));
+                }
+                Action::None
+            }
+            Message::RewatchCountInputChanged(val) => {
+                self.rewatch_count_input = val;
+                Action::None
+            }
+            Message::RewatchCountInputSubmitted => {
+                if let Some(anime_id) = self.selected_anime {
+                    let count = self.rewatch_count_input.parse::<u32>().unwrap_or(0);
+                    self.rewatch_count_input = count.to_string();
+                    return self.update(Message::RewatchCountChanged(anime_id, count), db);
+                }
                 Action::None
             }
             Message::AddToLibrary(_idx) => {
@@ -603,6 +770,20 @@ impl Search {
                     Message::EpisodeInputChanged,
                     Message::EpisodeInputSubmitted,
                     covers,
+                    &self.start_date_input,
+                    Message::StartDateInputChanged,
+                    Message::StartDateInputSubmitted,
+                    &self.finish_date_input,
+                    Message::FinishDateInputChanged,
+                    Message::FinishDateInputSubmitted,
+                    &self.notes_input,
+                    Message::NotesInputChanged,
+                    Message::NotesInputSubmitted,
+                    move |b| Message::RewatchToggled(anime_id, b),
+                    &self.rewatch_count_input,
+                    Message::RewatchCountInputChanged,
+                    Message::RewatchCountInputSubmitted,
+                    move |c| Message::RewatchCountChanged(anime_id, c),
                 );
                 return row![
                     container(content).width(Length::FillPortion(3)),

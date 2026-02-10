@@ -13,8 +13,10 @@ use ryuuji_core::storage::LibraryRow;
 use crate::cover_cache::{self, CoverCache, CoverState};
 use crate::db::DbHandle;
 use crate::screen::{
-    history, library, now_playing, search, seasons, settings, torrents, Action, ModalKind, Page,
+    history, library, now_playing, search, seasons, settings, torrents, Action, ContextAction,
+    ModalKind, Page,
 };
+use ryuuji_api::traits::LibraryEntryUpdate;
 use crate::style;
 use crate::subscription;
 use ryuuji_core::config::ThemeMode;
@@ -280,7 +282,13 @@ impl Ryuuji {
                             }
                             | UpdateOutcome::AddedToLibrary {
                                 anime_id, episode, ..
-                            } => self.spawn_sync_push(*anime_id, *episode),
+                            } => self.spawn_sync_update(
+                                *anime_id,
+                                LibraryEntryUpdate {
+                                    episode: Some(*episode),
+                                    ..Default::default()
+                                },
+                            ),
                             _ => Task::none(),
                         };
                         follow_up = Task::batch([follow_up, sync_task]);
@@ -357,6 +365,66 @@ impl Ryuuji {
                     let batch_covers = self.batch_request_covers(info);
                     return Task::batch([sync_task, action_task, batch_covers]);
                 }
+                // Intercept edit messages to sync changes to the remote service.
+                let sync_task = match &msg {
+                    history::Message::StatusChanged(id, status) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            status: Some(status.as_db_str().to_string()),
+                            ..Default::default()
+                        })
+                    }
+                    history::Message::ScoreChanged(id, score) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            score: Some(*score),
+                            ..Default::default()
+                        })
+                    }
+                    history::Message::EpisodeChanged(id, ep) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            episode: Some(*ep),
+                            ..Default::default()
+                        })
+                    }
+                    history::Message::ContextAction(id, ContextAction::ChangeStatus(s)) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            status: Some(s.as_db_str().to_string()),
+                            ..Default::default()
+                        })
+                    }
+                    history::Message::StartDateInputSubmitted | history::Message::FinishDateInputSubmitted => {
+                        if let Some(id) = self.history.selected_anime {
+                            let start = if self.history.start_date_input.is_empty() { None } else { Some(self.history.start_date_input.clone()) };
+                            let finish = if self.history.finish_date_input.is_empty() { None } else { Some(self.history.finish_date_input.clone()) };
+                            self.spawn_sync_update(id, LibraryEntryUpdate {
+                                start_date: start,
+                                finish_date: finish,
+                                ..Default::default()
+                            })
+                        } else { Task::none() }
+                    }
+                    history::Message::NotesInputSubmitted => {
+                        if let Some(id) = self.history.selected_anime {
+                            let notes = if self.history.notes_input.is_empty() { None } else { Some(self.history.notes_input.clone()) };
+                            self.spawn_sync_update(id, LibraryEntryUpdate {
+                                notes,
+                                ..Default::default()
+                            })
+                        } else { Task::none() }
+                    }
+                    history::Message::RewatchToggled(id, toggled) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            rewatching: Some(*toggled),
+                            ..Default::default()
+                        })
+                    }
+                    history::Message::RewatchCountChanged(id, count) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            rewatch_count: Some(*count),
+                            ..Default::default()
+                        })
+                    }
+                    _ => Task::none(),
+                };
                 // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     history::Message::AnimeSelected(id) => {
@@ -384,7 +452,7 @@ impl Ryuuji {
                     .map(|e| (e.anime.id, e.anime.cover_url.clone()))
                     .collect();
                 let batch_covers = self.batch_request_covers(info);
-                Task::batch([cover_task, action_task, batch_covers])
+                Task::batch([cover_task, action_task, batch_covers, sync_task])
             }
             Message::Library(msg) => {
                 // Intercept ConfirmDelete to fire remote sync before local delete.
@@ -396,6 +464,66 @@ impl Ryuuji {
                     let batch_covers = self.batch_request_covers(info);
                     return Task::batch([sync_task, action_task, batch_covers]);
                 }
+                // Intercept edit messages to sync changes to the remote service.
+                let sync_task = match &msg {
+                    library::Message::StatusChanged(id, status) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            status: Some(status.as_db_str().to_string()),
+                            ..Default::default()
+                        })
+                    }
+                    library::Message::ScoreChanged(id, score) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            score: Some(*score),
+                            ..Default::default()
+                        })
+                    }
+                    library::Message::EpisodeChanged(id, ep) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            episode: Some(*ep),
+                            ..Default::default()
+                        })
+                    }
+                    library::Message::ContextAction(id, ContextAction::ChangeStatus(s)) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            status: Some(s.as_db_str().to_string()),
+                            ..Default::default()
+                        })
+                    }
+                    library::Message::StartDateInputSubmitted | library::Message::FinishDateInputSubmitted => {
+                        if let Some(id) = self.library.selected_anime {
+                            let start = if self.library.start_date_input.is_empty() { None } else { Some(self.library.start_date_input.clone()) };
+                            let finish = if self.library.finish_date_input.is_empty() { None } else { Some(self.library.finish_date_input.clone()) };
+                            self.spawn_sync_update(id, LibraryEntryUpdate {
+                                start_date: start,
+                                finish_date: finish,
+                                ..Default::default()
+                            })
+                        } else { Task::none() }
+                    }
+                    library::Message::NotesInputSubmitted => {
+                        if let Some(id) = self.library.selected_anime {
+                            let notes = if self.library.notes_input.is_empty() { None } else { Some(self.library.notes_input.clone()) };
+                            self.spawn_sync_update(id, LibraryEntryUpdate {
+                                notes,
+                                ..Default::default()
+                            })
+                        } else { Task::none() }
+                    }
+                    library::Message::RewatchToggled(id, toggled) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            rewatching: Some(*toggled),
+                            ..Default::default()
+                        })
+                    }
+                    library::Message::RewatchCountChanged(id, count) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            rewatch_count: Some(*count),
+                            ..Default::default()
+                        })
+                    }
+                    _ => Task::none(),
+                };
                 // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     library::Message::AnimeSelected(id) => {
@@ -418,7 +546,7 @@ impl Ryuuji {
                 // Batch-request covers for all visible entries.
                 let info = Self::cover_info_from_rows(&self.library.entries);
                 let batch_covers = self.batch_request_covers(info);
-                Task::batch([cover_task, action_task, batch_covers])
+                Task::batch([cover_task, action_task, batch_covers, sync_task])
             }
             Message::Search(msg) => {
                 // Intercept messages that need app-level access.
@@ -457,6 +585,67 @@ impl Ryuuji {
                     _ => {}
                 }
 
+                // Intercept edit messages to sync changes to the remote service.
+                let sync_task = match &msg {
+                    search::Message::StatusChanged(id, status) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            status: Some(status.as_db_str().to_string()),
+                            ..Default::default()
+                        })
+                    }
+                    search::Message::ScoreChanged(id, score) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            score: Some(*score),
+                            ..Default::default()
+                        })
+                    }
+                    search::Message::EpisodeChanged(id, ep) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            episode: Some(*ep),
+                            ..Default::default()
+                        })
+                    }
+                    search::Message::ContextAction(id, ContextAction::ChangeStatus(s)) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            status: Some(s.as_db_str().to_string()),
+                            ..Default::default()
+                        })
+                    }
+                    search::Message::StartDateInputSubmitted | search::Message::FinishDateInputSubmitted => {
+                        if let Some(id) = self.search.selected_anime {
+                            let start = if self.search.start_date_input.is_empty() { None } else { Some(self.search.start_date_input.clone()) };
+                            let finish = if self.search.finish_date_input.is_empty() { None } else { Some(self.search.finish_date_input.clone()) };
+                            self.spawn_sync_update(id, LibraryEntryUpdate {
+                                start_date: start,
+                                finish_date: finish,
+                                ..Default::default()
+                            })
+                        } else { Task::none() }
+                    }
+                    search::Message::NotesInputSubmitted => {
+                        if let Some(id) = self.search.selected_anime {
+                            let notes = if self.search.notes_input.is_empty() { None } else { Some(self.search.notes_input.clone()) };
+                            self.spawn_sync_update(id, LibraryEntryUpdate {
+                                notes,
+                                ..Default::default()
+                            })
+                        } else { Task::none() }
+                    }
+                    search::Message::RewatchToggled(id, toggled) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            rewatching: Some(*toggled),
+                            ..Default::default()
+                        })
+                    }
+                    search::Message::RewatchCountChanged(id, count) => {
+                        self.spawn_sync_update(*id, LibraryEntryUpdate {
+                            rewatch_count: Some(*count),
+                            ..Default::default()
+                        })
+                    }
+                    _ => Task::none(),
+                };
+
                 // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     search::Message::AnimeSelected(id) => {
@@ -490,7 +679,7 @@ impl Ryuuji {
                 // Batch-request covers for all entries.
                 let info = Self::cover_info_from_rows(&self.search.all_entries);
                 let batch_covers = self.batch_request_covers(info);
-                Task::batch([cover_task, action_task, batch_covers])
+                Task::batch([cover_task, action_task, batch_covers, sync_task])
             }
             Message::Seasons(msg) => {
                 // Intercept messages that need app-level access.
@@ -724,6 +913,11 @@ impl Ryuuji {
                             watched_episodes: item.list_status.num_episodes_watched.unwrap_or(0),
                             score: item.list_status.score.map(|s| s as f32),
                             updated_at: Utc::now(),
+                            start_date: item.list_status.start_date.clone(),
+                            finish_date: item.list_status.finish_date.clone(),
+                            notes: item.list_status.comments.clone(),
+                            rewatching: item.list_status.is_rewatching.unwrap_or(false),
+                            rewatch_count: item.list_status.num_times_rewatched.unwrap_or(0),
                         };
 
                         (anime, Some(library_entry))
@@ -845,6 +1039,7 @@ impl Ryuuji {
                             "PLANNING" => WatchStatus::PlanToWatch,
                             _ => WatchStatus::Watching,
                         };
+                        let is_repeating = entry.status.as_deref() == Some("REPEATING");
                         let library_entry = LibraryEntry {
                             id: 0,
                             anime_id: 0,
@@ -852,6 +1047,11 @@ impl Ryuuji {
                             watched_episodes: entry.progress,
                             score: entry.score.map(|s| s / 10.0),
                             updated_at: Utc::now(),
+                            start_date: entry.started_at.as_ref().and_then(|d| d.to_string_opt()),
+                            finish_date: entry.completed_at.as_ref().and_then(|d| d.to_string_opt()),
+                            notes: entry.notes.clone(),
+                            rewatching: is_repeating,
+                            rewatch_count: entry.repeat.unwrap_or(0),
                         };
 
                         (anime, Some(library_entry))
@@ -987,6 +1187,11 @@ impl Ryuuji {
                             watched_episodes: item.entry.progress.unwrap_or(0),
                             score: item.entry.rating_twenty.map(|r| r as f32 / 2.0),
                             updated_at: Utc::now(),
+                            start_date: item.entry.started_at.as_deref().map(|d| d.split('T').next().unwrap_or(d).to_string()),
+                            finish_date: item.entry.finished_at.as_deref().map(|d| d.split('T').next().unwrap_or(d).to_string()),
+                            notes: item.entry.notes.clone(),
+                            rewatching: item.entry.reconsuming.unwrap_or(false),
+                            rewatch_count: item.entry.reconsume_count.unwrap_or(0),
                         };
 
                         (anime, Some(library_entry))
@@ -1222,6 +1427,11 @@ impl Ryuuji {
                     watched_episodes: 0,
                     score: None,
                     updated_at: Utc::now(),
+                    start_date: None,
+                    finish_date: None,
+                    notes: None,
+                    rewatching: false,
+                    rewatch_count: 0,
                 };
 
                 db.service_import_batch(&primary, vec![(anime, Some(entry))])
@@ -1312,6 +1522,11 @@ impl Ryuuji {
                     watched_episodes: 0,
                     score: None,
                     updated_at: Utc::now(),
+                    start_date: None,
+                    finish_date: None,
+                    notes: None,
+                    rewatching: false,
+                    rewatch_count: 0,
                 };
 
                 db.service_import_batch(&primary, vec![(anime, Some(entry))])
@@ -1348,8 +1563,8 @@ impl Ryuuji {
         }
     }
 
-    /// Push an episode progress update to the primary service.
-    fn spawn_sync_push(&self, anime_id: i64, episode: u32) -> Task<Message> {
+    /// Push a library entry update (episode, status, score) to the primary service.
+    fn spawn_sync_update(&self, anime_id: i64, update: LibraryEntryUpdate) -> Task<Message> {
         let Some(db) = self.db.clone() else {
             return Task::none();
         };
@@ -1383,7 +1598,7 @@ impl Ryuuji {
                             .ok_or_else(|| "No AniList ID for this anime".to_string())?;
                         let client = ryuuji_api::anilist::AniListClient::new(token);
                         client
-                            .update_progress(service_id, episode)
+                            .update_library_entry(service_id, update)
                             .await
                             .map_err(|e| e.to_string())
                     }
@@ -1393,7 +1608,7 @@ impl Ryuuji {
                             .ok_or_else(|| "No Kitsu ID for this anime".to_string())?;
                         let client = ryuuji_api::kitsu::KitsuClient::new(token);
                         client
-                            .update_progress(service_id, episode)
+                            .update_library_entry(service_id, update)
                             .await
                             .map_err(|e| e.to_string())
                     }
@@ -1407,7 +1622,7 @@ impl Ryuuji {
                             .unwrap_or_default();
                         let client = ryuuji_api::mal::MalClient::new(client_id, token);
                         client
-                            .update_progress(service_id, episode)
+                            .update_library_entry(service_id, update)
                             .await
                             .map_err(|e| e.to_string())
                     }

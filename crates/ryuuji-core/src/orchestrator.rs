@@ -141,6 +141,11 @@ pub fn process_detection(
                         watched_episodes: target_episode,
                         score: None,
                         updated_at: Utc::now(),
+                        start_date: None,
+                        finish_date: None,
+                        notes: None,
+                        rewatching: false,
+                        rewatch_count: 0,
                     };
                     storage.upsert_library_entry(&entry)?;
                     storage.record_watch(target_anime_id, target_episode)?;

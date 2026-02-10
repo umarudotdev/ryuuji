@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, pick_list, progress_bar, row, text};
+use iced::widget::{button, column, container, pick_list, progress_bar, row, text, text_input, toggler};
 use iced::{Alignment, Element, Length};
 
 use ryuuji_api::traits::AnimeSearchResult;
@@ -30,6 +30,21 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     on_episode_input: impl Fn(String) -> Message + 'a,
     on_episode_submit: Message,
     covers: &'a CoverCache,
+    // ── Extended fields (dates, notes, rewatch) ────────────────
+    start_date_text: &str,
+    on_start_date_input: impl Fn(String) -> Message + 'a,
+    on_start_date_submit: Message,
+    finish_date_text: &str,
+    on_finish_date_input: impl Fn(String) -> Message + 'a,
+    on_finish_date_submit: Message,
+    notes_text: &str,
+    on_notes_input: impl Fn(String) -> Message + 'a,
+    on_notes_submit: Message,
+    on_rewatch_toggled: impl Fn(bool) -> Message + 'a,
+    rewatch_count_text: &str,
+    on_rewatch_count_input: impl Fn(String) -> Message + 'a,
+    on_rewatch_count_submit: Message,
+    on_rewatch_count_changed: impl Fn(u32) -> Message + 'static + Clone,
 ) -> Element<'a, Message> {
     let anime = &lib_row.anime;
     let entry = &lib_row.entry;
@@ -310,6 +325,117 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     .width(Length::Fill);
 
     detail_content = detail_content.push(progress_card);
+
+    // ── Dates & Rewatch card ──────────────────────────────────
+    let rewatch_count = entry.rewatch_count;
+    let rc_dec = if rewatch_count > 0 {
+        Some(on_rewatch_count_changed.clone()(rewatch_count - 1))
+    } else {
+        None
+    };
+    let rc_inc = Some(on_rewatch_count_changed(rewatch_count + 1));
+
+    let dates_card = container(
+        column![
+            text("Dates & Rewatch")
+                .size(style::TEXT_SM)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+            row![
+                text("Start Date")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface)
+                    .line_height(style::LINE_HEIGHT_NORMAL)
+                    .width(Length::Fill),
+                text_input("YYYY-MM-DD", start_date_text)
+                    .on_input(on_start_date_input)
+                    .on_submit(on_start_date_submit)
+                    .size(style::TEXT_SM)
+                    .padding([style::SPACE_SM, style::SPACE_MD])
+                    .width(Length::Fixed(140.0))
+                    .style(theme::text_input_style(cs)),
+            ]
+            .align_y(Alignment::Center)
+            .spacing(style::SPACE_SM),
+            row![
+                text("Finish Date")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface)
+                    .line_height(style::LINE_HEIGHT_NORMAL)
+                    .width(Length::Fill),
+                text_input("YYYY-MM-DD", finish_date_text)
+                    .on_input(on_finish_date_input)
+                    .on_submit(on_finish_date_submit)
+                    .size(style::TEXT_SM)
+                    .padding([style::SPACE_SM, style::SPACE_MD])
+                    .width(Length::Fixed(140.0))
+                    .style(theme::text_input_style(cs)),
+            ]
+            .align_y(Alignment::Center)
+            .spacing(style::SPACE_SM),
+            row![
+                text("Rewatching")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface)
+                    .line_height(style::LINE_HEIGHT_NORMAL)
+                    .width(Length::Fill),
+                toggler(entry.rewatching)
+                    .on_toggle(on_rewatch_toggled)
+                    .size(style::TEXT_BASE)
+                    .style(theme::toggler_style(cs)),
+            ]
+            .align_y(Alignment::Center)
+            .spacing(style::SPACE_SM),
+            row![
+                text("Rewatch Count")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface)
+                    .line_height(style::LINE_HEIGHT_NORMAL)
+                    .width(Length::Fill),
+                widgets::stepper(
+                    cs,
+                    rewatch_count_text,
+                    on_rewatch_count_input,
+                    on_rewatch_count_submit,
+                    rc_dec,
+                    rc_inc,
+                ),
+            ]
+            .align_y(Alignment::Center)
+            .spacing(style::SPACE_SM),
+        ]
+        .spacing(style::SPACE_MD),
+    )
+    .style(theme::card(cs))
+    .padding(style::SPACE_LG)
+    .width(Length::Fill);
+
+    detail_content = detail_content.push(dates_card);
+
+    // ── Notes card ────────────────────────────────────────────
+    let notes_card = container(
+        column![
+            text("Notes")
+                .size(style::TEXT_SM)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+            text_input("Add notes\u{2026}", notes_text)
+                .on_input(on_notes_input)
+                .on_submit(on_notes_submit)
+                .size(style::TEXT_SM)
+                .padding([style::SPACE_SM, style::SPACE_MD])
+                .width(Length::Fill)
+                .style(theme::text_input_style(cs)),
+        ]
+        .spacing(style::SPACE_MD),
+    )
+    .style(theme::card(cs))
+    .padding(style::SPACE_LG)
+    .width(Length::Fill);
+
+    detail_content = detail_content.push(notes_card);
 
     super::styled_scrollable(detail_content, cs)
         .height(Length::Fill)

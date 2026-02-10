@@ -6,7 +6,9 @@ use super::types::{
     map_status_to_mal, MalAnimeListItem, MalAnimeNode, MalListResponse, MalSearchResponse,
     MalSeasonResponse,
 };
-use crate::traits::{AnimeSearchResult, AnimeSeason, AnimeService, SeasonPage, UserListEntry};
+use crate::traits::{
+    AnimeSearchResult, AnimeSeason, AnimeService, LibraryEntryUpdate, SeasonPage, UserListEntry,
+};
 
 const BASE_URL: &str = "https://api.myanimelist.net";
 
@@ -125,15 +127,47 @@ impl AnimeService for MalClient {
             .collect())
     }
 
-    async fn update_progress(&self, anime_id: u64, episode: u32) -> Result<(), MalError> {
+    async fn update_library_entry(
+        &self,
+        anime_id: u64,
+        update: LibraryEntryUpdate,
+    ) -> Result<(), MalError> {
         let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
 
         // MAL requires form-encoded body for PATCH, not JSON.
+        // Build params conditionally — only send fields that are Some.
+        let mut params: Vec<(&str, String)> = Vec::new();
+        if let Some(ep) = update.episode {
+            params.push(("num_watched_episodes", ep.to_string()));
+        }
+        if let Some(ref status) = update.status {
+            params.push(("status", map_status_to_mal(status).to_string()));
+        }
+        if let Some(score) = update.score {
+            // MAL uses integer scores 0-10; 0 clears the score.
+            params.push(("score", (score.round() as u32).min(10).to_string()));
+        }
+        if let Some(ref date) = update.start_date {
+            params.push(("start_date", date.clone()));
+        }
+        if let Some(ref date) = update.finish_date {
+            params.push(("finish_date", date.clone()));
+        }
+        if let Some(ref notes) = update.notes {
+            params.push(("comments", notes.clone()));
+        }
+        if let Some(rewatching) = update.rewatching {
+            params.push(("is_rewatching", if rewatching { "true" } else { "false" }.into()));
+        }
+        if let Some(count) = update.rewatch_count {
+            params.push(("num_times_rewatched", count.to_string()));
+        }
+
         let resp = self
             .http
             .patch(&url)
             .header("Authorization", self.auth_header())
-            .form(&[("num_watched_episodes", episode.to_string())])
+            .form(&params)
             .send()
             .await?;
 
