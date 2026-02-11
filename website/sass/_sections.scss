@@ -8,97 +8,281 @@
   margin: 0 auto;
   width: max-content;
   max-width: min(100% - 2rem, 1000px);
-  
+
   nav {
-    background-color: rgba($surface-container, 0.7);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba($text-outline-variant, 0.5);
+    position: relative;
+    // Surface gradient — curved glass refracts more light at the top
+    background: linear-gradient(
+      180deg,
+      rgba($surface-container, 0.62),
+      rgba($surface-container, 0.48)
+    );
+    // Refraction: blur + subtle brightness/saturation boost
+    backdrop-filter: blur(20px) brightness(1.1) saturate(1.15);
+    -webkit-backdrop-filter: blur(20px) brightness(1.1) saturate(1.15);
+    // Top border catches more light than the sides
+    border: 1px solid rgba($text-outline-variant, 0.35);
+    border-top-color: rgba($text-primary, 0.1);
     border-radius: 999px;
-    padding: 6px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), $edge-highlight;
-  }
-
-  ul {
+    padding: 5px;
+    // Layered: outer depth, soft spread, inner top highlight, inner bottom shadow
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.15),
+      0 1px 3px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08);
     display: flex;
     align-items: center;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    gap: 4px;
+    gap: 2px;
+    transition: background 0.3s ease,
+                box-shadow 0.3s ease,
+                border-radius 0.3s ease,
+                border-color 0.3s ease;
+
+    // Specular highlight — light concentrates at the apex of convex glass
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 15%;
+      right: 15%;
+      height: 1px;
+      background: radial-gradient(
+        ellipse at 50% 0%,
+        rgba(255, 255, 255, 0.22),
+        rgba(255, 255, 255, 0.06) 55%,
+        transparent
+      );
+      pointer-events: none;
+    }
   }
 
-  li {
-    display: flex;
-    align-items: center;
+  // Solidify on scroll — glass becomes denser, specular sharpens
+  &.scrolled nav {
+    background: linear-gradient(
+      180deg,
+      rgba($surface-container, 0.92),
+      rgba($surface-container, 0.84)
+    );
+    backdrop-filter: blur(24px) brightness(1.05) saturate(1.1);
+    -webkit-backdrop-filter: blur(24px) brightness(1.05) saturate(1.1);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      0 2px 6px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    border-color: rgba($text-outline-variant, 0.55);
+    border-top-color: rgba($text-primary, 0.12);
   }
 
+  // ── Shared link styles ──
   a {
     display: flex;
     align-items: center;
-    padding: 8px 16px;
+    padding: 8px 14px;
     border-radius: 999px;
     font-size: $text-sm;
     font-weight: 600;
     color: $text-secondary;
-    transition: all 0.2s ease;
     text-decoration: none;
     line-height: 1;
+    white-space: nowrap;
+    transition: color 0.15s ease,
+                background-color 0.15s ease;
 
     &:hover {
-      background-color: rgba($text-primary, 0.05);
+      background-color: rgba($text-primary, 0.06);
       color: $text-primary;
     }
 
     &.active {
-      background-color: rgba($primary, 0.1);
       color: $primary;
+      background-color: rgba($primary, 0.08);
     }
   }
 
-  .header-logo {
+  // ── Logo ──
+  .nav-logo {
     gap: 8px;
     color: $text-primary;
     font-weight: 800;
-    
+    padding: 8px 14px;
+
     img {
       filter: drop-shadow(0 0 4px rgba($primary, 0.3));
     }
   }
 
-  .nav-highlight {
-    background-color: rgba($primary, 0.1);
-    color: $primary !important;
-    
-    &:hover {
-      background-color: $primary !important;
-      color: $on-primary !important;
+  // ── Middle links (desktop) ──
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 2px;
+
+    // Subtle left separator
+    &::before {
+      content: "";
+      width: 1px;
+      height: 16px;
+      background-color: rgba($text-outline-variant, 0.7);
+      margin-right: 4px;
     }
   }
 
-  .divider {
-    width: 1px;
-    height: 20px;
-    background-color: $text-outline-variant;
-    margin-inline: 4px;
+  // ── Right-side actions ──
+  .nav-end {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    padding-left: 2px;
+
+    // Subtle left separator
+    &::before {
+      content: "";
+      width: 1px;
+      height: 16px;
+      background-color: rgba($text-outline-variant, 0.7);
+      margin-right: 4px;
+    }
   }
 
-  .circle-link {
+  .nav-icon {
     padding: 8px;
-    aspect-ratio: 1;
-    justify-content: center;
+    color: $text-outline;
+
+    &:hover {
+      color: $text-primary;
+      background-color: rgba($text-primary, 0.06);
+    }
   }
 
+  .nav-cta {
+    background-color: rgba($primary, 0.1);
+    color: $primary;
+    font-weight: 700;
+
+    &:hover {
+      background-color: $primary;
+      color: $on-primary;
+    }
+  }
+
+  // ── Hamburger toggle (mobile only) ──
+  .nav-toggle {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 999px;
+    color: $text-secondary;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      background-color: rgba($text-primary, 0.06);
+      color: $text-primary;
+    }
+
+    .icon-x { display: none; }
+  }
+
+  &.open .nav-toggle {
+    .icon-menu { display: none; }
+    .icon-x    { display: block; }
+  }
+
+  // ── Mobile drawer (hidden on desktop) ──
+  .nav-drawer {
+    display: none;
+  }
+
+  // ── Responsive ──
   @media (max-width: $bp-tablet) {
     top: 1rem;
     max-width: calc(100% - 1.5rem);
+    width: auto;
+
+    nav {
+      flex-wrap: wrap;
+      border-radius: $radius-xl;
+    }
 
     a {
-      padding: 6px 12px;
+      padding: 7px 12px;
       font-size: $text-xs;
     }
 
-    .header-logo span { display: none; }
+    .nav-logo {
+      padding: 7px 12px;
+
+      span { display: none; }
+    }
+
+    .nav-links { display: none; }
+    .nav-icon { display: none; }
+    .nav-toggle { display: flex; }
+
+    .nav-end::before { display: none; }
+
+    .nav-drawer {
+      display: grid;
+      grid-template-rows: 0fr;
+      width: 100%;
+      border-top: 1px solid transparent;
+      transition: grid-template-rows 0.12s ease-in,
+                  border-color 0.1s ease;
+    }
+
+    .nav-drawer-inner {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding-inline: 4px;
+
+      a {
+        padding: 10px 14px;
+        font-size: $text-sm;
+        border-radius: $radius-md;
+        justify-content: flex-start;
+        gap: 8px;
+
+        opacity: 0;
+        transform: translateY(-4px);
+        transition: opacity 0.06s ease-in,
+                    transform 0.06s ease-in,
+                    color 0.15s ease,
+                    background-color 0.15s ease;
+      }
+    }
+
+    &.open {
+      .nav-drawer {
+        grid-template-rows: 1fr;
+        margin-top: 4px;
+        padding-block: 4px 2px;
+        border-color: rgba($text-outline-variant, 0.4);
+        transition: grid-template-rows 0.2s ease-out,
+                    border-color 0.15s ease;
+      }
+
+      .nav-drawer-inner a {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 0.12s ease-out,
+                    transform 0.15s ease-out,
+                    color 0.15s ease,
+                    background-color 0.15s ease;
+
+        &:nth-child(1) { transition-delay: 0.02s; }
+        &:nth-child(2) { transition-delay: 0.04s; }
+      }
+    }
   }
 }
 
@@ -721,15 +905,6 @@
   }
 }
 
-.footer-ascii {
-  font-family: $font-mono;
-  font-size: 10px;
-  line-height: 1.1;
-  color: $primary;
-  opacity: 0.6;
-  margin: 0;
-  user-select: none;
-}
 
 .footer-brand {
   display: flex;
