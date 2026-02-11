@@ -2,3 +2,4 @@
 *.db
 *.db-journal
 .env
+website/public/
