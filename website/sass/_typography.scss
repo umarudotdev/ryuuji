@@ -23,16 +23,33 @@ body {
 }
 
 h1, h2, h3, h4 {
-  font-weight: 500;
   line-height: $lh-tight;
   color: $text-primary;
+}
+
+h1 {
+  font-size: $text-hero;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: $text-3xl;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
-h1 { font-size: $text-hero; }
-h2 { font-size: $text-3xl; }
-h3 { font-size: $text-xl;  }
-h4 { font-size: $text-lg;  }
+h3 {
+  font-size: $text-xl;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+h4 {
+  font-size: $text-lg;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
 
 p {
   line-height: $lh-normal;
@@ -55,6 +72,6 @@ strong {
 }
 
 @media (max-width: $bp-mobile) {
-  h1 { font-size: $text-3xl; }
-  h2 { font-size: $text-2xl; }
+  h1 { font-size: $text-2xl; }
+  h2 { font-size: $text-xl;  }
 }

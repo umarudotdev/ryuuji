@@ -1,5 +1,5 @@
 +++
 title = "Overview — Ryuuji"
-description = "Features, supported services, screenshots, and downloads for Ryuuji, the desktop anime tracker."
+description = "See how Ryuuji works, what it supports, and download it for Linux or Windows."
 template = "overview.html"
 +++
