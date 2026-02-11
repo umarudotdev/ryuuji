@@ -1,53 +1,64 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <!--
-    Ryuuji App Icon
-    Dragon's eye with GNOME/Adwaita soft-3D style.
-    Top-lit gradient iris, front-surface depth shelf, integrated catchlights.
-  -->
   <defs>
-    <!-- Iris: top-lit pink gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2E1228"/>
+      <stop offset="100%" stop-color="#180A10"/>
+    </linearGradient>
     <linearGradient id="iris" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFC5D2"/>
-      <stop offset="100%" stop-color="#F29CB0"/>
+      <stop offset="0%" stop-color="#FFBAB0"/>
+      <stop offset="50%" stop-color="#E86880"/>
+      <stop offset="100%" stop-color="#A83868"/>
     </linearGradient>
-    <!-- Depth shelf: darker rose for front-face volume -->
-    <linearGradient id="shelf" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#CC6D84"/>
-      <stop offset="100%" stop-color="#A64E63"/>
+    <linearGradient id="shadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#100818" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#100818" stop-opacity="0"/>
     </linearGradient>
-    <!-- Gold catchlight -->
-    <radialGradient id="glint" cx="0.4" cy="0.3" r="0.6">
-      <stop offset="0%" stop-color="#FFD88F"/>
-      <stop offset="100%" stop-color="#E2AD56"/>
-    </radialGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5E2C44"/>
+      <stop offset="100%" stop-color="#3A1024"/>
+    </linearGradient>
+    <filter id="inset-shadow">
+      <feFlood flood-color="#100818" flood-opacity="0.5"/>
+      <feComposite in2="SourceAlpha" operator="out"/>
+      <feOffset dy="1.5"/>
+      <feGaussianBlur stdDeviation="1.5"/>
+      <feComposite in2="SourceAlpha" operator="in"/>
+      <feMerge>
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode/>
+      </feMerge>
+    </filter>
+    <clipPath id="eye-clip">
+      <path d="M17 61
+         C17 56, 25 44, 36 37
+         C46 31, 54 31, 62 31
+         C72 31, 82 33, 92 40
+         C103 47, 111 62, 111 67
+         C111 72, 103 84, 92 91
+         C82 97, 73 97, 66 97
+         C57 97, 46 95, 36 89
+         C25 82, 17 66, 17 61Z"/>
+    </clipPath>
   </defs>
 
-  <!-- Iris: symmetric almond / vesica piscis -->
-  <path
-    d="M14 64 C30 42, 46 34, 64 34 C82 34, 98 42, 114 64 C98 86, 82 94, 64 94 C46 94, 30 86, 14 64Z"
-    fill="url(#iris)"
-    stroke="#5F1F31"
-    stroke-width="2.5"
-    stroke-linejoin="round"
-  />
+  <circle cx="64" cy="64" r="64" fill="url(#bg)"/>
 
-  <!-- Front-surface depth shelf (bottom ~18% of iris) -->
-  <path
-    d="M20 64 C33 82, 48 90, 64 90 C80 90, 95 82, 108 64
-       L108 68 C95 86, 80 94, 64 94 C48 94, 33 86, 20 68Z"
-    fill="url(#shelf)"
-  />
-
-  <!-- Slit pupil: wider vertical lens for small-size legibility -->
-  <path
-    d="M64 42 C70 52, 72 60, 72 64 C72 68, 70 76, 64 86
-       C58 76, 56 68, 56 64 C56 60, 58 52, 64 42Z"
-    fill="#221117"
-  />
-
-  <!-- Primary catchlight: upper-left, cool -->
-  <circle cx="54" cy="54" r="4.5" fill="#FFF7FA" opacity="0.75"/>
-
-  <!-- Secondary catchlight: gold glint, lower-right, warm -->
-  <circle cx="72" cy="70" r="2.5" fill="url(#glint)" opacity="0.85"/>
+  <g transform="rotate(5, 64, 64)">
+    <path
+      d="M17 61
+         C17 56, 25 44, 36 37
+         C46 31, 54 31, 62 31
+         C72 31, 82 33, 92 40
+         C103 47, 111 62, 111 67
+         C111 72, 103 84, 92 91
+         C82 97, 73 97, 66 97
+         C57 97, 46 95, 36 89
+         C25 82, 17 66, 17 61Z"
+      fill="url(#iris)"
+      stroke="#4A1830"
+      stroke-width="4"
+      stroke-linejoin="round"
+    />
+    <rect x="0" y="0" width="128" height="128" fill="url(#shadow)" clip-path="url(#eye-clip)"/>
+    <path d="M56 50 C56 46, 59 44, 62 46 L79 59 C83 61.5, 83 66.5, 79 69 L62 82 C59 84, 56 82, 56 78Z" fill="url(#play)" filter="url(#inset-shadow)"/>  </g>
 </svg>

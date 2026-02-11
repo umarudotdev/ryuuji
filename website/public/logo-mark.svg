@@ -1,49 +1,64 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <!--
-    Ryuuji Logomark (256×256)
-    Scaled version of the app icon for marketing and larger display contexts.
-  -->
   <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2E1228"/>
+      <stop offset="100%" stop-color="#180A10"/>
+    </linearGradient>
     <linearGradient id="iris" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFC5D2"/>
-      <stop offset="100%" stop-color="#F29CB0"/>
+      <stop offset="0%" stop-color="#FFBAB0"/>
+      <stop offset="50%" stop-color="#E86880"/>
+      <stop offset="100%" stop-color="#A83868"/>
     </linearGradient>
-    <linearGradient id="shelf" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#CC6D84"/>
-      <stop offset="100%" stop-color="#A64E63"/>
+    <linearGradient id="shadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#100818" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#100818" stop-opacity="0"/>
     </linearGradient>
-    <radialGradient id="glint" cx="0.4" cy="0.3" r="0.6">
-      <stop offset="0%" stop-color="#FFD88F"/>
-      <stop offset="100%" stop-color="#E2AD56"/>
-    </radialGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5E2C44"/>
+      <stop offset="100%" stop-color="#3A1024"/>
+    </linearGradient>
+    <filter id="inset-shadow">
+      <feFlood flood-color="#100818" flood-opacity="0.5"/>
+      <feComposite in2="SourceAlpha" operator="out"/>
+      <feOffset dy="3"/>
+      <feGaussianBlur stdDeviation="3"/>
+      <feComposite in2="SourceAlpha" operator="in"/>
+      <feMerge>
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode/>
+      </feMerge>
+    </filter>
+    <clipPath id="eye-clip">
+      <path d="M34 122
+         C34 112, 50 88, 72 74
+         C92 62, 108 62, 124 62
+         C144 62, 164 66, 184 80
+         C206 94, 222 124, 222 134
+         C222 144, 206 168, 184 182
+         C164 194, 146 194, 132 194
+         C114 194, 92 190, 72 178
+         C50 164, 34 132, 34 122Z"/>
+    </clipPath>
   </defs>
 
-  <!-- Iris -->
-  <path
-    d="M28 128 C60 84, 92 68, 128 68 C164 68, 196 84, 228 128 C196 172, 164 188, 128 188 C92 188, 60 172, 28 128Z"
-    fill="url(#iris)"
-    stroke="#5F1F31"
-    stroke-width="4"
-    stroke-linejoin="round"
-  />
+  <circle cx="128" cy="128" r="128" fill="url(#bg)"/>
 
-  <!-- Front-surface depth shelf -->
-  <path
-    d="M40 128 C66 164, 96 180, 128 180 C160 180, 190 164, 216 128
-       L216 136 C190 172, 160 188, 128 188 C96 188, 66 172, 40 136Z"
-    fill="url(#shelf)"
-  />
-
-  <!-- Slit pupil -->
-  <path
-    d="M128 84 C140 104, 144 120, 144 128 C144 136, 140 152, 128 172
-       C116 152, 112 136, 112 128 C112 120, 116 104, 128 84Z"
-    fill="#221117"
-  />
-
-  <!-- Primary catchlight -->
-  <circle cx="108" cy="108" r="9" fill="#FFF7FA" opacity="0.75"/>
-
-  <!-- Gold catchlight -->
-  <circle cx="144" cy="140" r="5" fill="url(#glint)" opacity="0.85"/>
+  <g transform="rotate(5, 128, 128)">
+    <path
+      d="M34 122
+         C34 112, 50 88, 72 74
+         C92 62, 108 62, 124 62
+         C144 62, 164 66, 184 80
+         C206 94, 222 124, 222 134
+         C222 144, 206 168, 184 182
+         C164 194, 146 194, 132 194
+         C114 194, 92 190, 72 178
+         C50 164, 34 132, 34 122Z"
+      fill="url(#iris)"
+      stroke="#4A1830"
+      stroke-width="4"
+      stroke-linejoin="round"
+    />
+    <rect x="0" y="0" width="256" height="256" fill="url(#shadow)" clip-path="url(#eye-clip)"/>
+    <path d="M112 100 C112 92, 118 88, 124 92 L158 118 C166 123, 166 133, 158 138 L124 164 C118 168, 112 164, 112 156Z" fill="url(#play)" filter="url(#inset-shadow)"/>  </g>
 </svg>
