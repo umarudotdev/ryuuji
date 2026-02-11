@@ -123,6 +123,10 @@
   flex-wrap: wrap;
   gap: $space-sm;
   justify-content: center;
+
+  @media (max-width: $bp-mobile) {
+    gap: $space-xs;
+  }
 }
 
 .logo-grid-item {
@@ -204,4 +208,40 @@
     margin-inline: auto;
     font-size: $text-lg;
   }
+}
+
+// ── Alerts ─────────────────────────────────────────────────
+.alert {
+  padding: $space-lg $space-xl;
+  border-radius: $radius-md;
+  border: 1px solid;
+  display: flex;
+  gap: $space-lg;
+  align-items: flex-start;
+  font-size: $text-sm;
+  line-height: $lh-normal;
+  margin-block: $space-xl;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+}
+
+.alert-info {
+  background-color: rgba($primary, 0.05);
+  border-color: rgba($primary, 0.2);
+  color: $text-secondary;
+  
+  svg { color: $primary; }
+}
+
+.alert-warning {
+  background-color: rgba($tertiary, 0.05);
+  border-color: rgba($tertiary, 0.2);
+  color: $text-secondary;
+  
+  svg { color: $tertiary; }
 }

@@ -1,6 +1,6 @@
 base_url = "https://ryuuji.dev"
 title = "Ryuuji"
-description = "Desktop anime tracker that works while you watch"
+description = "Desktop app that automatically detects what you're watching and syncs your anime list"
 compile_sass = true
 minify_html = true
 generate_feeds = false
@@ -9,5 +9,5 @@ build_search_index = false
 [markdown]
 
 [extra]
-show_screenshots = false
+show_screenshots = true
 github_url = "https://github.com/your-username/ryuuji"

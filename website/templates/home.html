@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block body_attrs %} class="page-home"{% endblock body_attrs %}
+
+{% block content %}
+<div class="home-center">
+  <img src="/logo.svg" alt="Ryuuji" class="home-logo" width="96" height="96">
+
+  <div class="home-badge">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    Open source &middot; Built in Rust
+  </div>
+
+  <h1 class="home-headline">Quietly takes care of<br>your anime list</h1>
+
+  <p class="home-tagline">
+    Detects your media player, identifies what you're watching,<br class="desktop-only">
+    and syncs your progress to MyAnimeList, AniList, or Kitsu.
+  </p>
+
+  <div class="home-ctas">
+    <a href="/overview/#download" class="btn btn-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download
+    </a>
+    <a href="/overview/" class="btn btn-secondary">
+      Learn more
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+    </a>
+  </div>
+</div>
+
+<div class="home-bottom">
+  <span class="home-bottom-label">Works with</span>
+  <div class="home-services">
+    <span>MyAnimeList</span>
+    <span class="home-dot">&middot;</span>
+    <span>AniList</span>
+    <span class="home-dot">&middot;</span>
+    <span>Kitsu</span>
+  </div>
+  <div class="home-platforms">
+    <img src="/icons/linux.svg" width="16" height="16" alt="Linux">
+    <img src="/icons/windows.svg" width="14" height="14" alt="Windows">
+  </div>
+</div>
+{% endblock content %}
+
+{% block footer %}{% endblock footer %}

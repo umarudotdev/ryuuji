@@ -6,6 +6,8 @@ members = [
     "crates/ryuuji-parse",
     "crates/ryuuji-api",
     "crates/ryuuji-gui",
+    "crates/ryuuji-runtime",
+    "apps/ryuuji-tauri/src-tauri",
 ]
 
 [workspace.package]
@@ -51,3 +53,4 @@ ryuuji-core = { path = "crates/ryuuji-core" }
 ryuuji-detect = { path = "crates/ryuuji-detect" }
 ryuuji-parse = { path = "crates/ryuuji-parse" }
 ryuuji-api = { path = "crates/ryuuji-api" }
+ryuuji-runtime = { path = "crates/ryuuji-runtime" }

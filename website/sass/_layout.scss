@@ -20,6 +20,10 @@
   grid-template-columns: repeat(2, 1fr);
   gap: $space-xl;
 
+  @media (max-width: $bp-tablet) {
+    gap: $space-lg;
+  }
+
   @media (max-width: $bp-mobile) {
     grid-template-columns: 1fr;
   }
@@ -31,8 +35,12 @@
   gap: $space-2xl;
 
   @media (max-width: $bp-tablet) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: $space-lg;
+  }
+
+  @media (max-width: $bp-mobile) {
     grid-template-columns: 1fr;
-    gap: $space-xl;
   }
 }
 
@@ -55,3 +63,11 @@
 .gap-2xl { gap: $space-2xl; }
 
 .text-center { text-align: center; }
+
+// ── Responsive visibility ────────────────────────────────────
+@media (max-width: $bp-tablet) {
+  .desktop-only { display: none !important; }
+}
+@media (min-width: $bp-tablet + 1) {
+  .mobile-only { display: none !important; }
+}

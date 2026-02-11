@@ -4,7 +4,7 @@
     {{ icon | safe }}
   </div>
   <h3>{{ title }}</h3>
-  <p>{{ description }}</p>
+  <p>{{ description | safe }}</p>
 </div>
 {% endmacro %}
 
@@ -18,8 +18,13 @@
 </div>
 {% endmacro %}
 
-{% macro service_item(name) %}
-<span class="logo-grid-item">{{ name }}</span>
+{% macro service_item(name, icon="", color="") %}
+<span class="logo-grid-item" {% if color %}style="border-color: rgba({{ color }}, 0.3); color: rgb({{ color }});"{% endif %}>
+  {% if icon %}
+  <img src="/icons/{{ icon }}" alt="" width="20" height="20" style="margin-right: 8px;">
+  {% endif %}
+  {{ name }}
+</span>
 {% endmacro %}
 
 {% macro icon_monitor() %}
