@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ryuuji</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#0A0E13',
+            panel: '#101722',
+            panelSoft: '#162030',
+            line: '#233247',
+            mist: '#9DB2C8',
+            flame: '#FB923C',
+            tide: '#22D3EE',
+            lime: '#84CC16'
+          },
+          fontFamily: {
+            display: ['"Space Grotesk"', '"Segoe UI"', 'sans-serif'],
+            body: ['"Manrope"', '"Segoe UI"', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'monospace']
+          },
+          keyframes: {
+            floatIn: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' }
+            },
+            pulseGlow: {
+              '0%, 100%': { boxShadow: '0 0 0 0 rgba(34, 211, 238, 0.0)' },
+              '50%': { boxShadow: '0 0 0 8px rgba(34, 211, 238, 0.08)' }
+            }
+          },
+          animation: {
+            floatIn: 'floatIn 280ms ease-out both',
+            pulseGlow: 'pulseGlow 2.2s ease-in-out infinite'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+  </style>
+</head>
+<body class="h-full bg-ink text-slate-100 font-body antialiased selection:bg-tide/30">
+  <div class="fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute -left-32 -top-32 h-80 w-80 rounded-full bg-tide/20 blur-3xl"></div>
+    <div class="absolute right-0 top-0 h-96 w-96 rounded-full bg-flame/20 blur-3xl"></div>
+    <div class="absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-lime/10 blur-3xl"></div>
+  </div>
+
+  <div class="mx-auto flex min-h-full w-full max-w-[1600px] flex-col lg:flex-row">
+    <aside class="border-b border-line/80 bg-panel/90 backdrop-blur-xl lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
+      <div class="p-6">
+        <div class="mb-8 flex items-end justify-between">
+          <div>
+            <p class="font-display text-2xl font-semibold tracking-tight">Ryuuji</p>
+            <p class="text-xs uppercase tracking-[0.2em] text-mist">Tauri Desktop</p>
+          </div>
+          <div class="rounded-full border border-line bg-panelSoft px-2 py-1 font-mono text-[11px] text-tide">v0.1</div>
+        </div>
+
+        <nav class="grid grid-cols-2 gap-2 lg:grid-cols-1" id="nav-tabs">
+          <button data-screen="now_playing" class="group tab-btn active-tab">
+            <span>Now Playing</span>
+          </button>
+          <button data-screen="library" class="group tab-btn">
+            <span>Library</span>
+          </button>
+          <button data-screen="search" class="group tab-btn">
+            <span>Search</span>
+          </button>
+          <button data-screen="settings" class="group tab-btn">
+            <span>Settings</span>
+          </button>
+        </nav>
+
+        <div class="mt-8 rounded-2xl border border-line bg-panelSoft/80 p-4">
+          <p class="text-xs uppercase tracking-[0.18em] text-mist">Live</p>
+          <p id="side-mini-status" class="mt-2 text-sm text-slate-200">Booting runtime...</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 p-4 sm:p-6 lg:p-8">
+      <div id="status" class="mb-4 rounded-2xl border border-line bg-panel/80 px-4 py-3 text-sm text-mist backdrop-blur">Booting...</div>
+
+      <section id="screen-now_playing" class="screen active-screen animate-floatIn space-y-4">
+        <div class="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="font-display text-xl font-semibold">Now Playing</h2>
+              <span class="rounded-full border border-line bg-panelSoft px-3 py-1 text-xs text-mist">Detection</span>
+            </div>
+            <div id="np-fields" class="space-y-2"></div>
+          </article>
+
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <h3 class="font-display text-lg font-semibold">Controls</h3>
+            <p class="mt-1 text-sm text-mist">Start background polling while app window stays open.</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button id="np-run-tick" class="action-btn">Run Tick</button>
+              <button id="np-start-loop" class="action-btn ring-1 ring-tide/30">Start Loop</button>
+              <button id="np-stop-loop" class="ghost-btn">Stop Loop</button>
+              <button id="np-refresh" class="ghost-btn">Refresh Snapshot</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="screen-library" class="screen hidden animate-floatIn space-y-4">
+        <div class="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <div class="mb-4 flex flex-wrap items-center gap-2">
+              <h2 class="mr-auto font-display text-xl font-semibold">Library</h2>
+              <select id="lib-status" class="field-input text-sm">
+                <option value="">All statuses</option>
+                <option value="watching">Watching</option>
+                <option value="completed">Completed</option>
+                <option value="on_hold">On Hold</option>
+                <option value="dropped">Dropped</option>
+                <option value="plan_to_watch">Plan To Watch</option>
+              </select>
+              <input id="lib-query" class="field-input text-sm" placeholder="Filter by title" />
+              <button id="lib-load" class="action-btn">Load</button>
+            </div>
+            <div id="lib-list" class="max-h-[66vh] space-y-2 overflow-auto pr-1"></div>
+          </article>
+
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <h2 class="mb-3 font-display text-xl font-semibold">Entry Editor</h2>
+            <div id="lib-detail" class="text-sm text-mist">Select an anime from the list.</div>
+          </article>
+        </div>
+      </section>
+
+      <section id="screen-search" class="screen hidden animate-floatIn space-y-4">
+        <div class="grid gap-4 xl:grid-cols-2">
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <h2 class="font-display text-xl font-semibold">Remote Search</h2>
+            <p class="mb-4 mt-1 text-sm text-mist">Queries your configured primary service.</p>
+            <div class="mb-4 flex gap-2">
+              <input id="search-query" class="field-input flex-1" placeholder="Search online anime" />
+              <button id="search-run" class="action-btn">Search</button>
+            </div>
+            <div id="search-results" class="max-h-[62vh] space-y-2 overflow-auto pr-1"></div>
+          </article>
+
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <h2 class="font-display text-xl font-semibold">Local Search</h2>
+            <p class="mb-4 mt-1 text-sm text-mist">Filters your local SQLite library.</p>
+            <div class="mb-4 flex gap-2">
+              <input id="local-query" class="field-input flex-1" placeholder="Search local entries" />
+              <button id="local-run" class="action-btn">Search</button>
+            </div>
+            <div id="local-results" class="max-h-[62vh] space-y-2 overflow-auto pr-1"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="screen-settings" class="screen hidden animate-floatIn space-y-4">
+        <div class="grid gap-4 xl:grid-cols-2">
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <h2 class="font-display text-xl font-semibold">General</h2>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <label class="field-label">Detection Interval (sec)
+                <input id="cfg-detection-interval" type="number" min="1" max="300" class="field-input" />
+              </label>
+              <label class="field-label">Primary Service
+                <select id="cfg-primary-service" class="field-input">
+                  <option value="anilist">AniList</option>
+                  <option value="kitsu">Kitsu</option>
+                  <option value="mal">MyAnimeList</option>
+                </select>
+              </label>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-4 text-sm text-slate-200">
+              <label class="inline-flex items-center gap-2"><input id="cfg-close-to-tray" type="checkbox" class="accent-tide" />Close to tray</label>
+              <label class="inline-flex items-center gap-2"><input id="cfg-auto-update" type="checkbox" class="accent-tide" />Auto update</label>
+              <label class="inline-flex items-center gap-2"><input id="cfg-confirm-update" type="checkbox" class="accent-tide" />Confirm update</label>
+            </div>
+            <button id="cfg-save" class="action-btn mt-5">Save Config</button>
+          </article>
+
+          <article class="rounded-3xl border border-line bg-panel/80 p-5 shadow-2xl backdrop-blur">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="font-display text-xl font-semibold">Services</h2>
+              <button id="refresh-auth" class="ghost-btn">Refresh Auth</button>
+            </div>
+
+            <div class="space-y-4">
+              <div class="rounded-2xl border border-line bg-panelSoft/70 p-4">
+                <div class="mb-2 flex items-center justify-between">
+                  <h3 class="font-display text-lg">AniList</h3>
+                  <span id="auth-anilist" class="text-xs text-mist">Unknown</span>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-2">
+                  <input id="anilist-client-id" class="field-input" placeholder="Client ID" />
+                  <input id="anilist-client-secret" class="field-input" placeholder="Client Secret" />
+                </div>
+                <div class="mt-2 flex gap-2">
+                  <button id="anilist-login" class="action-btn">Login</button>
+                  <button id="anilist-import" class="ghost-btn">Import</button>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-line bg-panelSoft/70 p-4">
+                <div class="mb-2 flex items-center justify-between">
+                  <h3 class="font-display text-lg">Kitsu</h3>
+                  <span id="auth-kitsu" class="text-xs text-mist">Unknown</span>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-2">
+                  <input id="kitsu-username" class="field-input" placeholder="Username" />
+                  <input id="kitsu-password" class="field-input" type="password" placeholder="Password" />
+                </div>
+                <div class="mt-2 flex gap-2">
+                  <button id="kitsu-login" class="action-btn">Login</button>
+                  <button id="kitsu-import" class="ghost-btn">Import</button>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-line bg-panelSoft/70 p-4">
+                <div class="mb-2 flex items-center justify-between">
+                  <h3 class="font-display text-lg">MyAnimeList</h3>
+                  <span id="auth-mal" class="text-xs text-mist">Unknown</span>
+                </div>
+                <input id="mal-client-id" class="field-input" placeholder="Client ID" />
+                <div class="mt-2 flex gap-2">
+                  <button id="mal-login" class="action-btn">Login</button>
+                  <button id="mal-import" class="ghost-btn">Import</button>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      screen: 'now_playing',
+      config: null,
+      detection: null,
+      libraryRows: [],
+      selectedAnimeId: null,
+      remoteResults: []
+    };
+
+    function setStatus(message, kind = 'neutral') {
+      const el = document.getElementById('status');
+      const mini = document.getElementById('side-mini-status');
+      el.textContent = message;
+      mini.textContent = message;
+      el.classList.remove('text-emerald-300', 'text-rose-300', 'animate-pulseGlow');
+      if (kind === 'ok') {
+        el.classList.add('text-emerald-300');
+      } else if (kind === 'bad') {
+        el.classList.add('text-rose-300');
+      } else {
+        el.classList.add('animate-pulseGlow');
+      }
+    }
+
+    async function invoke(cmd, args = {}) {
+      if (!window.__TAURI_INTERNALS__?.invoke) {
+        throw new Error('Tauri runtime unavailable');
+      }
+      return window.__TAURI_INTERNALS__.invoke(cmd, args);
+    }
+
+    function wireNavigation() {
+      document.querySelectorAll('#nav-tabs button[data-screen]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.screen;
+          state.screen = target;
+          document.querySelectorAll('#nav-tabs button').forEach((x) => x.classList.remove('active-tab'));
+          btn.classList.add('active-tab');
+          document.querySelectorAll('.screen').forEach((s) => s.classList.add('hidden'));
+          document.getElementById(`screen-${target}`).classList.remove('hidden');
+        });
+      });
+    }
+
+    function renderNowPlaying(snapshot) {
+      state.detection = snapshot;
+      const d = snapshot?.detected;
+      const rows = [
+        ['Status', snapshot?.status_message || '-'],
+        ['Player', d?.player_name || '-'],
+        ['Title', d?.anime_title || '-'],
+        ['Episode', d?.episode ?? '-'],
+        ['Service', d?.service_name || '-'],
+        ['Raw', d?.raw_title || '-']
+      ];
+      const html = rows.map(([k, v]) => `
+        <div class="grid grid-cols-[120px_1fr] items-start gap-2 rounded-xl border border-line/80 bg-panelSoft/60 px-3 py-2 text-sm">
+          <span class="text-mist">${k}</span>
+          <span class="break-words font-medium text-slate-100">${String(v)}</span>
+        </div>
+      `).join('');
+      document.getElementById('np-fields').innerHTML = html;
+    }
+
+    async function refreshNowPlayingSnapshot() {
+      const snapshot = await invoke('get_now_playing_state');
+      renderNowPlaying(snapshot);
+      setStatus(snapshot.status_message || 'Ready', 'ok');
+    }
+
+    function watchStatusLabel(status) {
+      if (status === 'Watching') return 'Watching';
+      if (status === 'Completed') return 'Completed';
+      if (status === 'On Hold') return 'On Hold';
+      if (status === 'Dropped') return 'Dropped';
+      if (status === 'Plan to Watch') return 'Plan to Watch';
+      return status || '-';
+    }
+
+    function toDbStatus(display) {
+      if (display === 'Watching') return 'watching';
+      if (display === 'Completed') return 'completed';
+      if (display === 'On Hold') return 'on_hold';
+      if (display === 'Dropped') return 'dropped';
+      if (display === 'Plan to Watch') return 'plan_to_watch';
+      return 'watching';
+    }
+
+    function renderLibraryList(rows) {
+      state.libraryRows = rows;
+      const list = document.getElementById('lib-list');
+      if (!rows.length) {
+        list.innerHTML = '<div class="rounded-xl border border-line bg-panelSoft/50 p-3 text-sm text-mist">No entries found.</div>';
+        document.getElementById('lib-detail').innerHTML = 'Select an anime from the list.';
+        return;
+      }
+
+      list.innerHTML = rows.map((row) => {
+        const title = row.anime.title.romaji || row.anime.title.english || row.anime.title.native || 'Unknown';
+        const active = row.anime.id === state.selectedAnimeId;
+        return `
+          <button class="w-full rounded-xl border px-3 py-3 text-left transition ${active ? 'border-tide bg-tide/10' : 'border-line bg-panelSoft/50 hover:border-slate-500 hover:bg-panelSoft'}" data-anime-id="${row.anime.id}">
+            <div class="font-semibold text-slate-100">${title}</div>
+            <div class="text-xs text-mist">${watchStatusLabel(row.entry.status)} · ep ${row.entry.watched_episodes}</div>
+          </button>
+        `;
+      }).join('');
+
+      list.querySelectorAll('button[data-anime-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.selectedAnimeId = Number(btn.dataset.animeId);
+          renderLibraryList(state.libraryRows);
+          renderLibraryDetail();
+        });
+      });
+
+      if (!state.selectedAnimeId) state.selectedAnimeId = rows[0].anime.id;
+      renderLibraryDetail();
+    }
+
+    function renderLibraryDetail() {
+      const row = state.libraryRows.find((x) => x.anime.id === state.selectedAnimeId);
+      const el = document.getElementById('lib-detail');
+      if (!row) {
+        el.innerHTML = 'Select an anime from the list.';
+        return;
+      }
+
+      const title = row.anime.title.romaji || row.anime.title.english || row.anime.title.native || 'Unknown';
+      el.innerHTML = `
+        <div class="space-y-3">
+          <h3 class="font-display text-lg font-semibold">${title}</h3>
+
+          <div class="grid gap-2 sm:grid-cols-3">
+            <label class="field-label">Episode
+              <input id="entry-episode" class="field-input" type="number" min="0" value="${row.entry.watched_episodes || 0}" />
+            </label>
+            <label class="field-label">Status
+              <select id="entry-status" class="field-input">
+                <option ${row.entry.status === 'Watching' ? 'selected' : ''}>Watching</option>
+                <option ${row.entry.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                <option ${row.entry.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
+                <option ${row.entry.status === 'Dropped' ? 'selected' : ''}>Dropped</option>
+                <option ${row.entry.status === 'Plan to Watch' ? 'selected' : ''}>Plan to Watch</option>
+              </select>
+            </label>
+            <label class="field-label">Score
+              <input id="entry-score" class="field-input" type="number" min="0" max="10" step="0.1" value="${row.entry.score ?? ''}" />
+            </label>
+          </div>
+
+          <div class="grid gap-2 sm:grid-cols-2">
+            <label class="field-label">Start Date
+              <input id="entry-start" class="field-input" type="date" value="${row.entry.start_date || ''}" />
+            </label>
+            <label class="field-label">Finish Date
+              <input id="entry-finish" class="field-input" type="date" value="${row.entry.finish_date || ''}" />
+            </label>
+          </div>
+
+          <label class="field-label">Notes
+            <textarea id="entry-notes" rows="4" class="field-input">${row.entry.notes || ''}</textarea>
+          </label>
+
+          <div class="flex flex-wrap items-center gap-3 text-sm">
+            <label class="inline-flex items-center gap-2 text-slate-200"><input id="entry-rewatching" class="accent-tide" type="checkbox" ${row.entry.rewatching ? 'checked' : ''} />Rewatching</label>
+            <label class="field-label">Rewatch Count
+              <input id="entry-rewatch-count" class="field-input" type="number" min="0" value="${row.entry.rewatch_count || 0}" />
+            </label>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="entry-save" class="action-btn">Save Changes</button>
+            <button id="entry-delete" class="ghost-btn border-rose-500/40 text-rose-300 hover:bg-rose-500/15">Delete Entry</button>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('entry-save').addEventListener('click', async () => {
+        try {
+          const episodeVal = document.getElementById('entry-episode').value;
+          const scoreVal = document.getElementById('entry-score').value;
+          const rewatchCount = document.getElementById('entry-rewatch-count').value;
+
+          await invoke('patch_library_entry', {
+            animeId: row.anime.id,
+            patch: {
+              episode: episodeVal === '' ? null : Number(episodeVal),
+              status: toDbStatus(document.getElementById('entry-status').value),
+              score: scoreVal === '' ? null : Number(scoreVal),
+              start_date: document.getElementById('entry-start').value || null,
+              finish_date: document.getElementById('entry-finish').value || null,
+              notes: document.getElementById('entry-notes').value || null,
+              rewatching: document.getElementById('entry-rewatching').checked,
+              rewatch_count: rewatchCount === '' ? 0 : Number(rewatchCount)
+            }
+          });
+          setStatus('Library entry updated.', 'ok');
+          await loadLibrary();
+        } catch (err) {
+          setStatus(`Failed to update entry: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('entry-delete').addEventListener('click', async () => {
+        if (!confirm('Delete this library entry?')) return;
+        try {
+          await invoke('delete_library_entry', { animeId: row.anime.id });
+          state.selectedAnimeId = null;
+          setStatus('Library entry deleted.', 'ok');
+          await loadLibrary();
+        } catch (err) {
+          setStatus(`Failed to delete entry: ${String(err)}`, 'bad');
+        }
+      });
+    }
+
+    async function loadLibrary() {
+      const status = document.getElementById('lib-status').value || null;
+      const query = document.getElementById('lib-query').value || null;
+      const rows = await invoke('get_library', { status, query });
+      renderLibraryList(rows);
+      setStatus(`Loaded ${rows.length} entries.`, 'ok');
+    }
+
+    function renderRemoteSearch(results) {
+      state.remoteResults = results;
+      const container = document.getElementById('search-results');
+      if (!results.length) {
+        container.innerHTML = '<div class="rounded-xl border border-line bg-panelSoft/50 p-3 text-sm text-mist">No results.</div>';
+        return;
+      }
+
+      container.innerHTML = results.map((r, idx) => `
+        <article class="rounded-xl border border-line bg-panelSoft/50 p-3">
+          <p class="font-semibold">${r.title}</p>
+          <p class="text-xs text-mist">ID ${r.service_id} · Episodes ${r.episodes ?? '-'}</p>
+          <button data-add-idx="${idx}" class="action-btn mt-2">Add To Library</button>
+        </article>
+      `).join('');
+
+      container.querySelectorAll('button[data-add-idx]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const idx = Number(btn.dataset.addIdx);
+          const target = state.remoteResults[idx];
+          try {
+            await invoke('add_to_library_from_search', { result: target });
+            setStatus(`Added ${target.title}.`, 'ok');
+            await loadLibrary();
+          } catch (err) {
+            setStatus(`Add failed: ${String(err)}`, 'bad');
+          }
+        });
+      });
+    }
+
+    function renderLocalSearch(rows) {
+      const container = document.getElementById('local-results');
+      if (!rows.length) {
+        container.innerHTML = '<div class="rounded-xl border border-line bg-panelSoft/50 p-3 text-sm text-mist">No local matches.</div>';
+        return;
+      }
+      container.innerHTML = rows.map((r) => {
+        const title = r.anime.title.romaji || r.anime.title.english || r.anime.title.native || 'Unknown';
+        return `
+          <article class="rounded-xl border border-line bg-panelSoft/50 p-3">
+            <p class="font-semibold">${title}</p>
+            <p class="text-xs text-mist">${watchStatusLabel(r.entry.status)} · ep ${r.entry.watched_episodes}</p>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function hydrateConfigForm(config) {
+      document.getElementById('cfg-detection-interval').value = config.general.detection_interval;
+      document.getElementById('cfg-primary-service').value = config.services.primary;
+      document.getElementById('cfg-close-to-tray').checked = !!config.general.close_to_tray;
+      document.getElementById('cfg-auto-update').checked = !!config.library.auto_update;
+      document.getElementById('cfg-confirm-update').checked = !!config.library.confirm_update;
+      document.getElementById('anilist-client-id').value = config.services.anilist.client_id || '';
+      document.getElementById('anilist-client-secret').value = config.services.anilist.client_secret || '';
+      document.getElementById('mal-client-id').value = config.services.mal.client_id || '';
+    }
+
+    async function refreshAuthState() {
+      for (const service of ['anilist', 'kitsu', 'mal']) {
+        const ok = await invoke('service_auth_state', { service });
+        const node = document.getElementById(`auth-${service}`);
+        node.textContent = ok ? 'Authenticated' : 'Not Authenticated';
+        node.className = `text-xs ${ok ? 'text-emerald-300' : 'text-rose-300'}`;
+      }
+    }
+
+    function wireNowPlaying() {
+      document.getElementById('np-run-tick').addEventListener('click', async () => {
+        try {
+          const snapshot = await invoke('run_detection_tick');
+          renderNowPlaying(snapshot);
+          setStatus(snapshot.status_message || 'Tick complete', 'ok');
+        } catch (err) {
+          setStatus(`Detection tick failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('np-start-loop').addEventListener('click', async () => {
+        try {
+          await invoke('start_detection_loop');
+          setStatus('Detection loop started.', 'ok');
+        } catch (err) {
+          setStatus(`Failed to start loop: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('np-stop-loop').addEventListener('click', async () => {
+        try {
+          await invoke('stop_detection_loop');
+          setStatus('Detection loop stopped.', 'ok');
+        } catch (err) {
+          setStatus(`Failed to stop loop: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('np-refresh').addEventListener('click', async () => {
+        try {
+          await refreshNowPlayingSnapshot();
+        } catch (err) {
+          setStatus(`Snapshot refresh failed: ${String(err)}`, 'bad');
+        }
+      });
+    }
+
+    function wireLibrary() {
+      document.getElementById('lib-load').addEventListener('click', async () => {
+        try {
+          await loadLibrary();
+        } catch (err) {
+          setStatus(`Library load failed: ${String(err)}`, 'bad');
+        }
+      });
+    }
+
+    function wireSearch() {
+      document.getElementById('search-run').addEventListener('click', async () => {
+        const query = document.getElementById('search-query').value.trim();
+        if (!query) return;
+        try {
+          const results = await invoke('search_remote', { query });
+          renderRemoteSearch(results);
+          setStatus(`Remote search: ${results.length} items.`, 'ok');
+        } catch (err) {
+          setStatus(`Remote search failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('local-run').addEventListener('click', async () => {
+        const query = document.getElementById('local-query').value.trim();
+        try {
+          const rows = await invoke('get_library', { status: null, query: query || null });
+          renderLocalSearch(rows);
+          setStatus(`Local search: ${rows.length} items.`, 'ok');
+        } catch (err) {
+          setStatus(`Local search failed: ${String(err)}`, 'bad');
+        }
+      });
+    }
+
+    function wireSettings() {
+      document.getElementById('cfg-save').addEventListener('click', async () => {
+        try {
+          const cfg = structuredClone(state.config);
+          cfg.general.detection_interval = Number(document.getElementById('cfg-detection-interval').value) || 5;
+          cfg.services.primary = document.getElementById('cfg-primary-service').value;
+          cfg.general.close_to_tray = document.getElementById('cfg-close-to-tray').checked;
+          cfg.library.auto_update = document.getElementById('cfg-auto-update').checked;
+          cfg.library.confirm_update = document.getElementById('cfg-confirm-update').checked;
+          cfg.services.anilist.client_id = document.getElementById('anilist-client-id').value || null;
+          cfg.services.anilist.client_secret = document.getElementById('anilist-client-secret').value || null;
+          cfg.services.mal.client_id = document.getElementById('mal-client-id').value || null;
+
+          await invoke('update_app_config', { config: cfg });
+          state.config = cfg;
+          setStatus('Config saved.', 'ok');
+        } catch (err) {
+          setStatus(`Config save failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('anilist-login').addEventListener('click', async () => {
+        try {
+          await invoke('service_login', {
+            service: 'anilist',
+            input: {
+              client_id: document.getElementById('anilist-client-id').value || null,
+              client_secret: document.getElementById('anilist-client-secret').value || null
+            }
+          });
+          await refreshAuthState();
+          setStatus('AniList login complete.', 'ok');
+        } catch (err) {
+          setStatus(`AniList login failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('kitsu-login').addEventListener('click', async () => {
+        try {
+          await invoke('service_login', {
+            service: 'kitsu',
+            input: {
+              username: document.getElementById('kitsu-username').value || null,
+              password: document.getElementById('kitsu-password').value || null
+            }
+          });
+          await refreshAuthState();
+          setStatus('Kitsu login complete.', 'ok');
+        } catch (err) {
+          setStatus(`Kitsu login failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('mal-login').addEventListener('click', async () => {
+        try {
+          await invoke('service_login', {
+            service: 'mal',
+            input: {
+              client_id: document.getElementById('mal-client-id').value || null
+            }
+          });
+          await refreshAuthState();
+          setStatus('MAL login complete.', 'ok');
+        } catch (err) {
+          setStatus(`MAL login failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('anilist-import').addEventListener('click', async () => {
+        try {
+          const count = await invoke('service_import', { service: 'anilist' });
+          setStatus(`Imported ${count} AniList entries.`, 'ok');
+          await loadLibrary();
+        } catch (err) {
+          setStatus(`AniList import failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('kitsu-import').addEventListener('click', async () => {
+        try {
+          const count = await invoke('service_import', { service: 'kitsu' });
+          setStatus(`Imported ${count} Kitsu entries.`, 'ok');
+          await loadLibrary();
+        } catch (err) {
+          setStatus(`Kitsu import failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('mal-import').addEventListener('click', async () => {
+        try {
+          const count = await invoke('service_import', { service: 'mal' });
+          setStatus(`Imported ${count} MAL entries.`, 'ok');
+          await loadLibrary();
+        } catch (err) {
+          setStatus(`MAL import failed: ${String(err)}`, 'bad');
+        }
+      });
+
+      document.getElementById('refresh-auth').addEventListener('click', async () => {
+        try {
+          await refreshAuthState();
+          setStatus('Auth status refreshed.', 'ok');
+        } catch (err) {
+          setStatus(`Auth refresh failed: ${String(err)}`, 'bad');
+        }
+      });
+    }
+
+    function injectSharedClasses() {
+      const style = document.createElement('style');
+      style.textContent = `
+        .tab-btn {
+          border: 1px solid #233247;
+          background: rgba(22, 32, 48, 0.4);
+          border-radius: 0.75rem;
+          padding: 0.75rem 1rem;
+          text-align: left;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #9DB2C8;
+          transition: 160ms ease;
+        }
+        .tab-btn:hover { border-color: #64748b; color: #e2e8f0; }
+        .active-tab {
+          color: #f8fafc;
+          border-color: rgba(34, 211, 238, 0.6);
+          background: linear-gradient(90deg, rgba(251,146,60,0.28), rgba(34,211,238,0.28));
+        }
+        .action-btn {
+          border: 1px solid #233247;
+          background: linear-gradient(90deg, rgba(251,146,60,0.4), rgba(34,211,238,0.35));
+          border-radius: 0.75rem;
+          padding: 0.5rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #f8fafc;
+          transition: 160ms ease;
+        }
+        .action-btn:hover { filter: brightness(1.1); }
+        .ghost-btn {
+          border: 1px solid #233247;
+          background: rgba(22, 32, 48, 0.55);
+          border-radius: 0.75rem;
+          padding: 0.5rem 1rem;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #e2e8f0;
+          transition: 160ms ease;
+        }
+        .ghost-btn:hover {
+          border-color: #64748b;
+          background: rgba(22, 32, 48, 0.9);
+        }
+        .field-input {
+          width: 100%;
+          border: 1px solid #233247;
+          background: rgba(22, 32, 48, 0.7);
+          border-radius: 0.75rem;
+          padding: 0.5rem 0.75rem;
+          font-size: 0.875rem;
+          color: #f8fafc;
+          outline: none;
+          transition: 160ms ease;
+        }
+        .field-input::placeholder { color: #9DB2C8; }
+        .field-input:focus { border-color: rgba(34, 211, 238, 0.6); }
+        .field-label {
+          font-size: 0.75rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #9DB2C8;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    async function bootstrap() {
+      injectSharedClasses();
+      wireNavigation();
+      wireNowPlaying();
+      wireLibrary();
+      wireSearch();
+      wireSettings();
+
+      state.config = await invoke('get_app_config');
+      hydrateConfigForm(state.config);
+      await refreshAuthState();
+      await refreshNowPlayingSnapshot();
+      await loadLibrary();
+
+      setInterval(async () => {
+        if (state.screen !== 'now_playing') return;
+        try {
+          await refreshNowPlayingSnapshot();
+        } catch (_err) {
+        }
+      }, 5000);
+
+      setStatus('Ryuuji UI ready.', 'ok');
+    }
+
+    bootstrap().catch((err) => {
+      setStatus(`Boot failed: ${String(err)}`, 'bad');
+    });
+  </script>
+</body>
+</html>

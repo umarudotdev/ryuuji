@@ -41,6 +41,9 @@ $inverse-surface:    #EFE0E3;
 $inverse-on-surface: #1A1114;
 $scrim: #000000;
 
+// ── Shadows ────────────────────────────────────────────────
+$edge-highlight: inset 0 0.5px 0 rgba(255, 255, 255, 0.1);
+
 // ── Spacing (4px grid) ─────────────────────────────────────
 $space-xxs: 2px;
 $space-xs:  4px;

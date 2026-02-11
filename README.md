@@ -20,6 +20,16 @@ cargo build --release
 cargo run --package ryuuji-gui --release
 ```
 
+### Tauri App (Parallel)
+
+Ryuuji now includes a parallel Tauri app scaffold with a shared runtime crate.
+
+```
+cargo run --package ryuuji-tauri
+```
+
+Tauri frontend source lives in `apps/ryuuji-tauri/ui` (Leptos CSR). During migration, the desktop app loads static assets from `apps/ryuuji-tauri/dist`.
+
 Requires Rust 2021 edition. Platform-specific dependencies:
 
 - **Linux**: D-Bus development libraries (`libdbus-1-dev` on Debian/Ubuntu, `dbus` on Arch)
@@ -49,6 +59,8 @@ ryuuji-api     ryuuji-parse
 | `ryuuji-parse` | Anime filename tokenizer + multi-pass parser with compile-time keyword tables |
 | `ryuuji-api` | `AnimeService` trait + clients for MAL, AniList, Kitsu |
 | `ryuuji-gui` | Iced 0.14 desktop app with theming, Lucide icons, Geist fonts |
+| `ryuuji-runtime` | Shared app runtime (DB actor, detection tick, sync orchestration) for desktop frontends |
+| `ryuuji-tauri` | Tauri v2 backend app using `ryuuji-runtime` with webview frontend integration |
 
 ### Supported players
 

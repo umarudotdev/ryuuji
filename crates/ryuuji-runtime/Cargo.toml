@@ -1,0 +1,17 @@
+[package]
+name = "ryuuji-runtime"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ryuuji-core = { workspace = true }
+ryuuji-detect = { workspace = true }
+ryuuji-parse = { workspace = true }
+ryuuji-api = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = { workspace = true }
