@@ -1,4 +1,4 @@
-base_url = "https://ryuuji.dev"
+base_url = "https://ryuuji.umaru.dev"
 title = "Ryuuji"
 description = "Desktop app that automatically detects what you're watching and syncs your anime list"
 compile_sass = true
@@ -10,4 +10,4 @@ build_search_index = false
 
 [extra]
 show_screenshots = true
-github_url = "https://github.com/your-username/ryuuji"
+github_url = "https://github.com/umarudotdev/ryuuji"
