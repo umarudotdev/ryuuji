@@ -1,5 +1,5 @@
 +++
 title = "Ryuuji — Desktop Anime Tracker"
-description = "Desktop app that automatically detects what you're watching and syncs your progress to MyAnimeList, AniList, or Kitsu."
+description = "Your anime list, on autopilot. Just press play — Ryuuji keeps MyAnimeList, AniList, or Kitsu up to date automatically."
 template = "home.html"
 +++

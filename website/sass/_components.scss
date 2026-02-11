@@ -6,12 +6,15 @@
   align-items: center;
   gap: $space-sm;
   padding: $space-md $space-xl;
-  border-radius: $radius-md;
+  border-radius: 9999px;
+  corner-shape: squircle;
   font-family: $font-sans;
   font-size: $text-base;
   font-weight: 500;
   line-height: 1;
-  transition: background-color 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease-out,
+              border-color 0.15s ease-out,
+              transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
   white-space: nowrap;
 
   &:hover {
@@ -19,7 +22,7 @@
   }
 
   &:active {
-    transform: translateY(0);
+    transform: scale(0.97);
   }
 
   svg {
@@ -60,28 +63,38 @@
   background-color: $surface-container;
   border: 1px solid $text-outline-variant;
   border-radius: $radius-lg;
+  corner-shape: squircle;
   padding: $space-2xl;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease-out,
+              transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.2s ease-out;
 
   &:hover {
     border-color: $text-outline;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (max-width: $bp-mobile) {
+    padding: $space-xl;
   }
 }
 
 .card-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: $radius-md;
+  border-radius: 50%;
+  corner-shape: squircle;
   background-color: $primary-container;
+  color: $on-primary-container;
   margin-bottom: $space-lg;
 
   svg {
     width: 24px;
     height: 24px;
-    color: $primary;
   }
 }
 
@@ -136,6 +149,7 @@
   background-color: $surface-container;
   border: 1px solid $text-outline-variant;
   border-radius: $radius-md;
+  corner-shape: squircle;
   font-size: $text-sm;
   color: $text-secondary;
   font-weight: 450;
@@ -168,6 +182,7 @@
   background-color: $surface-low;
   border: 1px solid $text-outline-variant;
   border-radius: $radius-md;
+  corner-shape: squircle;
   padding: $space-lg $space-xl;
   font-family: $font-mono;
   font-size: $text-sm;
@@ -208,12 +223,21 @@
     margin-inline: auto;
     font-size: $text-lg;
   }
+
+  @media (max-width: $bp-mobile) {
+    margin-bottom: $space-2xl;
+
+    p {
+      font-size: $text-base;
+    }
+  }
 }
 
 // ── Alerts ─────────────────────────────────────────────────
 .alert {
   padding: $space-lg $space-xl;
   border-radius: $radius-md;
+  corner-shape: squircle;
   border: 1px solid;
   display: flex;
   gap: $space-lg;
