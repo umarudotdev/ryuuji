@@ -1,78 +1,65 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 184">
-  <!--
-    Ryuuji Full Logo: eye mark + wordmark horizontal lockup.
-    Mark is vertically centered with the wordmark baseline.
-  -->
   <defs>
     <linearGradient id="iris" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFC5D2"/>
-      <stop offset="100%" stop-color="#F29CB0"/>
+      <stop offset="0%" stop-color="#FFBAB0"/>
+      <stop offset="50%" stop-color="#E86880"/>
+      <stop offset="100%" stop-color="#A83868"/>
     </linearGradient>
-    <linearGradient id="shelf" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#CC6D84"/>
-      <stop offset="100%" stop-color="#A64E63"/>
-    </linearGradient>
-    <radialGradient id="glint" cx="0.4" cy="0.3" r="0.6">
-      <stop offset="0%" stop-color="#FFD88F"/>
-      <stop offset="100%" stop-color="#E2AD56"/>
-    </radialGradient>
     <linearGradient id="wordmark-fill" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#F5AFC0"/>
-      <stop offset="100%" stop-color="#DD7F97"/>
+      <stop offset="0%" stop-color="#E86880"/>
+      <stop offset="100%" stop-color="#A83868"/>
     </linearGradient>
+    <linearGradient id="shadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#100818" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#100818" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5E2C44"/>
+      <stop offset="100%" stop-color="#3A1024"/>
+    </linearGradient>
+    <filter id="inset-shadow">
+      <feFlood flood-color="#100818" flood-opacity="0.5"/>
+      <feComposite in2="SourceAlpha" operator="out"/>
+      <feOffset dy="1.5"/>
+      <feGaussianBlur stdDeviation="1.5"/>
+      <feComposite in2="SourceAlpha" operator="in"/>
+      <feMerge>
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode/>
+      </feMerge>
+    </filter>
+    <clipPath id="eye-clip">
+      <path d="M17 73
+         C17 68, 27 54, 40 47
+         C52 40, 60 38, 70 38
+         C82 38, 92 41, 104 49
+         C117 57, 127 70, 127 79
+         C127 84, 117 98, 104 105
+         C92 114, 80 114, 74 114
+         C64 114, 52 112, 40 104
+         C27 97, 17 78, 17 73Z"/>
+    </clipPath>
   </defs>
 
-  <!-- Eye mark, centered vertically in viewBox -->
-  <g transform="translate(16 16)">
-    <!-- Iris -->
+  <g transform="translate(16 16) rotate(5, 72, 76)">
     <path
-      d="M10 76 C28 48, 48 36, 72 36 C96 36, 116 48, 134 76 C116 104, 96 116, 72 116 C48 116, 28 104, 10 76Z"
+      d="M17 73
+         C17 68, 27 54, 40 47
+         C52 40, 60 38, 70 38
+         C82 38, 92 41, 104 49
+         C117 57, 127 70, 127 79
+         C127 84, 117 98, 104 105
+         C92 114, 80 114, 74 114
+         C64 114, 52 112, 40 104
+         C27 97, 17 78, 17 73Z"
       fill="url(#iris)"
-      stroke="#5F1F31"
-      stroke-width="3"
+      stroke="#4A1830"
+      stroke-width="4"
       stroke-linejoin="round"
     />
+    <rect x="0" y="0" width="160" height="160" fill="url(#shadow)" clip-path="url(#eye-clip)"/>
+    <path d="M63 60 C63 55, 66 53, 70 55 L90 70 C94 73, 94 79, 90 82 L70 97 C66 99, 63 97, 63 92Z" fill="url(#play)" filter="url(#inset-shadow)"/>  </g>
 
-    <!-- Depth shelf -->
-    <path
-      d="M18 76 C33 100, 52 112, 72 112 C92 112, 111 100, 126 76
-         L126 82 C111 106, 92 116, 72 116 C52 116, 33 106, 18 82Z"
-      fill="url(#shelf)"
-    />
-
-    <!-- Slit pupil -->
-    <path
-      d="M72 46 C80 60, 82 70, 82 76 C82 82, 80 92, 72 106
-         C64 92, 62 82, 62 76 C62 70, 64 60, 72 46Z"
-      fill="#221117"
-    />
-
-    <!-- Primary catchlight -->
-    <circle cx="60" cy="62" r="6" fill="#FFF7FA" opacity="0.75"/>
-
-    <!-- Gold catchlight -->
-    <circle cx="82" cy="84" r="3.5" fill="url(#glint)" opacity="0.85"/>
-  </g>
-
-  <!-- Wordmark -->
-  <text
-    x="180"
-    y="110"
-    font-family="'Geist', 'Inter', system-ui, sans-serif"
-    font-size="88"
-    font-weight="600"
-    letter-spacing="1.5"
-    fill="url(#wordmark-fill)"
-  >Ryuuji</text>
-
-  <!-- Subtitle -->
-  <text
-    x="184"
-    y="144"
-    font-family="'Geist', 'Inter', system-ui, sans-serif"
-    font-size="20"
-    font-weight="500"
-    letter-spacing="5"
-    fill="#9B6F7B"
-  >ANIME TRACKER</text>
+  <text x="180" y="110" font-family="'Geist', 'Inter', system-ui, sans-serif" font-size="88" font-weight="600" letter-spacing="1.5" fill="url(#wordmark-fill)">Ryuuji</text>
+  <text x="184" y="144" font-family="'Geist', 'Inter', system-ui, sans-serif" font-size="20" font-weight="500" letter-spacing="5" fill="#4A1830">ANIME TRACKER</text>
 </svg>
