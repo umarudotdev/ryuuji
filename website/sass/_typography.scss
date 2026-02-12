@@ -7,7 +7,7 @@ body {
   color: $text-primary;
 }
 
-h1, h2, h3, h4 {
+h1, h2, h3 {
   line-height: $lh-tight;
   color: $text-primary;
 }
@@ -30,26 +30,14 @@ h3 {
   letter-spacing: -0.015em;
 }
 
-h4 {
-  font-size: $text-lg;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
 p {
   line-height: $lh-normal;
   color: $text-secondary;
 }
 
-code,
-.mono {
+code {
   font-family: $font-mono;
 }
-
-.text-primary   { color: $text-primary;   }
-.text-secondary { color: $text-secondary; }
-.text-accent    { color: $primary;        }
-.text-gold      { color: $tertiary;       }
 
 strong {
   color: $text-primary;

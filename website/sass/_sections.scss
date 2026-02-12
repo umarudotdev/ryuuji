@@ -192,6 +192,10 @@ body::after {
     // Base
     $surface-lowest;
   background-attachment: fixed;
+
+  @media (max-width: $bp-mobile) {
+    background-attachment: scroll;
+  }
 }
 
 // ── Navigation ─────────────────────────────────────────────
@@ -400,13 +404,13 @@ body::after {
     padding: 4px;
     border-radius: $radius-lg;
     corner-shape: squircle;
+    // Nested inside nav's backdrop-filter — child blur can't see
+    // through the parent's backdrop root, so use near-opaque fill.
     background: linear-gradient(
       180deg,
-      rgba($surface-container, 0.92),
-      rgba($surface-container, 0.84)
+      rgba($surface-high, 0.97),
+      rgba($surface-container, 0.95)
     );
-    backdrop-filter: blur(20px) brightness(1.1) saturate(1.15);
-    -webkit-backdrop-filter: blur(20px) brightness(1.1) saturate(1.15);
     border: 1px solid rgba($text-outline-variant, 0.5);
     box-shadow:
       0 8px 24px rgba(0, 0, 0, 0.25),
@@ -493,13 +497,38 @@ body::after {
       background-color: rgba($text-primary, 0.06);
       color: $text-primary;
     }
-
-    .icon-x { display: none; }
   }
 
-  &.open .nav-toggle {
-    .icon-menu { display: none; }
-    .icon-x    { display: block; }
+  // Animated hamburger → X
+  // Origin-aware: all lines rotate around SVG center (12,12).
+  // Top/bottom translateY to center, then rotate ±45° to form X.
+  .nav-toggle-icon {
+    .line-top, .line-mid, .line-bot {
+      transform-origin: 12px 12px;
+      // Close animation: gentle settle
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+
+  &.open .nav-toggle-icon {
+    .line-top {
+      transform: rotate(45deg) translateY(7px);
+    }
+
+    .line-mid {
+      opacity: 0;
+    }
+
+    .line-bot {
+      transform: rotate(-45deg) translateY(-7px);
+    }
+
+    .line-top, .line-mid, .line-bot {
+      // Open animation: snappy response
+      transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 100ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
   }
 
   // ── Mobile drawer (hidden on desktop) ──
@@ -598,18 +627,17 @@ body::after {
 
 // ── Home (full-height landing) ────────────────────────────────
 .page-home {
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .page-home main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 80px);
-  height: calc(100dvh - 80px);
+  min-height: calc(100vh - 80px);
+  min-height: calc(100dvh - 80px);
   position: relative;
-  overflow: hidden;
+  clip-path: inset(0);
 
   // Subtle grid — flat, radially faded, sits behind hero content
   &::before {
@@ -661,6 +689,7 @@ body::after {
   font-size: $text-sm;
   font-weight: 500;
   user-select: none;
+  white-space: nowrap;
   margin-bottom: $space-2xl;
 
   @media (max-width: $bp-mobile) {
@@ -670,7 +699,7 @@ body::after {
 }
 
 .home-headline {
-  font-size: $text-hero;
+  font-size: clamp(#{$text-2xl}, 5vw + 1rem, #{$text-hero});
   font-weight: 400;
   font-family: $font-pixel;
   line-height: $lh-tight;
@@ -678,12 +707,7 @@ body::after {
   margin-bottom: $space-xl;
   color: $text-primary;
 
-  @media (max-width: $bp-tablet) {
-    font-size: $text-3xl;
-  }
-
   @media (max-width: $bp-mobile) {
-    font-size: $text-2xl;
     margin-bottom: $space-lg;
   }
 }
@@ -752,6 +776,7 @@ body::after {
   font-size: $text-sm;
   color: $text-secondary;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .home-dot {
@@ -808,142 +833,21 @@ body::after {
   animation: hero-enter-subtle 500ms cubic-bezier(0.22, 1, 0.36, 1) 380ms forwards;
 }
 
+// Short-viewport overrides — landscape phones, split-screen, etc.
+@media (max-height: 640px) {
+  .home-logo       { width: 56px; height: 56px; margin-bottom: 16px; }
+  .home-badge      { margin-bottom: 12px; }
+  .home-headline   { font-size: $text-2xl; margin-bottom: 12px; }
+  .home-tagline    { font-size: $text-sm; margin-bottom: 16px; }
+  .home-bottom     { padding: 12px; }
+}
+
 // ── Overview page spacer ──────────────────────────────────────
 .overview-spacer {
   height: 96px;
 
   @media (max-width: $bp-tablet) {
     height: 72px;
-  }
-}
-
-// ── Hero ───────────────────────────────────────────────────
-.hero {
-  padding-top: 120px;
-  padding-bottom: $section-spacing;
-  background:
-    radial-gradient(ellipse 60% 50% at 65% 20%, rgba($primary, 0.06), transparent 60%),
-    radial-gradient(ellipse 40% 60% at 25% 70%, rgba($tertiary, 0.03), transparent 50%),
-    $surface-lowest;
-  position: relative;
-  overflow: hidden;
-
-  @media (max-width: $bp-tablet) {
-    padding-top: 100px;
-    padding-bottom: $section-spacing-mobile;
-  }
-
-  @media (max-width: $bp-mobile) {
-    padding-top: 80px;
-  }
-}
-
-.hero-container {
-  display: flex;
-  align-items: center;
-  gap: $space-3xl;
-
-  @media (max-width: $bp-tablet) {
-    flex-direction: column;
-    text-align: center;
-    gap: $space-xl;
-  }
-}
-
-.hero-content {
-  flex: 1;
-  width: 100%;
-}
-
-.hero-art {
-  flex: 1;
-  display: flex;
-  justify-content: flex-end;
-  opacity: 0.1;
-  pointer-events: none;
-
-  @media (max-width: $bp-tablet) {
-    display: none;
-  }
-}
-
-.hero-logo-bg {
-  width: 400px;
-  height: 400px;
-  filter: grayscale(1);
-}
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-sm;
-  padding: $space-xs $space-lg;
-  border-radius: 9999px;
-  background-color: rgba($primary, 0.1);
-  border: 1px solid rgba($primary, 0.2);
-  color: $primary;
-  font-size: $text-sm;
-  font-weight: 500;
-  user-select: none;
-  margin-bottom: $space-2xl;
-
-  @media (max-width: $bp-mobile) {
-    font-size: $text-xs;
-    margin-bottom: $space-lg;
-  }
-}
-
-.hero h1 {
-  margin-bottom: $space-xl;
-  font-size: $text-hero;
-  font-family: $font-pixel;
-  font-weight: 400;
-
-  @media (max-width: $bp-tablet) {
-    font-size: $text-3xl;
-  }
-
-  @media (max-width: $bp-mobile) {
-    font-size: $text-2xl;
-    margin-bottom: $space-md;
-  }
-}
-
-.hero-tagline {
-  max-width: 560px;
-  font-size: $text-lg;
-  color: $text-secondary;
-  line-height: $lh-loose;
-  margin-bottom: $space-3xl;
-
-  @media (max-width: $bp-tablet) {
-    margin-inline: auto;
-    font-size: $text-base;
-  }
-
-  @media (max-width: $bp-mobile) {
-    margin-bottom: $space-xl;
-  }
-}
-
-.hero-ctas {
-  display: flex;
-  align-items: center;
-  gap: $space-lg;
-  flex-wrap: wrap;
-
-  @media (max-width: $bp-tablet) {
-    justify-content: center;
-  }
-
-  @media (max-width: $bp-mobile) {
-    flex-direction: column;
-    width: 100%;
-
-    .btn {
-      width: 100%;
-      justify-content: center;
-    }
   }
 }
 
@@ -972,47 +876,23 @@ body::after {
 
 .pipeline-step {
   flex: 1;
-  max-width: 320px;
+  max-width: 340px;
   text-align: center;
-  padding: $space-2xl $space-xl;
 
-  h3 {
-    margin-bottom: $space-xxs;
-    font-size: $text-lg;
-  }
-
-  > p:last-child {
-    font-size: $text-sm;
-    color: $text-secondary;
-    line-height: $lh-loose;
-    margin-top: $space-md;
+  // Subtitle sits between heading and description
+  .pipeline-subtitle {
+    margin-bottom: $space-sm;
   }
 
   @media (max-width: $bp-tablet) {
     max-width: 480px;
     width: 100%;
   }
-
-  @media (max-width: $bp-mobile) {
-    padding: $space-xl $space-lg;
-  }
 }
 
+// Adds badge-positioning context on top of .card-icon base
 .pipeline-icon {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  corner-shape: squircle;
-  background-color: $primary-container;
-  color: $on-primary-container;
-  user-select: none;
-  margin-bottom: $space-lg;
-  transition: background-color 0.3s ease,
-              color 0.3s ease;
 }
 
 .pipeline-label {
@@ -1033,7 +913,7 @@ body::after {
   user-select: none;
 }
 
-.pipeline-subtitle {
+.card .pipeline-subtitle {
   font-size: $text-sm;
   color: $primary-dim;
   font-weight: 500;
@@ -1339,84 +1219,6 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-// ── Architecture ───────────────────────────────────────
-.architecture {
-  background-color: $surface-base;
-}
-
-.arch-grid {
-  max-width: 800px;
-  margin-inline: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: $space-lg;
-}
-
-.arch-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  max-width: 400px;
-}
-
-.arch-node {
-  padding: $space-md $space-xl;
-  border-radius: $radius-md;
-  font-family: $font-mono;
-  font-size: $text-sm;
-  font-weight: 600;
-  width: 100%;
-}
-
-.arch-node-primary {
-  background-color: $primary;
-  color: $on-primary;
-}
-
-.arch-node-secondary {
-  background-color: $primary-container;
-  color: $on-primary-container;
-  border: 1px solid $primary;
-}
-
-.arch-node-outline {
-  background-color: $surface-container;
-  border: 1px solid $text-outline-variant;
-  color: $text-primary;
-}
-
-.arch-desc {
-  margin-top: $space-sm;
-  font-size: $text-sm;
-  color: $text-secondary;
-  line-height: $lh-tight;
-}
-
-.arch-arrow {
-  font-size: $text-xl;
-  color: $text-outline;
-  user-select: none;
-}
-
-.arch-subgrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: $space-xl;
-  width: 100%;
-  margin-top: $space-lg;
-
-  @media (max-width: $bp-tablet) {
-    gap: $space-md;
-  }
-
-  @media (max-width: $bp-mobile) {
-    grid-template-columns: 1fr;
-    gap: $space-lg;
-  }
 }
 
 // ── Supported ────────────────────────────────────────────────

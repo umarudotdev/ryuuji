@@ -8,8 +8,6 @@ $surface-low:      #221B1E;
 $surface-container:#262025;
 $surface-high:     #312A2F;
 $surface-highest:  #3C343A;
-$surface-bright:   #413437;
-
 // ── Text ───────────────────────────────────────────────────
 $text-primary:   #EFE0E3;
 $text-secondary: #D6C2C6;
@@ -24,25 +22,11 @@ $on-primary:   #5E1127;
 $primary-container: #7A2E3E;
 $on-primary-container: #FFD9E0;
 
-// ── Secondary ──────────────────────────────────────────────
-$secondary-container: #524347;
-$on-secondary-container: #D6C2C6;
-
 // ── Tertiary (gold) ────────────────────────────────────────
 $tertiary:    #E8C68F;
-$on-tertiary: #3F2E04;
 
 // ── Status ─────────────────────────────────────────────────
 $success:   #4AC78B;
-$error:     #FFB4AB;
-
-// ── Inverse / Scrim ────────────────────────────────────────
-$inverse-surface:    #EFE0E3;
-$inverse-on-surface: #1A1114;
-$scrim: #000000;
-
-// ── Shadows ────────────────────────────────────────────────
-$edge-highlight: inset 0 0.5px 0 rgba(255, 255, 255, 0.1);
 
 // ── Spacing (4px grid) ─────────────────────────────────────
 $space-xxs: 2px;
