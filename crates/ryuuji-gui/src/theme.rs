@@ -15,6 +15,9 @@ use iced::Theme;
 /// Embedded default theme TOML source (contains both dark and light).
 pub(crate) const DEFAULT_THEME_TOML: &str = include_str!("../assets/themes/default.toml");
 
+/// Embedded Tokyo Night theme.
+pub(crate) const TOKYO_NIGHT_THEME_TOML: &str = include_str!("../assets/themes/tokyo-night.toml");
+
 /// A fully loaded theme with both appearance variants.
 #[derive(Debug, Clone)]
 pub struct RyuujiTheme {
@@ -68,7 +71,11 @@ pub fn resolve_mode(mode: ThemeMode) -> ThemeMode {
 
 /// Discover all available themes: embedded default + user themes from disk.
 pub fn available_themes() -> Vec<RyuujiTheme> {
-    let mut themes = vec![RyuujiTheme::default_theme()];
+    let mut themes = vec![
+        RyuujiTheme::default_theme(),
+        RyuujiTheme::from_toml(TOKYO_NIGHT_THEME_TOML)
+            .expect("embedded Tokyo Night theme is valid TOML"),
+    ];
 
     // Scan user themes directory.
     if let Some(user_themes) = user_themes_dir() {
