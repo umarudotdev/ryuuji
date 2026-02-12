@@ -218,6 +218,27 @@
     margin-bottom: $space-md;
   }
 
+  .anchor-link {
+    color: inherit;
+    text-decoration: none;
+    position: relative;
+
+    &::before {
+      content: "#";
+      position: absolute;
+      right: calc(100% + #{$space-sm});
+      color: $text-outline-variant;
+      font-weight: 400;
+      opacity: 0;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+
+    &:hover::before {
+      opacity: 1;
+      color: $primary;
+    }
+  }
+
   p {
     max-width: 600px;
     margin-inline: auto;
