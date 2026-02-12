@@ -963,23 +963,21 @@ body::after {
   max-width: 320px;
   text-align: center;
   padding: $space-2xl $space-xl;
-  background-color: $surface-container;
-  border: 1px solid $text-outline-variant;
-  border-radius: $radius-lg;
-  corner-shape: squircle;
-  transition: border-color 0.2s ease-out,
-              box-shadow 0.2s ease-out,
-              transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 
-  &:hover {
-    border-color: rgba($primary, 0.4);
-    box-shadow: 0 4px 16px rgba($primary, 0.08);
-    transform: translateY(-2px);
+  // Pipeline icon colors (parallels .card-icon handling in .card)
+  .pipeline-icon {
+    background-color: $primary;
+    color: $on-primary;
+  }
 
-    .pipeline-icon {
-      background-color: $primary;
-      color: $on-primary;
-    }
+  .pipeline:hover & .pipeline-icon {
+    background-color: $primary-container;
+    color: $on-primary-container;
+  }
+
+  .pipeline:hover &:hover .pipeline-icon {
+    background-color: $primary;
+    color: $on-primary;
   }
 
   h3 {
@@ -1016,8 +1014,8 @@ body::after {
   background-color: $primary-container;
   color: $on-primary-container;
   margin-bottom: $space-lg;
-  transition: background-color 0.2s ease-out,
-              color 0.2s ease-out;
+  transition: background-color 0.3s ease,
+              color 0.3s ease;
 }
 
 .pipeline-label {
@@ -1048,7 +1046,6 @@ body::after {
   align-items: center;
   color: $text-outline;
   margin-top: 72px; // vertically center with the icon area
-
   @media (max-width: $bp-tablet) {
     margin-top: 0;
     transform: rotate(90deg);
