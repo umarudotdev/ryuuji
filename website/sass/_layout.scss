@@ -33,45 +33,7 @@
   }
 }
 
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: $space-2xl;
-
-  @media (max-width: $bp-tablet) {
-    grid-template-columns: repeat(2, 1fr);
-    gap: $space-lg;
-  }
-
-  @media (max-width: $bp-mobile) {
-    grid-template-columns: 1fr;
-  }
-}
-
-// ── Flex utilities ─────────────────────────────────────────
-.flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.flex-col {
-  display: flex;
-  flex-direction: column;
-}
-
-.gap-sm  { gap: $space-sm;  }
-.gap-md  { gap: $space-md;  }
-.gap-lg  { gap: $space-lg;  }
-.gap-xl  { gap: $space-xl;  }
-.gap-2xl { gap: $space-2xl; }
-
-.text-center { text-align: center; }
-
 // ── Responsive visibility ────────────────────────────────────
 @media (max-width: $bp-tablet) {
   .desktop-only { display: none !important; }
-}
-@media (min-width: $bp-tablet + 1) {
-  .mobile-only { display: none !important; }
 }

@@ -19,18 +19,19 @@
   <!-- Favicon -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
-  <!-- Fonts: preload above-fold fonts -->
-  <link rel="preload" href="/fonts/GeistVF.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/GeistPixel-Line.woff2" as="font" type="font/woff2" crossorigin>
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="/main.css">
-
+  <!-- Critical CSS first — stylesheet overrides these on load -->
   <style>
-    /* Critical: prevent FOUC */
+    /* Prevent FOUC */
     html { background-color: #1A1114; }
 
-    /* Inline @font-face — browser discovers fonts before external CSS arrives */
+    /* Minimal above-fold layout so the nav + LCP image paint immediately */
+    #site-nav { position: sticky; top: 1.5rem; z-index: 999; margin: 0 auto; width: max-content; max-width: min(100% - 2rem, 1000px); }
+    #site-nav nav { display: flex; align-items: center; gap: 2px; padding: 5px 7px 5px 5px; border-radius: 999px; }
+    #site-nav a { display: flex; align-items: center; padding: 8px 14px; border-radius: 999px; font-size: 0.8125rem; line-height: 1; white-space: nowrap; text-decoration: none; color: inherit; }
+    .nav-logo { gap: 8px; }
+    .nav-logo img { display: block; }
+
+    /* @font-face — browser discovers fonts before external CSS arrives */
     @font-face {
       font-family: "Geist";
       src: url("/fonts/GeistVF.woff2") format("woff2");
@@ -53,13 +54,21 @@
       font-style: normal;
     }
   </style>
+
+  <!-- Fonts: preload above-fold fonts -->
+  <link rel="preload" href="/fonts/GeistVF.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/GeistPixel-Line.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- Styles (async load; critical CSS above covers initial paint) -->
+  <link rel="preload" href="/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="/main.css"></noscript>
 </head>
 <body{% block body_attrs %}{% endblock body_attrs %}>
   {% block header %}
   <header id="site-nav">
     <nav>
       <a href="{{ get_url(path='@/_index.md', lang=lang) }}" class="nav-logo" aria-label="{{ trans(key='nav_home_aria', lang=lang) }}">
-        <img src="/logo.svg" width="20" height="20" alt="">
+        <img src="/logo.svg" width="20" height="20" alt="" fetchpriority="high">
         <span>Ryuuji</span>
       </a>
 
@@ -88,8 +97,7 @@
         </a>
         <a href="{{ get_url(path='@/overview/_index.md', lang=lang) }}#download" class="nav-cta">{{ trans(key="nav_download", lang=lang) }}</a>
         <button class="nav-toggle" id="nav-toggle" aria-label="{{ trans(key='nav_menu', lang=lang) }}" aria-expanded="false">
-          <svg class="icon-menu" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>
-          <svg class="icon-x" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          <svg class="nav-toggle-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line class="line-top" x1="4" y1="5" x2="20" y2="5"/><line class="line-mid" x1="4" y1="12" x2="20" y2="12"/><line class="line-bot" x1="4" y1="19" x2="20" y2="19"/></svg>
         </button>
       </div>
 
@@ -134,13 +142,13 @@
         <p>{{ trans(key="footer_tagline", lang=lang) }}</p>
       </div>
       <nav class="footer-column" data-animate aria-label="{{ trans(key='footer_project', lang=lang) }}">
-        <h4 class="footer-column-title">{{ trans(key="footer_project", lang=lang) }}</h4>
+        <h3 class="footer-column-title">{{ trans(key="footer_project", lang=lang) }}</h3>
         <a href="{{ config.extra.github_url }}" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a href="{{ config.extra.github_url }}/releases" target="_blank" rel="noopener noreferrer">{{ trans(key="footer_releases", lang=lang) }}</a>
         <a href="{{ config.extra.github_url }}/issues" target="_blank" rel="noopener noreferrer">{{ trans(key="footer_issues", lang=lang) }}</a>
       </nav>
       <nav class="footer-column" data-animate aria-label="{{ trans(key='footer_resources', lang=lang) }}">
-        <h4 class="footer-column-title">{{ trans(key="footer_resources", lang=lang) }}</h4>
+        <h3 class="footer-column-title">{{ trans(key="footer_resources", lang=lang) }}</h3>
         <a href="{{ config.extra.github_url }}/blob/main/docs/prd.md" target="_blank" rel="noopener noreferrer">{{ trans(key="footer_docs", lang=lang) }}</a>
         <a href="{{ config.extra.github_url }}/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">{{ trans(key="footer_contributing", lang=lang) }}</a>
         <a href="{{ config.extra.github_url }}/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">{{ trans(key="footer_license", lang=lang) }}</a>
@@ -183,6 +191,14 @@
         langTrigger.addEventListener('click', function() {
           var open = langDropdown.classList.toggle('open');
           langTrigger.setAttribute('aria-expanded', open);
+        });
+
+        // Close on focus leaving the dropdown (keyboard navigation)
+        langDropdown.addEventListener('focusout', function(e) {
+          if (!langDropdown.contains(e.relatedTarget)) {
+            langDropdown.classList.remove('open');
+            langTrigger.setAttribute('aria-expanded', 'false');
+          }
         });
       }
 
@@ -232,6 +248,7 @@
     document.querySelectorAll('.code-block').forEach(function(block) {
       var button = document.createElement('button');
       button.className = 'copy-btn';
+      button.setAttribute('aria-label', i18n.copy);
       setCopyState(button, iconTemplate.content.firstChild, i18n.copy);
 
       button.onclick = function() {

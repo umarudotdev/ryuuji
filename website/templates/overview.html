@@ -312,9 +312,20 @@
     });
   });
 
-  // Parse the pre-filled value on first WASM load
+  // Defer WASM load until the parser demo section is visible
   if (input.value.trim()) {
-    loadWasm().then(function() { if (wasm) parse(); });
+    var demoSection = input.closest('section') || input.closest('.section');
+    if (demoSection && 'IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+          io.disconnect();
+          loadWasm().then(function() { if (wasm) parse(); });
+        }
+      }, { rootMargin: '200px' });
+      io.observe(demoSection);
+    } else {
+      loadWasm().then(function() { if (wasm) parse(); });
+    }
   }
 })();
 </script>
