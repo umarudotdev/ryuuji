@@ -918,11 +918,55 @@ body::after {
 // ── Parser Demo ───────────────────────────────────────
 .parser-demo {
   background-color: $surface-lowest;
+  position: relative;
+  overflow: hidden;
+  z-index: 0;
+  clip-path: inset(0);
+
+  // Ambient glows
+  &::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 15% 25%, rgba($primary, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 85% 75%, rgba($tertiary, 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba($primary-container, 0.02) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  // Perspective grid
+  &::after {
+    content: "";
+    position: fixed;
+    inset: -50%;
+    z-index: -1;
+    background-image:
+      linear-gradient(rgba($text-outline-variant, 0.12) 1.5px, transparent 1.5px),
+      linear-gradient(90deg, rgba($text-outline-variant, 0.12) 1.5px, transparent 1.5px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 80%);
+    transform: perspective(800px) rotateX(25deg);
+    pointer-events: none;
+  }
 }
 
-.demo-widget {
+  
+
+  .demo-widget {
   max-width: 720px;
   margin-inline: auto;
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -40px;
+    background: radial-gradient(circle at center, rgba($primary, 0.04), transparent 70%);
+    z-index: -1;
+    pointer-events: none;
+  }
 }
 
 .demo-input-area {
@@ -951,6 +995,7 @@ body::after {
   color: $text-outline;
   font-family: $font-mono;
   font-size: $text-sm;
+  font-weight: 600;
   line-height: 1.45;
   white-space: pre;
   overflow-x: auto;
@@ -996,6 +1041,7 @@ body::after {
   color: $text-primary;
   font-family: $font-mono;
   font-size: $text-sm;
+  font-weight: 600;
   line-height: 1.45;
   outline: none;
 
