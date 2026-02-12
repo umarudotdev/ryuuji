@@ -34,7 +34,7 @@ footer_contributing = "Contributing"
 footer_license = "MIT License"
 
 # Home
-home_badge = "Free &amp; open source &middot; Linux &amp; Windows"
+home_badge = "Free &amp; open source &middot; MIT License &middot; Linux &amp; Windows"
 home_headline = "Your anime list,<br>on autopilot"
 home_tagline = "Just press play. Ryuuji figures out what you're watching<br class=\"desktop-only\"> and keeps MyAnimeList, AniList, or Kitsu up to date &mdash;<br class=\"desktop-only\"> no browser tabs, no manual updates."
 home_download = "Download"
@@ -142,7 +142,7 @@ footer_contributing = "Contribuir"
 footer_license = "Licença MIT"
 
 # Home
-home_badge = "Gratuito e open source &middot; Linux e Windows"
+home_badge = "Gratuito e open source &middot; Licença MIT &middot; Linux e Windows"
 home_headline = "Sua lista de anime,<br>no piloto automático"
 home_tagline = "Só dê play. O Ryuuji descobre o que você está assistindo<br class=\"desktop-only\"> e mantém o MyAnimeList, AniList ou Kitsu atualizado &mdash;<br class=\"desktop-only\"> sem abas extras, sem atualizações manuais."
 home_download = "Download"

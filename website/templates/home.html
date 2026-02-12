@@ -43,6 +43,30 @@
     <img src="/icons/windows.svg" width="14" height="14" alt="Windows">
   </div>
 </div>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Ryuuji",
+  "applicationCategory": "DesktopEnhancement",
+  "operatingSystem": "Linux, Windows",
+  "url": "{{ config.base_url }}",
+  "license": "https://opensource.org/licenses/MIT",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Ryuuji",
+  "url": "{{ config.base_url }}"
+}
+</script>
 {% endblock content %}
 
 {% block footer %}{% endblock footer %}
