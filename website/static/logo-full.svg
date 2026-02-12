@@ -41,7 +41,7 @@
     </clipPath>
   </defs>
 
-  <g transform="translate(16 16) rotate(5, 72, 76)">
+  <g transform="translate(16 16) rotate(10, 72, 76)">
     <path
       d="M16.55 67.87
          C16.55 62.04, 27 54, 40 47
