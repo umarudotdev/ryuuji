@@ -5,7 +5,7 @@
 </p>
 
 <h3 align="center">Ryuuji</h3>
-<p align="center">Your anime list, on autopilot.<br>Just press play — Ryuuji keeps MyAnimeList, AniList, or Kitsu up to date automatically.</p>
+<p align="center">Your anime list, on autopilot.<br>Just press play — Ryuuji keeps MyAnimeList, AniList, or Kitsu in sync for you.</p>
 
 <p align="center">
   <a href="https://ryuuji.umaru.dev">Website</a> &nbsp;·&nbsp;
@@ -17,14 +17,14 @@
 
 ## How it works
 
-Every few seconds, Ryuuji runs a detection → recognition → sync pipeline:
+Ryuuji runs a detection → recognition → sync pipeline in the background while you watch:
 
 1. **Detect** — Finds your active media player (MPRIS/D-Bus on Linux, Win32 on Windows) or streaming service in a browser tab
 2. **Parse** — Extracts the anime title and episode from the filename or page title, handling fansub conventions like `[SubGroup] Title - 05v2 (1080p) [CRC32].mkv`
 3. **Match** — 4-level recognition cascade (exact → normalized → fuzzy at 60% threshold) identifies the anime against your local library
 4. **Sync** — Updates your local SQLite database and pushes progress to your connected tracking service
 
-No browser extensions. No manual input. Just press play.
+No browser extensions, no manual input. Just press play.
 
 ## Features
 
@@ -82,4 +82,4 @@ See [`CONTRIBUTING.md`](https://github.com/umarudotdev/ryuuji/blob/main/CONTRIBU
 
 ## License
 
-GPL-3.0
+MIT
