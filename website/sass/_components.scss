@@ -69,11 +69,12 @@
   border-radius: $radius-lg;
   corner-shape: squircle;
   padding: $space-2xl;
-  transition: background-color 0.3s ease,
-              border-color 0.3s ease,
-              opacity 0.3s ease,
-              transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.3s ease;
+  will-change: transform;
+  // Hover-out: slow, gentle return
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+              background-color 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+              border-color 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+              box-shadow 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 
   .card-icon {
     background-color: $primary;
@@ -86,6 +87,8 @@
     border-color: rgba($primary, 0.3);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25),
                 0 16px 40px rgba($primary, 0.06);
+    // Hover-in: snappy, responsive
+    transition-duration: 0.15s;
   }
 
   @media (max-width: $bp-mobile) {
