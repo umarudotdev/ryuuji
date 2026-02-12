@@ -97,15 +97,21 @@
     <div class="demo-widget">
       <div class="demo-input-area">
         <label for="demo-input" class="sr-only">{{ trans(key="demo_placeholder", lang=lang) }}</label>
-        <input
-          type="text"
-          id="demo-input"
-          class="demo-input"
-          placeholder="{{ trans(key='demo_placeholder', lang=lang) }}"
-          value="[SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv"
-          autocomplete="off"
-          spellcheck="false"
-        >
+        <div class="demo-input-wrapper">
+          <div id="demo-highlight" class="demo-input-highlight" aria-hidden="true"></div>
+          <input
+            type="text"
+            id="demo-input"
+            class="demo-input"
+            placeholder="{{ trans(key='demo_placeholder', lang=lang) }}"
+            value="[SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <span class="demo-input-editable" aria-hidden="true">
+            {{ m::icon_pencil() }}
+          </span>
+        </div>
       </div>
 
       <div class="demo-examples">
@@ -126,6 +132,7 @@
 <script type="module">
 (function() {
   const input = document.getElementById('demo-input');
+  const highlight = document.getElementById('demo-highlight');
   const output = document.getElementById('demo-output');
   const examples = document.querySelectorAll('.demo-example-btn');
   const loadingText = '{{ trans(key="demo_loading", lang=lang) }}';
@@ -135,12 +142,12 @@
   let loading = false;
   let debounceTimer = null;
 
-  function clearOutput() {
-    while (output.firstChild) output.removeChild(output.firstChild);
+  function clearEl(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
   }
 
   function showMessage(text, className) {
-    clearOutput();
+    clearEl(output);
     const p = document.createElement('p');
     p.className = className;
     p.textContent = text;
@@ -164,14 +171,93 @@
     return wasm;
   }
 
+  var categories = {
+    title: 'title', anime_type: 'title', year: 'title',
+    episode: 'episode', episode_number: 'episode', episode_title: 'episode',
+    season: 'episode', season_number: 'episode',
+    part: 'episode', part_number: 'episode',
+    volume: 'episode', volume_number: 'episode',
+    release_group: 'release', source: 'release', streaming_source: 'release',
+    release_version: 'release', release_info: 'release',
+    resolution: 'video', video_codec: 'video', video_term: 'video',
+    audio_codec: 'audio', audio_term: 'audio',
+    checksum: 'file', file_extension: 'file', language: 'file', subtitles: 'file'
+  };
+
+  // Skip numeric-only fields to avoid noisy single-character matches.
+  var skipFields = {
+    episode_number: true, season_number: true, part_number: true,
+    volume_number: true, year: true
+  };
+
   function formatKey(key) {
     return key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function buildHighlight(str, data) {
+    var charCats = new Array(str.length);
+    var entries = [];
+    for (var k in data) {
+      if (skipFields[k]) continue;
+      var cat = categories[k] || 'file';
+      var val = data[k];
+      var values = Array.isArray(val) ? val : [String(val)];
+      values.forEach(function(v) {
+        entries.push({ val: String(v), cat: cat });
+      });
+    }
+    entries.sort(function(a, b) { return b.val.length - a.val.length; });
+
+    var lower = str.toLowerCase();
+    entries.forEach(function(e) {
+      var needle = e.val.toLowerCase();
+      var idx = lower.indexOf(needle);
+      while (idx !== -1) {
+        var taken = false;
+        for (var i = idx; i < idx + e.val.length; i++) {
+          if (charCats[i]) {
+            taken = true;
+            break;
+          }
+        }
+        if (!taken) {
+          for (var i = idx; i < idx + e.val.length; i++) {
+            charCats[i] = e.cat;
+          }
+          break;
+        }
+        idx = lower.indexOf(needle, idx + 1);
+      }
+    });
+
+    clearEl(highlight);
+    var i = 0;
+    while (i < str.length) {
+      var cat = charCats[i] || null;
+      var j = i + 1;
+      while (j < str.length && (charCats[j] || null) === cat) j++;
+      var span = document.createElement('span');
+      span.textContent = str.substring(i, j);
+      if (cat) span.className = 'demo-hl-' + cat;
+      highlight.appendChild(span);
+      i = j;
+    }
+  }
+
+  function clearHighlight() {
+    clearEl(highlight);
+    input.classList.remove('highlighted');
+  }
+
+  function syncScroll() {
+    highlight.scrollLeft = input.scrollLeft;
   }
 
   async function parse() {
     const value = input.value.trim();
     if (!value) {
       showMessage(emptyText, 'demo-empty');
+      clearHighlight();
       return;
     }
     const mod = await loadWasm();
@@ -182,12 +268,17 @@
       const keys = Object.keys(data);
       if (keys.length === 0) {
         showMessage(emptyText, 'demo-empty');
+        clearHighlight();
         return;
       }
-      clearOutput();
+      buildHighlight(input.value, data);
+      input.classList.add('highlighted');
+      syncScroll();
+      clearEl(output);
       keys.forEach(function(k) {
+        const cat = categories[k] || 'file';
         const row = document.createElement('div');
-        row.className = 'demo-field';
+        row.className = 'demo-field demo-cat-' + cat;
         const keySpan = document.createElement('span');
         keySpan.className = 'demo-key';
         keySpan.textContent = formatKey(k);
@@ -201,12 +292,15 @@
       });
     } catch (e) {
       showMessage('Parse error.', 'demo-empty');
+      clearHighlight();
     }
   }
 
   input.addEventListener('focus', function() { loadWasm(); }, { once: true });
+  input.addEventListener('scroll', syncScroll);
 
   input.addEventListener('input', function() {
+    clearHighlight();
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(parse, 50);
   });
