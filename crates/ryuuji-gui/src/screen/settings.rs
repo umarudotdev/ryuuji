@@ -64,6 +64,12 @@ pub struct Settings {
     pub torrent_interval_input: String,
     // Integrations
     pub discord_enabled: bool,
+    // Watch folders
+    pub watch_folders: Vec<String>,
+    pub new_folder_input: String,
+    pub scan_on_startup: bool,
+    pub scan_busy: bool,
+    pub scan_status: String,
     // Data
     pub library_stats: Option<LibraryStats>,
     pub export_status: String,
@@ -120,6 +126,13 @@ pub enum Message {
     TorrentEnabledToggled(bool),
     TorrentIntervalChanged(String),
     TorrentIntervalSubmitted,
+    // Watch folders
+    NewFolderInputChanged(String),
+    AddWatchFolder,
+    RemoveWatchFolder(usize),
+    ScanOnStartupToggled(bool),
+    ScanNow,
+    ScanResult(Result<String, String>),
     // Integrations
     DiscordEnabledToggled(bool),
     // Data
@@ -178,6 +191,11 @@ impl Settings {
             torrent_enabled: config.torrent.enabled,
             torrent_interval_input: config.torrent.auto_check_interval.to_string(),
             discord_enabled: config.discord.enabled,
+            watch_folders: config.library.watch_folders.clone(),
+            new_folder_input: String::new(),
+            scan_on_startup: config.library.scan_on_startup,
+            scan_busy: false,
+            scan_status: String::new(),
             library_stats: None,
             export_status: String::new(),
             export_busy: false,
@@ -464,6 +482,53 @@ impl Settings {
                 Action::None
             }
 
+            // ── Watch Folders ────────────────────────────────────
+            Message::NewFolderInputChanged(val) => {
+                self.new_folder_input = val;
+                Action::None
+            }
+            Message::AddWatchFolder => {
+                let path = self.new_folder_input.trim().to_string();
+                if !path.is_empty() && !self.watch_folders.contains(&path) {
+                    self.watch_folders.push(path);
+                    self.new_folder_input.clear();
+                    config.library.watch_folders = self.watch_folders.clone();
+                    let _ = config.save();
+                }
+                Action::None
+            }
+            Message::RemoveWatchFolder(index) => {
+                if index < self.watch_folders.len() {
+                    self.watch_folders.remove(index);
+                    config.library.watch_folders = self.watch_folders.clone();
+                    let _ = config.save();
+                }
+                Action::None
+            }
+            Message::ScanOnStartupToggled(val) => {
+                self.scan_on_startup = val;
+                config.library.scan_on_startup = val;
+                let _ = config.save();
+                Action::None
+            }
+            Message::ScanNow => {
+                self.scan_busy = true;
+                self.scan_status = "Scanning watch folders...".into();
+                Action::None // app.rs handles the async task
+            }
+            Message::ScanResult(result) => {
+                self.scan_busy = false;
+                match result {
+                    Ok(summary) => {
+                        self.scan_status = summary;
+                    }
+                    Err(e) => {
+                        self.scan_status = format!("Scan failed: {e}");
+                    }
+                }
+                Action::None
+            }
+
             // ── Integrations ────────────────────────────────────
             Message::DiscordEnabledToggled(val) => {
                 self.discord_enabled = val;
@@ -540,6 +605,7 @@ impl Settings {
             self.appearance_card(cs),
             self.general_card(cs),
             self.library_card(cs),
+            self.watch_folders_card(cs),
             self.services_card(cs),
             self.torrent_card(cs),
             self.integrations_card(cs),
@@ -1119,6 +1185,92 @@ impl Settings {
             };
             content = content.push(
                 text(&self.export_status)
+                    .size(style::TEXT_SM)
+                    .color(color)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            );
+        }
+
+        container(content)
+            .style(theme::card(cs))
+            .padding(style::SPACE_LG)
+            .width(Length::Fill)
+            .into()
+    }
+
+    fn watch_folders_card<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
+        let mut content = column![
+            text("Watch Folders")
+                .size(style::TEXT_XS)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+            toggler(self.scan_on_startup)
+                .label("Scan on startup")
+                .text_size(style::TEXT_BASE)
+                .on_toggle(Message::ScanOnStartupToggled)
+                .spacing(style::SPACE_SM)
+                .size(22.0)
+                .style(theme::toggler_style(cs)),
+        ]
+        .spacing(style::SPACE_SM);
+
+        // Existing folders
+        for (i, folder) in self.watch_folders.iter().enumerate() {
+            content = content.push(
+                row![
+                    text(folder)
+                        .size(style::TEXT_SM)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    button(text("\u{2715}").size(style::TEXT_SM))
+                        .on_press(Message::RemoveWatchFolder(i))
+                        .padding([style::SPACE_XXS, style::SPACE_SM])
+                        .style(theme::ghost_button(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_SM),
+            );
+        }
+
+        // Add folder input
+        content = content.push(
+            row![
+                text_input("/path/to/anime", &self.new_folder_input)
+                    .on_input(Message::NewFolderInputChanged)
+                    .on_submit(Message::AddWatchFolder)
+                    .size(style::TEXT_SM)
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .width(Length::Fill)
+                    .style(theme::text_input_style(cs)),
+                button(text("Add").size(style::TEXT_SM))
+                    .on_press(Message::AddWatchFolder)
+                    .padding([style::SPACE_SM, style::SPACE_XL])
+                    .style(theme::primary_button(cs)),
+            ]
+            .align_y(Alignment::Center)
+            .spacing(style::SPACE_SM),
+        );
+
+        // Scan button
+        if !self.watch_folders.is_empty() {
+            let mut scan_btn = button(text("Scan Now").size(style::TEXT_SM))
+                .padding([style::SPACE_SM, style::SPACE_XL])
+                .style(theme::primary_button(cs));
+            if !self.scan_busy {
+                scan_btn = scan_btn.on_press(Message::ScanNow);
+            }
+            content = content.push(scan_btn);
+        }
+
+        if !self.scan_status.is_empty() {
+            let color = if self.scan_status.contains("failed") {
+                cs.error
+            } else {
+                cs.status_completed
+            };
+            content = content.push(
+                text(&self.scan_status)
                     .size(style::TEXT_SM)
                     .color(color)
                     .line_height(style::LINE_HEIGHT_LOOSE),

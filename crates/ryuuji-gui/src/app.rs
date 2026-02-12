@@ -10,9 +10,11 @@ use ryuuji_core::storage::LibraryRow;
 
 use crate::cover_cache::{self, CoverCache, CoverState};
 use crate::db::DbHandle;
+use crate::discord::DiscordHandle;
+use crate::keyboard::Shortcut;
 use crate::screen::{
-    history, library, now_playing, search, seasons, settings, torrents, Action, ContextAction,
-    ModalKind, Page,
+    history, library, now_playing, search, seasons, settings, stats, torrents, Action,
+    ContextAction, ModalKind, Page,
 };
 use crate::style;
 use crate::subscription;
@@ -37,6 +39,7 @@ pub struct Ryuuji {
     search: search::Search,
     seasons: seasons::Seasons,
     torrents: torrents::Torrents,
+    stats: stats::Stats,
     settings: settings::Settings,
     // Cover images
     cover_cache: CoverCache,
@@ -45,6 +48,8 @@ pub struct Ryuuji {
     status_message: String,
     // Window persistence
     window_state: WindowState,
+    // Discord Rich Presence
+    discord: Option<DiscordHandle>,
 }
 
 impl Default for Ryuuji {
@@ -60,6 +65,12 @@ impl Default for Ryuuji {
             theme::find_theme(&config.appearance.theme).unwrap_or_else(RyuujiTheme::default_theme);
         let active_mode = theme::resolve_mode(config.appearance.mode);
 
+        let discord = if config.discord.enabled {
+            Some(DiscordHandle::start())
+        } else {
+            None
+        };
+
         Self {
             page: Page::default(),
             config,
@@ -72,11 +83,13 @@ impl Default for Ryuuji {
             search: search::Search::new(),
             seasons: seasons::Seasons::new(),
             torrents: torrents::Torrents::new(),
+            stats: stats::Stats::new(),
             settings: settings_screen,
             cover_cache: CoverCache::default(),
             modal_state: None,
             status_message: "Ready".into(),
             window_state: WindowState::load(),
+            discord,
         }
     }
 }
@@ -102,7 +115,9 @@ pub enum Message {
     Seasons(seasons::Message),
     Torrents(torrents::Message),
     TorrentTick,
+    Stats(stats::Message),
     Settings(settings::Message),
+    Shortcut(Shortcut),
 }
 
 impl Ryuuji {
@@ -189,6 +204,10 @@ impl Ryuuji {
                     );
                     return self.handle_action(action);
                 }
+                if page == Page::Stats {
+                    let action = self.stats.load_stats(self.db.as_ref());
+                    return self.handle_action(action);
+                }
                 if page == Page::Settings {
                     let action = self.settings.load_stats(self.db.as_ref());
                     return self.handle_action(action);
@@ -212,6 +231,9 @@ impl Ryuuji {
             Message::DetectionResult(media) => {
                 if media.is_none() {
                     self.now_playing.matched_row = None;
+                    if let Some(discord) = &self.discord {
+                        discord.clear_presence();
+                    }
                 }
                 self.now_playing.detected = media.clone();
                 if let (Some(db), Some(detected)) = (&self.db, media) {
@@ -290,6 +312,37 @@ impl Ryuuji {
                             _ => Task::none(),
                         };
                         follow_up = Task::batch([follow_up, sync_task]);
+
+                        // Update Discord Rich Presence.
+                        if let Some(discord) = &self.discord {
+                            match &outcome {
+                                UpdateOutcome::Updated {
+                                    anime_title,
+                                    episode,
+                                    ..
+                                }
+                                | UpdateOutcome::AddedToLibrary {
+                                    anime_title,
+                                    episode,
+                                    ..
+                                } => {
+                                    discord.update_presence(
+                                        anime_title.clone(),
+                                        Some(*episode),
+                                        self.now_playing
+                                            .detected
+                                            .as_ref()
+                                            .and_then(|d| d.service_name.clone()),
+                                    );
+                                }
+                                UpdateOutcome::AlreadyCurrent { .. } => {
+                                    // Presence is already set — no change needed.
+                                }
+                                UpdateOutcome::NothingPlaying | UpdateOutcome::Unrecognized { .. } => {
+                                    discord.clear_presence();
+                                }
+                            }
+                        }
 
                         self.now_playing.last_outcome = Some(outcome);
                     }
@@ -826,6 +879,11 @@ impl Ryuuji {
                 let action = self.torrents.refresh_feeds(self.db.as_ref());
                 self.handle_action(action)
             }
+            Message::Stats(msg) => {
+                let action = self.stats.update(msg);
+                self.handle_action(action)
+            }
+            Message::Shortcut(shortcut) => self.handle_shortcut(shortcut),
             Message::Settings(ref msg) => {
                 // Intercept async actions before delegating to settings.
                 match msg {
@@ -863,6 +921,11 @@ impl Ryuuji {
                         let msg = msg.clone();
                         self.settings.update(msg, &mut self.config);
                         self.spawn_library_export()
+                    }
+                    settings::Message::ScanNow => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_watch_folder_scan()
                     }
                     _ => {
                         let msg = msg.clone();
@@ -1329,6 +1392,28 @@ impl Ryuuji {
         )
     }
 
+    /// Spawn a watch folder scan as an async task.
+    fn spawn_watch_folder_scan(&self) -> Task<Message> {
+        let Some(db) = self.db.clone() else {
+            return Task::none();
+        };
+        let config = self.config.clone();
+
+        Task::perform(
+            async move {
+                let result = db
+                    .scan_watch_folders(config)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(format!(
+                    "Scanned {} files, matched {}, skipped {}",
+                    result.files_scanned, result.files_matched, result.files_skipped
+                ))
+            },
+            |result| Message::Settings(settings::Message::ScanResult(result)),
+        )
+    }
+
     /// Spawn an online search as an async task using the primary service.
     fn spawn_online_search(&self, query: String) -> Task<Message> {
         let primary = self.config.services.primary.clone();
@@ -1757,6 +1842,134 @@ impl Ryuuji {
         )
     }
 
+    /// Handle a global keyboard shortcut.
+    fn handle_shortcut(&mut self, shortcut: Shortcut) -> Task<Message> {
+        // Escape always works: dismiss modal first, then deselect.
+        if let Shortcut::Escape = shortcut {
+            if self.modal_state.is_some() {
+                self.modal_state = None;
+                return Task::none();
+            }
+            // Deselect on current screen.
+            match self.page {
+                Page::Library => {
+                    self.library.selected_anime = None;
+                    return Task::none();
+                }
+                Page::History => {
+                    self.history.selected_anime = None;
+                    return Task::none();
+                }
+                Page::Search => {
+                    self.search.selected_anime = None;
+                    return Task::none();
+                }
+                _ => return Task::none(),
+            }
+        }
+
+        // All other shortcuts are blocked while a modal is open.
+        if self.modal_state.is_some() {
+            return Task::none();
+        }
+
+        match shortcut {
+            Shortcut::Refresh => match self.page {
+                Page::Library => {
+                    let action = self.library.refresh_task(self.db.as_ref());
+                    self.handle_action(action)
+                }
+                Page::History => {
+                    let action = self.history.load_history(self.db.as_ref());
+                    self.handle_action(action)
+                }
+                Page::Stats => {
+                    let action = self.stats.load_stats(self.db.as_ref());
+                    self.handle_action(action)
+                }
+                _ => Task::none(),
+            },
+            Shortcut::CopyTitle => {
+                let title = match self.page {
+                    Page::Library => self.library.selected_anime.and_then(|id| {
+                        self.library
+                            .entries
+                            .iter()
+                            .find(|r| r.anime.id == id)
+                            .map(|r| r.anime.title.preferred().to_string())
+                    }),
+                    Page::History => self.history.selected_anime.and_then(|id| {
+                        self.history
+                            .entries
+                            .iter()
+                            .find(|r| r.anime.id == id)
+                            .map(|r| r.anime.title.preferred().to_string())
+                    }),
+                    Page::Search => self.search.selected_anime.and_then(|id| {
+                        self.search
+                            .all_entries
+                            .iter()
+                            .find(|r| r.anime.id == id)
+                            .map(|r| r.anime.title.preferred().to_string())
+                    }),
+                    _ => None,
+                };
+                if let Some(title) = title {
+                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                        let _ = clipboard.set_text(title);
+                    }
+                }
+                Task::none()
+            }
+            Shortcut::IncrementEpisode => {
+                if let Page::Library = self.page {
+                    if let Some(id) = self.library.selected_anime {
+                        if let Some(row) = self.library.entries.iter().find(|r| r.anime.id == id) {
+                            let new_ep = row.entry.watched_episodes + 1;
+                            let msg = library::Message::EpisodeChanged(id, new_ep);
+                            return self.update(Message::Library(msg));
+                        }
+                    }
+                }
+                Task::none()
+            }
+            Shortcut::DecrementEpisode => {
+                if let Page::Library = self.page {
+                    if let Some(id) = self.library.selected_anime {
+                        if let Some(row) = self.library.entries.iter().find(|r| r.anime.id == id) {
+                            if row.entry.watched_episodes > 0 {
+                                let new_ep = row.entry.watched_episodes - 1;
+                                let msg = library::Message::EpisodeChanged(id, new_ep);
+                                return self.update(Message::Library(msg));
+                            }
+                        }
+                    }
+                }
+                Task::none()
+            }
+            Shortcut::SetScore(score) => {
+                if let Page::Library = self.page {
+                    if let Some(id) = self.library.selected_anime {
+                        let msg = library::Message::ScoreChanged(id, score as f32);
+                        return self.update(Message::Library(msg));
+                    }
+                }
+                Task::none()
+            }
+            Shortcut::FocusSearch => {
+                if self.page != Page::Search {
+                    self.page = Page::Search;
+                    self.search.service_authenticated =
+                        self.is_primary_service_authenticated();
+                    let action = self.search.load_entries(self.db.as_ref());
+                    return self.handle_action(action);
+                }
+                Task::none()
+            }
+            Shortcut::Escape => unreachable!(), // Handled above.
+        }
+    }
+
     /// Interpret an Action returned by a screen.
     fn handle_action(&mut self, action: Action) -> Task<Message> {
         match action {
@@ -1862,6 +2075,7 @@ impl Ryuuji {
                 .torrents
                 .view(cs, &self.cover_cache)
                 .map(Message::Torrents),
+            Page::Stats => self.stats.view(cs).map(Message::Stats),
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
@@ -2012,10 +2226,12 @@ impl Ryuuji {
             .spacing(style::SPACE_XS)
             .align_x(Alignment::Center),
             iced::widget::Space::new().height(Length::Fill),
-            container(nav_item(icons::icon_settings(), "Settings", Page::Settings))
-                .align_x(Alignment::Center)
-                .width(Length::Fill)
-                .padding(iced::Padding::new(0.0).bottom(style::SPACE_SM)),
+            column![
+                nav_item(icons::icon_chart_bar(), "Stats", Page::Stats),
+                nav_item(icons::icon_settings(), "Settings", Page::Settings),
+            ]
+            .spacing(style::SPACE_XS)
+            .align_x(Alignment::Center),
         ]
         .align_x(Alignment::Center)
         .width(Length::Fill)

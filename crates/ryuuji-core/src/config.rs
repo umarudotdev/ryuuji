@@ -74,6 +74,16 @@ pub struct GeneralConfig {
 pub struct LibraryConfig {
     pub auto_update: bool,
     pub confirm_update: bool,
+    #[serde(default)]
+    pub watch_folders: Vec<String>,
+    #[serde(default = "default_min_file_size_mb")]
+    pub min_file_size_mb: u64,
+    #[serde(default)]
+    pub scan_on_startup: bool,
+}
+
+fn default_min_file_size_mb() -> u64 {
+    10
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

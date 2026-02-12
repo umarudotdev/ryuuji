@@ -9,6 +9,12 @@ close_to_tray = false
 auto_update = true
 # Ask for confirmation before updating progress.
 confirm_update = false
+# Directories to scan for local anime files.
+watch_folders = []
+# Minimum file size (MB) to consider a video file (skips samples/extras).
+min_file_size_mb = 10
+# Scan watch folders on startup.
+scan_on_startup = false
 
 [services]
 # Primary service for syncing. One of: "anilist", "kitsu", "mal"

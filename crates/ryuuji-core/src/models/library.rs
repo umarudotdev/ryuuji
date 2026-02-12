@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// User's watch status for a library entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WatchStatus {
     Watching,
     Completed,
@@ -57,6 +57,26 @@ impl std::fmt::Display for WatchStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
+}
+
+/// An episode file found on disk by the folder scanner.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AvailableEpisode {
+    pub id: i64,
+    pub anime_id: i64,
+    pub episode: u32,
+    pub file_path: String,
+    pub file_size: u64,
+    pub file_modified: String,
+    pub release_group: Option<String>,
+    pub resolution: Option<String>,
+}
+
+/// Summary of available episodes for a library entry (for display).
+#[derive(Debug, Clone, Default)]
+pub struct AvailableEpisodeSummary {
+    pub anime_id: i64,
+    pub count: u32,
 }
 
 /// A user's library entry linking to an anime.
