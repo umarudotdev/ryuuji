@@ -1,0 +1,106 @@
+[meta]
+name = "Tokyo Night"
+
+# ── Dark variant ───────────────────────────────────────────────────
+
+[dark.surface]
+container_lowest = "#16161E"
+base = "#1A1B26"
+container_low = "#1F2335"
+container = "#24283B"
+container_high = "#292E42"
+container_highest = "#343B58"
+bright = "#3B4261"
+
+[dark.text]
+on_surface = "#A9B1D6"
+on_surface_variant = "#787C99"
+outline = "#545C7E"
+outline_variant = "#414868"
+
+[dark.primary]
+base = "#7AA2F7"
+hover = "#89B4FA"
+dim = "#6183C5"
+on_primary = "#16161E"
+container = "#3D59A1"
+on_container = "#C0CAF5"
+
+[dark.secondary]
+container = "#343B58"
+on_container = "#A9B1D6"
+
+[dark.tertiary]
+base = "#E0AF68"
+on_tertiary = "#16161E"
+
+[dark.error]
+base = "#F7768E"
+hover = "#DB4B4B"
+pressed = "#C53B53"
+on_error = "#FFFFFF"
+
+[dark.status]
+watching = "#7AA2F7"
+completed = "#9ECE6A"
+on_hold = "#E0AF68"
+dropped = "#F7768E"
+plan = "#787C99"
+
+[dark.inverse]
+surface = "#A9B1D6"
+on_surface = "#1A1B26"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#E6E7ED"
+container_low = "#E1E2E8"
+container = "#DCDEE3"
+container_high = "#D6D8DF"
+container_highest = "#D0D2D9"
+bright = "#C8CAD1"
+
+[light.text]
+on_surface = "#343B59"
+on_surface_variant = "#707280"
+outline = "#888B94"
+outline_variant = "#C1C2C7"
+
+[light.primary]
+base = "#2959AA"
+hover = "#1E4D8A"
+dim = "#4A72B8"
+on_primary = "#FFFFFF"
+container = "#C8D8F2"
+on_container = "#152C5C"
+
+[light.secondary]
+container = "#CDD0D9"
+on_container = "#343B59"
+
+[light.tertiary]
+base = "#8F5E15"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#942F2F"
+hover = "#7E2424"
+pressed = "#681C1C"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#2959AA"
+completed = "#385F0D"
+on_hold = "#8F5E15"
+dropped = "#8C4351"
+plan = "#707280"
+
+[light.inverse]
+surface = "#343B59"
+on_surface = "#E6E7ED"
+scrim = "#000000"
+modal_backdrop = "#0000008C"
