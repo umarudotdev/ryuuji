@@ -151,6 +151,7 @@ impl DbHandle {
     ///
     /// Returns `None` if the database cannot be opened.
     pub fn open(path: &Path) -> Option<Self> {
+        tracing::info!(path = %path.display(), "Opening database");
         let storage = Storage::open(path)
             .map_err(|e| tracing::error!("Failed to open database: {e}"))
             .ok()?;
@@ -163,6 +164,7 @@ impl DbHandle {
             .map_err(|e| tracing::error!("Failed to spawn DB thread: {e}"))
             .ok()?;
 
+        tracing::info!("DB actor thread started");
         Some(Self { tx })
     }
 
@@ -226,11 +228,7 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
     }
 
-    pub async fn update_library_score(
-        &self,
-        anime_id: i64,
-        score: f32,
-    ) -> Result<(), RyuujiError> {
+    pub async fn update_library_score(&self, anime_id: i64, score: f32) -> Result<(), RyuujiError> {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(DbCommand::UpdateLibraryScore {
             anime_id,
@@ -298,10 +296,7 @@ impl DbHandle {
     }
 
     /// Fetch a single library row (anime + entry) by anime ID.
-    pub async fn get_library_row(
-        &self,
-        anime_id: i64,
-    ) -> Result<Option<LibraryRow>, RyuujiError> {
+    pub async fn get_library_row(&self, anime_id: i64) -> Result<Option<LibraryRow>, RyuujiError> {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(DbCommand::GetLibraryRow { anime_id, reply });
         rx.await
@@ -635,7 +630,9 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                 entries,
                 reply,
             } => {
+                let batch_size = entries.len();
                 let mut count = 0usize;
+                let mut fail_count = 0usize;
                 let mut err: Option<RyuujiError> = None;
 
                 for (anime, library_entry) in &entries {
@@ -657,6 +654,7 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                         }
                         Err(e) => {
                             tracing::warn!("Failed to upsert anime: {e}");
+                            fail_count += 1;
                             err = Some(e);
                         }
                     }
@@ -664,6 +662,14 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
 
                 // Invalidate recognition cache after bulk import.
                 cache.invalidate();
+
+                tracing::info!(
+                    service = %service,
+                    batch_size,
+                    imported = count,
+                    failed = fail_count,
+                    "Service import batch complete"
+                );
 
                 let _ = reply.send(match err {
                     Some(e) if count == 0 => Err(e),

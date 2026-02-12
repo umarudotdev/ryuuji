@@ -36,6 +36,12 @@ mode = "dark"
 # Enable Discord Rich Presence.
 enabled = false
 
+[logging]
+# Log level: "error", "warn", "info", "debug", or "trace".
+level = "info"
+# Write logs to ~/.local/share/ryuuji/logs/.
+file_logging = true
+
 [torrent]
 # Enable torrent RSS feature.
 enabled = false

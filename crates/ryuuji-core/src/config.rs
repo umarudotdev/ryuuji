@@ -18,6 +18,8 @@ pub struct AppConfig {
     pub appearance: AppearanceConfig,
     #[serde(default)]
     pub torrent: TorrentConfig,
+    #[serde(default)]
+    pub logging: LoggingConfig,
 }
 
 /// Appearance / theme settings.
@@ -117,6 +119,24 @@ pub struct TorrentConfig {
     pub torrent_client: Option<String>,
 }
 
+/// Logging configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingConfig {
+    /// Log level: "error", "warn", "info", "debug", or "trace".
+    pub level: String,
+    /// Whether to write logs to a file in the data directory.
+    pub file_logging: bool,
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            level: "info".into(),
+            file_logging: true,
+        }
+    }
+}
+
 impl AppConfig {
     /// Load config: user file (if exists) merged over built-in defaults.
     pub fn load() -> Result<Self, RyuujiError> {
@@ -168,6 +188,13 @@ impl AppConfig {
             std::fs::create_dir_all(parent)?;
         }
         Ok(path)
+    }
+
+    /// Path to the log directory.
+    pub fn log_dir() -> PathBuf {
+        Self::project_dirs()
+            .map(|d| d.data_dir().join("logs"))
+            .unwrap_or_else(|| PathBuf::from("logs"))
     }
 
     fn project_dirs() -> Option<ProjectDirs> {

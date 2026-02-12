@@ -2,8 +2,8 @@ use reqwest::Client;
 
 use super::error::KitsuError;
 use super::types::{
-    map_status_to_kitsu, JsonApiListResponse, JsonApiSingleResourceResponse,
-    JsonApiSingleResponse, KitsuAnimeAttributes, KitsuLibraryAttributes, KitsuListItem,
+    map_status_to_kitsu, JsonApiListResponse, JsonApiSingleResourceResponse, JsonApiSingleResponse,
+    KitsuAnimeAttributes, KitsuLibraryAttributes, KitsuListItem,
 };
 use crate::traits::{
     AnimeSearchResult, AnimeSeason, AnimeService, LibraryEntryUpdate, SeasonPage, UserListEntry,
@@ -35,6 +35,7 @@ impl KitsuClient {
         } else {
             let status = resp.status().as_u16();
             let body = resp.text().await.unwrap_or_default();
+            tracing::warn!(status, "Kitsu API error");
             Err(KitsuError::Api {
                 status,
                 message: body,
@@ -235,7 +236,10 @@ impl AnimeService for KitsuClient {
             attrs.insert("progress".into(), serde_json::json!(ep));
         }
         if let Some(ref status) = update.status {
-            attrs.insert("status".into(), serde_json::json!(map_status_to_kitsu(status)));
+            attrs.insert(
+                "status".into(),
+                serde_json::json!(map_status_to_kitsu(status)),
+            );
         }
         if let Some(score) = update.score {
             // Kitsu ratingTwenty: 2-20 scale; score <= 0 sends null to clear.
@@ -311,9 +315,11 @@ impl AnimeService for KitsuClient {
             .await
             .map_err(|e| KitsuError::Parse(e.to_string()))?;
 
-        let id: u64 = body.data.id.parse().map_err(|_| KitsuError::Parse(
-            "invalid anime id in response".into(),
-        ))?;
+        let id: u64 = body
+            .data
+            .id
+            .parse()
+            .map_err(|_| KitsuError::Parse("invalid anime id in response".into()))?;
         let attrs: KitsuAnimeAttributes = serde_json::from_value(body.data.attributes)
             .map_err(|e| KitsuError::Parse(e.to_string()))?;
 

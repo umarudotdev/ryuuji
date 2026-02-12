@@ -44,6 +44,7 @@ impl MalClient {
         } else {
             let status = resp.status().as_u16();
             let body = resp.text().await.unwrap_or_default();
+            tracing::warn!(status, "MAL API error");
             Err(MalError::Api {
                 status,
                 message: body,
@@ -157,7 +158,10 @@ impl AnimeService for MalClient {
             params.push(("comments", notes.clone()));
         }
         if let Some(rewatching) = update.rewatching {
-            params.push(("is_rewatching", if rewatching { "true" } else { "false" }.into()));
+            params.push((
+                "is_rewatching",
+                if rewatching { "true" } else { "false" }.into(),
+            ));
         }
         if let Some(count) = update.rewatch_count {
             params.push(("num_times_rewatched", count.to_string()));
@@ -235,10 +239,7 @@ impl AnimeService for MalClient {
         page: u32,
     ) -> Result<SeasonPage, MalError> {
         let offset = (page.saturating_sub(1)) * 100;
-        let url = format!(
-            "{BASE_URL}/v2/anime/season/{year}/{}",
-            season.to_mal_str()
-        );
+        let url = format!("{BASE_URL}/v2/anime/season/{year}/{}", season.to_mal_str());
 
         let resp = self
             .http

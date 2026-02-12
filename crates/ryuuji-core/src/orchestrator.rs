@@ -40,6 +40,14 @@ pub enum UpdateOutcome {
 ///
 /// If a `relations` database is provided, episode numbers may be remapped
 /// to handle cross-season continuous numbering (e.g., episode 26 → S2E1).
+#[tracing::instrument(
+    name = "process_detection",
+    skip(storage, config, cache, relations),
+    fields(
+        raw_title = %detected.raw_title,
+        player = %detected.player_name,
+    )
+)]
 pub fn process_detection(
     detected: &DetectedMedia,
     storage: &Storage,

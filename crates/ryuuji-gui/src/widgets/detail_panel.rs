@@ -1,4 +1,6 @@
-use iced::widget::{button, column, container, pick_list, progress_bar, row, text, text_input, toggler};
+use iced::widget::{
+    button, column, container, pick_list, progress_bar, row, text, text_input, toggler,
+};
 use iced::{Alignment, Element, Length};
 
 use ryuuji_api::traits::AnimeSearchResult;

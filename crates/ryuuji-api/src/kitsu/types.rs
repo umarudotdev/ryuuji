@@ -174,11 +174,7 @@ impl KitsuListItem {
                 .to_string(),
             // Kitsu ratingTwenty is 2-20 scale; divide by 2 to get 1-10
             score: self.entry.rating_twenty.map(|r| r as f32 / 2.0),
-            start_date: self
-                .entry
-                .started_at
-                .as_deref()
-                .map(kitsu_datetime_to_date),
+            start_date: self.entry.started_at.as_deref().map(kitsu_datetime_to_date),
             finish_date: self
                 .entry
                 .finished_at
@@ -329,8 +325,7 @@ mod tests {
         assert_eq!(resp.data.id, "12");
         assert_eq!(resp.data.type_, "anime");
 
-        let attrs: KitsuAnimeAttributes =
-            serde_json::from_value(resp.data.attributes).unwrap();
+        let attrs: KitsuAnimeAttributes = serde_json::from_value(resp.data.attributes).unwrap();
         assert_eq!(attrs.canonical_title.as_deref(), Some("One Piece"));
         assert_eq!(attrs.episode_count, Some(1000));
     }
