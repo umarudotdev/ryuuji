@@ -185,6 +185,7 @@ body::after {
     radial-gradient(ellipse 70% 70% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.35)),
     // Base
     $surface-lowest;
+  background-attachment: fixed;
 }
 
 // ── Navigation ─────────────────────────────────────────────
