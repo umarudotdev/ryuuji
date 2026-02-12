@@ -4,6 +4,7 @@ pub mod now_playing;
 pub mod search;
 pub mod seasons;
 pub mod settings;
+pub mod stats;
 pub mod torrents;
 
 use iced::Task;
@@ -22,6 +23,7 @@ pub enum Page {
     Search,
     Seasons,
     Torrents,
+    Stats,
     Settings,
 }
 

@@ -6,10 +6,12 @@ use iced::Subscription;
 use ryuuji_core::config::ThemeMode;
 
 use crate::app::Message;
+use crate::keyboard;
 
 /// Compose all application subscriptions.
 ///
 /// - Detection tick (always active)
+/// - Keyboard shortcuts (always active)
 /// - OS appearance check (only when ThemeMode::System)
 /// - Window events (resize/move for state persistence)
 /// - Torrent auto-check (when enabled and interval > 0)
@@ -19,7 +21,11 @@ pub fn subscriptions(
     torrent_enabled: bool,
     torrent_interval_mins: u64,
 ) -> Subscription<Message> {
-    let mut subs = vec![detection_tick(interval_secs), window_events()];
+    let mut subs = vec![
+        detection_tick(interval_secs),
+        window_events(),
+        keyboard::keyboard_subscription(),
+    ];
 
     if theme_mode == ThemeMode::System {
         subs.push(appearance_check());

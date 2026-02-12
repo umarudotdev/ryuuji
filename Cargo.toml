@@ -58,6 +58,18 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 rss = "2"
 url = "2"
 
+# Unicode
+unicode-normalization = "0.1"
+
+# Directory traversal
+walkdir = "2"
+
+# Clipboard
+arboard = "3"
+
+# Discord Rich Presence
+discord-rich-presence = "1"
+
 # WASM
 wasm-bindgen = "0.2"
 

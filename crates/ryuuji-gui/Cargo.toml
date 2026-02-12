@@ -29,3 +29,5 @@ clap = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { workspace = true }
 open = "5"
+arboard = { workspace = true }
+discord-rich-presence = { workspace = true }

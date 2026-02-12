@@ -20,3 +20,8 @@ chrono = { version = "0.4", features = ["serde"] }
 reqwest = { workspace = true }
 rss = { workspace = true }
 url = { workspace = true }
+unicode-normalization = { workspace = true }
+walkdir = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

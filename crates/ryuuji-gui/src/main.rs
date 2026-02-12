@@ -1,7 +1,9 @@
 mod app;
 mod cover_cache;
 mod db;
+mod discord;
 mod format;
+mod keyboard;
 mod screen;
 mod style;
 mod subscription;

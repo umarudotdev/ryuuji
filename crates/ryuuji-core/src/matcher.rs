@@ -108,15 +108,12 @@ pub fn all_titles(anime: &Anime) -> Vec<&str> {
     titles
 }
 
-/// Normalize a title for comparison: lowercase, strip non-alphanumeric except spaces.
+/// Normalize a title for comparison using the full 8-level pipeline.
+///
+/// Levels: NFKC + case fold → transliteration → roman numerals → ordinals →
+/// season keywords → stop words → punctuation erasure → whitespace collapse.
 pub fn normalize(s: &str) -> String {
-    s.to_lowercase()
-        .chars()
-        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    crate::normalize::normalize(s)
 }
 
 #[cfg(test)]

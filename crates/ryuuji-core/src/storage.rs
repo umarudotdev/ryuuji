@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::error::RyuujiError;
-use crate::models::{Anime, AnimeIds, AnimeTitle, LibraryEntry, WatchStatus};
+use crate::models::{Anime, AnimeIds, AnimeTitle, AvailableEpisode, AvailableEpisodeSummary, LibraryEntry, WatchStatus};
 use crate::torrent::filter::{FilterAction, MatchMode, TorrentFilter};
 use crate::torrent::models::TorrentFeed;
 
@@ -12,6 +12,7 @@ const SCHEMA_V1: &str = include_str!("../../../migrations/001_initial.sql");
 const SCHEMA_V2: &str = include_str!("../../../migrations/002_add_anime_metadata.sql");
 const SCHEMA_V3: &str = include_str!("../../../migrations/003_torrent_tables.sql");
 const SCHEMA_V4: &str = include_str!("../../../migrations/004_add_library_fields.sql");
+const SCHEMA_V5: &str = include_str!("../../../migrations/005_add_available_episodes.sql");
 
 /// Token record: (access_token, refresh_token, expires_at).
 pub type TokenRecord = (String, Option<String>, Option<String>);
@@ -26,6 +27,19 @@ pub struct Storage {
 pub struct LibraryRow {
     pub entry: LibraryEntry,
     pub anime: Anime,
+}
+
+/// Aggregate statistics about the user's library.
+#[derive(Debug, Clone)]
+pub struct LibraryStatistics {
+    pub total_entries: usize,
+    pub by_status: std::collections::HashMap<WatchStatus, usize>,
+    pub total_episodes_watched: u32,
+    pub total_rewatch_episodes: u32,
+    pub total_watch_time_minutes: u64,
+    pub mean_score: Option<f32>,
+    pub score_distribution: Vec<(u8, usize)>,
+    pub top_genres: Vec<(String, usize)>,
 }
 
 /// A watch history record (raw, without anime data).
@@ -829,6 +843,187 @@ impl Storage {
         self.conn.execute("DELETE FROM torrent_archive", [])?;
         Ok(())
     }
+
+    // ── Available Episodes (folder scanner) ─────────────────────
+
+    /// Upsert an available episode record from a scanned file.
+    pub fn upsert_available_episode(&self, ep: &AvailableEpisode) -> Result<(), RyuujiError> {
+        self.conn.execute(
+            "INSERT INTO available_episode (anime_id, episode, file_path, file_size, file_modified,
+             release_group, resolution)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(anime_id, episode, file_path) DO UPDATE SET
+               file_size = excluded.file_size,
+               file_modified = excluded.file_modified,
+               release_group = excluded.release_group,
+               resolution = excluded.resolution,
+               indexed_at = datetime('now')",
+            params![
+                ep.anime_id,
+                ep.episode,
+                ep.file_path,
+                ep.file_size as i64,
+                ep.file_modified,
+                ep.release_group,
+                ep.resolution,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get available episode count per anime for all library entries.
+    pub fn get_available_episode_summaries(
+        &self,
+    ) -> Result<Vec<AvailableEpisodeSummary>, RyuujiError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT anime_id, COUNT(DISTINCT episode) as ep_count
+             FROM available_episode
+             GROUP BY anime_id",
+        )?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(AvailableEpisodeSummary {
+                    anime_id: row.get(0)?,
+                    count: row.get(1)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    /// Check if a file is already indexed with the same size and mtime.
+    pub fn is_file_indexed(
+        &self,
+        file_path: &str,
+        file_size: u64,
+        file_modified: &str,
+    ) -> Result<bool, RyuujiError> {
+        let count: i32 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM available_episode
+                 WHERE file_path = ?1 AND file_size = ?2 AND file_modified = ?3",
+                params![file_path, file_size as i64, file_modified],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        Ok(count > 0)
+    }
+
+    /// Remove all available episodes (before a full re-scan).
+    pub fn clear_available_episodes(&self) -> Result<(), RyuujiError> {
+        self.conn.execute("DELETE FROM available_episode", [])?;
+        Ok(())
+    }
+
+    // ── Statistics ──────────────────────────────────────────────
+
+    /// Get aggregate library statistics in a single query.
+    pub fn get_library_statistics(&self) -> Result<LibraryStatistics, RyuujiError> {
+        let total_entries: usize = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM library_entry", [], |row| row.get(0))
+            .unwrap_or(0);
+
+        let mut by_status = std::collections::HashMap::new();
+        for status in WatchStatus::ALL {
+            let count: usize = self
+                .conn
+                .query_row(
+                    "SELECT COUNT(*) FROM library_entry WHERE status = ?1",
+                    params![status.as_db_str()],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0);
+            by_status.insert(*status, count);
+        }
+
+        let total_episodes_watched: u32 = self
+            .conn
+            .query_row(
+                "SELECT COALESCE(SUM(watched_episodes), 0) FROM library_entry",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let total_rewatch_episodes: u32 = self
+            .conn
+            .query_row(
+                "SELECT COALESCE(SUM(watched_episodes * rewatch_count), 0) FROM library_entry
+                 WHERE rewatch_count > 0",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        // Average 24 minutes per episode
+        let total_watch_time_minutes =
+            (total_episodes_watched as u64 + total_rewatch_episodes as u64) * 24;
+
+        let mean_score: Option<f32> = self
+            .conn
+            .query_row(
+                "SELECT AVG(score) FROM library_entry WHERE score IS NOT NULL AND score > 0",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(None);
+
+        let mut score_distribution = Vec::new();
+        {
+            let mut stmt = self.conn.prepare(
+                "SELECT CAST(score AS INTEGER) as bucket, COUNT(*) as cnt
+                 FROM library_entry
+                 WHERE score IS NOT NULL AND score > 0
+                 GROUP BY bucket ORDER BY bucket",
+            )?;
+            let rows = stmt
+                .query_map([], |row| {
+                    let bucket: u8 = row.get(0)?;
+                    let count: usize = row.get(1)?;
+                    Ok((bucket, count))
+                })?
+                .filter_map(|r| r.ok());
+            score_distribution.extend(rows);
+        }
+
+        // Genre distribution from anime table's genres JSON column
+        let mut genre_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        {
+            let mut stmt = self.conn.prepare(
+                "SELECT a.genres FROM library_entry le JOIN anime a ON le.anime_id = a.id",
+            )?;
+            let rows = stmt
+                .query_map([], |row| {
+                    let genres_json: String = row.get(0)?;
+                    Ok(genres_json)
+                })?
+                .filter_map(|r| r.ok());
+            for genres_json in rows {
+                let genres: Vec<String> =
+                    serde_json::from_str(&genres_json).unwrap_or_default();
+                for genre in genres {
+                    *genre_counts.entry(genre).or_insert(0) += 1;
+                }
+            }
+        }
+        let mut top_genres: Vec<(String, usize)> = genre_counts.into_iter().collect();
+        top_genres.sort_by(|a, b| b.1.cmp(&a.1));
+        top_genres.truncate(10);
+
+        Ok(LibraryStatistics {
+            total_entries,
+            by_status,
+            total_episodes_watched,
+            total_rewatch_episodes,
+            total_watch_time_minutes,
+            mean_score,
+            score_distribution,
+            top_genres,
+        })
+    }
 }
 
 // ── Migrations ──────────────────────────────────────────────────
@@ -865,6 +1060,10 @@ fn run_migrations(conn: &Connection) -> Result<(), RyuujiError> {
     if version < 4 {
         conn.execute_batch(SCHEMA_V4)?;
         conn.pragma_update(None, "user_version", 4)?;
+    }
+    if version < 5 {
+        conn.execute_batch(SCHEMA_V5)?;
+        conn.pragma_update(None, "user_version", 5)?;
     }
     Ok(())
 }

@@ -10,11 +10,12 @@ use tokio::sync::{mpsc, oneshot};
 
 use ryuuji_core::config::AppConfig;
 use ryuuji_core::error::RyuujiError;
-use ryuuji_core::models::{Anime, DetectedMedia, LibraryEntry, WatchStatus};
+use ryuuji_core::models::{Anime, AvailableEpisodeSummary, DetectedMedia, LibraryEntry, WatchStatus};
 use ryuuji_core::orchestrator::{self, UpdateOutcome};
 use ryuuji_core::recognition::RecognitionCache;
 use ryuuji_core::relations::RelationDatabase;
-use ryuuji_core::storage::{HistoryRow, LibraryRow, Storage};
+use ryuuji_core::scanner::{self, ScanResult};
+use ryuuji_core::storage::{HistoryRow, LibraryRow, LibraryStatistics, Storage};
 use ryuuji_core::torrent::{TorrentFeed, TorrentFilter, TorrentItem};
 
 /// Cloneable handle to the DB actor thread.
@@ -142,6 +143,18 @@ enum DbCommand {
         rewatching: bool,
         rewatch_count: u32,
         reply: oneshot::Sender<Result<(), RyuujiError>>,
+    },
+    // ── Scanner commands ─────────────────────────────────────────
+    ScanWatchFolders {
+        config: Box<AppConfig>,
+        reply: oneshot::Sender<Result<ScanResult, RyuujiError>>,
+    },
+    GetAvailableEpisodeSummaries {
+        reply: oneshot::Sender<Result<Vec<AvailableEpisodeSummary>, RyuujiError>>,
+    },
+    // ── Statistics commands ──────────────────────────────────────
+    GetLibraryStatistics {
+        reply: oneshot::Sender<Result<LibraryStatistics, RyuujiError>>,
     },
 }
 
@@ -443,6 +456,36 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
     }
 
+    // ── Scanner handle methods ─────────────────────────────────────
+
+    pub async fn scan_watch_folders(&self, config: AppConfig) -> Result<ScanResult, RyuujiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::ScanWatchFolders {
+            config: Box::new(config),
+            reply,
+        });
+        rx.await
+            .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn get_available_episode_summaries(
+        &self,
+    ) -> Result<Vec<AvailableEpisodeSummary>, RyuujiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self
+            .tx
+            .send(DbCommand::GetAvailableEpisodeSummaries { reply });
+        rx.await
+            .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
+    }
+
+    pub async fn get_library_statistics(&self) -> Result<LibraryStatistics, RyuujiError> {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::GetLibraryStatistics { reply });
+        rx.await
+            .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
+    }
+
     /// Import a batch of anime + optional library entries from a service.
     /// Returns the number of anime upserted.
     pub async fn service_import_batch(
@@ -624,6 +667,19 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
             } => {
                 let _ =
                     reply.send(storage.update_library_rewatch(anime_id, rewatching, rewatch_count));
+            }
+            // ── Scanner commands ───────────────────────────────────
+            DbCommand::ScanWatchFolders { config, reply } => {
+                let result =
+                    scanner::scan_watch_folders(&storage, &mut cache, &config.library);
+                let _ = reply.send(result);
+            }
+            DbCommand::GetAvailableEpisodeSummaries { reply } => {
+                let _ = reply.send(storage.get_available_episode_summaries());
+            }
+            // ── Statistics commands ──────────────────────────────────
+            DbCommand::GetLibraryStatistics { reply } => {
+                let _ = reply.send(storage.get_library_statistics());
             }
             DbCommand::ServiceImportBatch {
                 service,
