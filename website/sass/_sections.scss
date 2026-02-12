@@ -915,6 +915,149 @@ body::after {
   }
 }
 
+// ── Parser Demo ───────────────────────────────────────
+.parser-demo {
+  background-color: $surface-lowest;
+}
+
+.demo-widget {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.demo-input-area {
+  margin-bottom: $space-lg;
+}
+
+.demo-input {
+  width: 100%;
+  padding: $space-lg;
+  background-color: $surface-container;
+  border: 1px solid $text-outline-variant;
+  border-radius: $radius-lg;
+  corner-shape: squircle;
+  color: $text-primary;
+  font-family: $font-mono;
+  font-size: $text-sm;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &::placeholder {
+    color: $text-outline;
+  }
+
+  &:focus {
+    border-color: rgba($primary, 0.6);
+    box-shadow: 0 0 0 3px rgba($primary, 0.15);
+  }
+}
+
+.demo-examples {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  flex-wrap: wrap;
+  margin-bottom: $space-xl;
+}
+
+.demo-examples-label {
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $text-outline;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.demo-example-btn {
+  padding: $space-xxs $space-md;
+  border: 1px solid $text-outline-variant;
+  border-radius: 999px;
+  background: none;
+  color: $text-secondary;
+  font-family: inherit;
+  font-size: $text-xs;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    border-color: rgba($primary, 0.5);
+    color: $primary;
+    background-color: rgba($primary, 0.06);
+  }
+}
+
+.demo-output {
+  background-color: $surface-container;
+  border: 1px solid $text-outline-variant;
+  border-radius: $radius-lg;
+  corner-shape: squircle;
+  padding: $space-xl;
+  min-height: 120px;
+}
+
+.demo-empty {
+  color: $text-outline;
+  font-size: $text-sm;
+  text-align: center;
+  margin: 0;
+}
+
+.demo-loading {
+  color: $text-outline;
+  font-size: $text-sm;
+  text-align: center;
+  margin: 0;
+  animation: demo-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes demo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.demo-field {
+  display: flex;
+  align-items: baseline;
+  gap: $space-md;
+  padding: $space-xs 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba($text-outline-variant, 0.4);
+  }
+}
+
+.demo-key {
+  flex-shrink: 0;
+  width: 160px;
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $primary-dim;
+
+  @media (max-width: $bp-mobile) {
+    width: 120px;
+  }
+}
+
+.demo-value {
+  font-family: $font-mono;
+  font-size: $text-sm;
+  color: $text-primary;
+  word-break: break-word;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 // ── Architecture ───────────────────────────────────────
 .architecture {
   background-color: $surface-base;

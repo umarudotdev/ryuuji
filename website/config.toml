@@ -105,6 +105,14 @@ download_feature_seasons = "Season browser"
 download_feature_torrents = "Torrent RSS monitor"
 download_source = "Or build from source:"
 
+# Parser demo
+demo_header = "Try it yourself"
+demo_subheader = "Type any anime filename and see what the parser extracts."
+demo_placeholder = "Enter an anime filename..."
+demo_examples_label = "Examples"
+demo_loading = "Loading parser..."
+demo_empty = "Parsed fields will appear here"
+
 # JS copy button
 copy = "Copy"
 copied = "Copied!"
@@ -204,6 +212,14 @@ download_feature_sync = "Sincronização MAL, AniList e Kitsu"
 download_feature_seasons = "Navegador de temporadas"
 download_feature_torrents = "Monitor de RSS de torrent"
 download_source = "Ou compile do código fonte:"
+
+# Parser demo
+demo_header = "Experimente"
+demo_subheader = "Digite qualquer nome de arquivo de anime e veja o que o parser extrai."
+demo_placeholder = "Digite um nome de arquivo de anime..."
+demo_examples_label = "Exemplos"
+demo_loading = "Carregando parser..."
+demo_empty = "Os campos extraídos aparecerão aqui"
 
 # JS copy button
 copy = "Copiar"

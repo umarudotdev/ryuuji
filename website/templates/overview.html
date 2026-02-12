@@ -86,6 +86,145 @@
   </div>
 </section>
 
+{# ── Parser Demo ──────────────────────────────────────── #}
+<section id="parser-demo" class="parser-demo section">
+  <div class="container">
+    <div class="section-header">
+      <h2>{{ trans(key="demo_header", lang=lang) }}</h2>
+      <p>{{ trans(key="demo_subheader", lang=lang) }}</p>
+    </div>
+
+    <div class="demo-widget">
+      <div class="demo-input-area">
+        <label for="demo-input" class="sr-only">{{ trans(key="demo_placeholder", lang=lang) }}</label>
+        <input
+          type="text"
+          id="demo-input"
+          class="demo-input"
+          placeholder="{{ trans(key='demo_placeholder', lang=lang) }}"
+          value="[SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+
+      <div class="demo-examples">
+        <span class="demo-examples-label">{{ trans(key="demo_examples_label", lang=lang) }}</span>
+        <button class="demo-example-btn" type="button" data-filename="[SubsPlease] Sousou no Frieren - 05 (1080p) [ABCD1234].mkv">Fansub classic</button>
+        <button class="demo-example-btn" type="button" data-filename="[Judas] Chainsaw Man - S01E08 [1080p][HEVC x265 10bit][Multi-Subs].mkv">Complex season</button>
+        <button class="demo-example-btn" type="button" data-filename="Steins;Gate - 01 [1080p][HEVC].mkv">Minimal</button>
+        <button class="demo-example-btn" type="button" data-filename="[Group] Title (2023) OVA - 01 [1080p][HEVC][FLAC].mkv">Year + type</button>
+      </div>
+
+      <div id="demo-output" class="demo-output">
+        <p class="demo-empty">{{ trans(key="demo_empty", lang=lang) }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script type="module">
+(function() {
+  const input = document.getElementById('demo-input');
+  const output = document.getElementById('demo-output');
+  const examples = document.querySelectorAll('.demo-example-btn');
+  const loadingText = '{{ trans(key="demo_loading", lang=lang) }}';
+  const emptyText = '{{ trans(key="demo_empty", lang=lang) }}';
+
+  let wasm = null;
+  let loading = false;
+  let debounceTimer = null;
+
+  function clearOutput() {
+    while (output.firstChild) output.removeChild(output.firstChild);
+  }
+
+  function showMessage(text, className) {
+    clearOutput();
+    const p = document.createElement('p');
+    p.className = className;
+    p.textContent = text;
+    output.appendChild(p);
+  }
+
+  async function loadWasm() {
+    if (wasm || loading) return wasm;
+    loading = true;
+    showMessage(loadingText, 'demo-loading');
+    try {
+      const mod = await import('/wasm/ryuuji_wasm.js');
+      await mod.default();
+      wasm = mod;
+    } catch (e) {
+      showMessage('Failed to load parser.', 'demo-empty');
+      loading = false;
+      return null;
+    }
+    loading = false;
+    return wasm;
+  }
+
+  function formatKey(key) {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  async function parse() {
+    const value = input.value.trim();
+    if (!value) {
+      showMessage(emptyText, 'demo-empty');
+      return;
+    }
+    const mod = await loadWasm();
+    if (!mod) return;
+    try {
+      const json = mod.parse_filename(value);
+      const data = JSON.parse(json);
+      const keys = Object.keys(data);
+      if (keys.length === 0) {
+        showMessage(emptyText, 'demo-empty');
+        return;
+      }
+      clearOutput();
+      keys.forEach(function(k) {
+        const row = document.createElement('div');
+        row.className = 'demo-field';
+        const keySpan = document.createElement('span');
+        keySpan.className = 'demo-key';
+        keySpan.textContent = formatKey(k);
+        const valSpan = document.createElement('span');
+        valSpan.className = 'demo-value';
+        const v = data[k];
+        valSpan.textContent = Array.isArray(v) ? v.join(', ') : String(v);
+        row.appendChild(keySpan);
+        row.appendChild(valSpan);
+        output.appendChild(row);
+      });
+    } catch (e) {
+      showMessage('Parse error.', 'demo-empty');
+    }
+  }
+
+  input.addEventListener('focus', function() { loadWasm(); }, { once: true });
+
+  input.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(parse, 50);
+  });
+
+  examples.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      input.value = btn.dataset.filename;
+      parse();
+    });
+  });
+
+  // Parse the pre-filled value on first WASM load
+  if (input.value.trim()) {
+    loadWasm().then(function() { if (wasm) parse(); });
+  }
+})();
+</script>
+
 {# ── Supported ────────────────────────────────────────── #}
 <section id="supported" class="supported section">
   <div class="container">

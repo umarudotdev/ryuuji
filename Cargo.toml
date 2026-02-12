@@ -7,6 +7,16 @@ members = [
     "crates/ryuuji-api",
     "crates/ryuuji-gui",
     "crates/ryuuji-runtime",
+    "crates/ryuuji-wasm",
+    "apps/ryuuji-tauri/src-tauri",
+]
+default-members = [
+    "crates/ryuuji-core",
+    "crates/ryuuji-detect",
+    "crates/ryuuji-parse",
+    "crates/ryuuji-api",
+    "crates/ryuuji-gui",
+    "crates/ryuuji-runtime",
     "apps/ryuuji-tauri/src-tauri",
 ]
 
@@ -47,6 +57,9 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 # RSS & URL
 rss = "2"
 url = "2"
+
+# WASM
+wasm-bindgen = "0.2"
 
 # Internal crates
 ryuuji-core = { path = "crates/ryuuji-core" }
