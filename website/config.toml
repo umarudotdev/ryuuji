@@ -1,6 +1,6 @@
 base_url = "https://ryuuji.umaru.dev"
 title = "Ryuuji"
-description = "Desktop app that automatically detects what you're watching and syncs your anime list"
+description = "Desktop companion that detects what you're watching and keeps your anime list in sync"
 default_language = "en"
 compile_sass = true
 minify_html = true
@@ -24,7 +24,7 @@ nav_menu = "Menu"
 nav_home_aria = "Ryuuji home"
 
 # Footer
-footer_tagline = "Desktop anime tracker that automatically keeps your list in sync."
+footer_tagline = "Your desktop anime companion."
 footer_project = "Project"
 footer_releases = "Releases"
 footer_issues = "Issues"
@@ -36,35 +36,35 @@ footer_license = "MIT License"
 # Home
 home_badge = "Free &amp; open source &middot; MIT License &middot; Linux &amp; Windows"
 home_headline = "Your anime list,<br>on autopilot"
-home_tagline = "Just press play. Ryuuji figures out what you're watching<br class=\"desktop-only\"> and updates MyAnimeList, AniList, or Kitsu for you.<br class=\"desktop-only\"> Automatically, every episode."
+home_tagline = "Just press play. Ryuuji figures out what you're watching<br class=\"desktop-only\"> and updates MyAnimeList, AniList, or Kitsu for you,<br class=\"desktop-only\"> after every episode."
 home_download = "Download"
 home_learn_more = "See how it works"
 home_works_with = "Works with"
 
 # Features
 features_header = "Built for how you watch"
-features_subheader = "Local files, streaming, or both. Ryuuji doesn't care. It just keeps up."
+features_subheader = "Whether it's local files or streaming, Ryuuji keeps up."
 feature_detect_title = "Finds your player automatically"
-feature_detect_desc = "mpv, VLC, MPC-HC, Kodi, PotPlayer. Over 20 players on Linux and Windows, plus streaming services like Crunchyroll and Netflix right in your browser."
+feature_detect_desc = "mpv, VLC, MPC-HC, Kodi, PotPlayer. Over 20 players on Linux and Windows, plus streaming services like Crunchyroll and Netflix in your browser."
 feature_parse_title = "Handles even the messiest filenames"
-feature_parse_desc = "The parser strips fansub tags, version numbers, and resolution markers, then fuzzy-matches against your library. Even the most creative naming conventions won't trip it up."
+feature_parse_desc = "The parser strips fansub tags, version numbers, and resolution markers, then fuzzy-matches against your library. Creative naming conventions won't trip it up."
 feature_sync_title = "Syncs to your tracking service"
 feature_sync_desc = "Connect MyAnimeList, AniList, or Kitsu and your progress syncs automatically after each episode. Already have a list somewhere? Import it in one click and pick up right where you left off."
 feature_local_title = "Your data stays on your machine"
-feature_local_desc = "Your library and watch history live in a local database. No account required, no cloud dependency. Tracking services are there if you want them, not because you need them."
+feature_local_desc = "Your library and watch history live in a local database with no account required. Tracking services are there if you want them, not because you need them."
 
 # How it works
 how_header = "How it works"
 how_subheader = "Three steps happen automatically in the background while you watch."
 how_detect_title = "Detect"
 how_detect_subtitle = "Finds your player"
-how_detect_desc = "Scans for running media players like mpv, VLC, and Kodi. Watching in a browser? It picks up Crunchyroll, Netflix, and more from the active tab. No extensions needed."
+how_detect_desc = "Scans for running media players like mpv, VLC, and Kodi. Watching in a browser? It picks up Crunchyroll, Netflix, and more from the active tab, no extensions needed."
 how_recognize_title = "Recognize"
 how_recognize_subtitle = "Parses the filename or browser tab"
-how_recognize_desc = "Title and episode number are extracted from even the messiest fansub names. Fuzzy matching handles small differences, and a built-in relations database remaps multi-season numbering."
+how_recognize_desc = "Extracts the title and episode number from messy fansub names. Fuzzy matching handles small differences, and a built-in relations database remaps multi-season numbering."
 how_sync_title = "Update & Sync"
 how_sync_subtitle = "Saves and syncs your progress"
-how_sync_desc = "Your episode progress is saved locally and logged in your watch history. Connected to MAL, AniList, or Kitsu? The update gets pushed there too, automatically."
+how_sync_desc = "Your episode progress is saved locally and logged in your watch history. Connected to MAL, AniList, or Kitsu? The update gets pushed there too."
 
 # Supported
 supported_header = "Works with what you already use"
@@ -120,7 +120,7 @@ copied = "Copied!"
 # ── Brazilian Portuguese ──────────────────────────────────────
 [languages.pt-br]
 title = "Ryuuji"
-description = "Aplicativo desktop que detecta automaticamente o que você está assistindo e sincroniza sua lista de anime"
+description = "Companheiro desktop que detecta o que você está assistindo e mantém sua lista de anime em dia"
 
 [languages.pt-br.translations]
 
@@ -132,7 +132,7 @@ nav_menu = "Menu"
 nav_home_aria = "Ryuuji início"
 
 # Footer
-footer_tagline = "Rastreador de anime desktop que mantém sua lista sincronizada automaticamente."
+footer_tagline = "Seu companheiro de anime para desktop."
 footer_project = "Projeto"
 footer_releases = "Versões"
 footer_issues = "Problemas"
@@ -144,35 +144,35 @@ footer_license = "Licença MIT"
 # Home
 home_badge = "Gratuito e open source &middot; Licença MIT &middot; Linux e Windows"
 home_headline = "Sua lista de anime,<br>no piloto automático"
-home_tagline = "Só dê play. O Ryuuji descobre o que você está assistindo<br class=\"desktop-only\"> e atualiza o MyAnimeList, AniList ou Kitsu por você.<br class=\"desktop-only\"> Automaticamente, a cada episódio."
+home_tagline = "Só dê play. O Ryuuji descobre o que você está assistindo<br class=\"desktop-only\"> e atualiza o MyAnimeList, AniList ou Kitsu por você,<br class=\"desktop-only\"> a cada episódio."
 home_download = "Download"
 home_learn_more = "Veja como funciona"
 home_works_with = "Funciona com"
 
 # Features
 features_header = "Feito pro jeito que você assiste"
-features_subheader = "Arquivos locais, streaming, ou ambos. O Ryuuji não liga. Ele só acompanha."
+features_subheader = "Seja arquivos locais ou streaming, o Ryuuji acompanha."
 feature_detect_title = "Encontra seu player automaticamente"
 feature_detect_desc = "mpv, VLC, MPC-HC, Kodi, PotPlayer. Mais de 20 players no Linux e Windows, além de serviços de streaming como Crunchyroll e Netflix direto no navegador."
 feature_parse_title = "Lida até com os nomes de arquivo mais bagunçados"
-feature_parse_desc = "O parser remove tags de fansub, números de versão e marcadores de resolução, depois faz correspondência fuzzy com sua biblioteca. Nem as convenções de nome mais criativas vão atrapalhar."
+feature_parse_desc = "O parser remove tags de fansub, números de versão e marcadores de resolução, depois faz correspondência fuzzy com sua biblioteca. Convenções de nome criativas não vão atrapalhar."
 feature_sync_title = "Sincroniza com seu serviço de tracking"
 feature_sync_desc = "Conecte o MyAnimeList, AniList ou Kitsu e seu progresso sincroniza automaticamente após cada episódio. Já tem uma lista em algum lugar? Importe com um clique e continue de onde parou."
 feature_local_title = "Seus dados ficam na sua máquina"
-feature_local_desc = "Sua biblioteca e histórico de visualização ficam em um banco de dados local. Sem necessidade de conta, sem dependência de nuvem. Os serviços de tracking estão lá se você quiser, não porque você precisa deles."
+feature_local_desc = "Sua biblioteca e histórico de visualização ficam em um banco de dados local, sem necessidade de conta. Os serviços de tracking estão lá se você quiser, não porque você precisa deles."
 
 # How it works
 how_header = "Como funciona"
 how_subheader = "Três passos acontecem automaticamente em segundo plano enquanto você assiste."
 how_detect_title = "Detectar"
 how_detect_subtitle = "Encontra seu player"
-how_detect_desc = "Procura players de mídia em execução como mpv, VLC e Kodi. Assistindo no navegador? Ele detecta Crunchyroll, Netflix e mais na aba ativa. Sem extensões necessárias."
+how_detect_desc = "Procura players de mídia em execução como mpv, VLC e Kodi. Assistindo no navegador? Ele detecta Crunchyroll, Netflix e mais na aba ativa, sem extensões."
 how_recognize_title = "Reconhecer"
 how_recognize_subtitle = "Analisa o nome do arquivo ou aba do navegador"
-how_recognize_desc = "Título e número do episódio são extraídos até dos nomes de fansub mais confusos. A correspondência fuzzy lida com pequenas diferenças, e um banco de dados de relações integrado remapeia numeração entre temporadas."
+how_recognize_desc = "Extrai o título e número do episódio de nomes de fansub bagunçados. A correspondência fuzzy lida com pequenas diferenças, e um banco de dados de relações integrado remapeia numeração entre temporadas."
 how_sync_title = "Atualizar e Sincronizar"
 how_sync_subtitle = "Salva e sincroniza seu progresso"
-how_sync_desc = "Seu progresso de episódios é salvo localmente e registrado no seu histórico. Conectado ao MAL, AniList ou Kitsu? A atualização é enviada para lá também, automaticamente."
+how_sync_desc = "Seu progresso de episódios é salvo localmente e registrado no seu histórico. Conectado ao MAL, AniList ou Kitsu? A atualização é enviada para lá também."
 
 # Supported
 supported_header = "Funciona com o que você já usa"
