@@ -69,14 +69,32 @@
   border-radius: $radius-lg;
   corner-shape: squircle;
   padding: $space-2xl;
-  transition: border-color 0.2s ease-out,
-              transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.2s ease-out;
+  transition: background-color 0.3s ease,
+              opacity 0.3s ease,
+              transform 0.3s ease;
 
-  &:hover {
-    border-color: $text-outline;
+  .card-icon {
+    background-color: $primary;
+    color: $on-primary;
+  }
+
+  // Fade siblings when any card in the container is hovered
+  .grid-2:hover &,
+  .pipeline:hover & {
+    background-color: transparent;
+    opacity: 0.5;
+
+    .card-icon {
+      background-color: $primary-container;
+      color: $on-primary-container;
+    }
+  }
+
+  .grid-2:hover &:hover,
+  .pipeline:hover &:hover {
+    background-color: $surface-container;
+    opacity: 1;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
     .card-icon {
       background-color: $primary;
@@ -100,8 +118,8 @@
   background-color: $primary-container;
   color: $on-primary-container;
   margin-bottom: $space-lg;
-  transition: background-color 0.2s ease-out,
-              color 0.2s ease-out;
+  transition: background-color 0.3s ease,
+              color 0.3s ease;
 
   svg {
     width: 24px;

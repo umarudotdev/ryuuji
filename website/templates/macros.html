@@ -84,7 +84,7 @@
 {% endmacro %}
 
 {% macro pipeline_step(number, icon, title, subtitle, description) %}
-<div class="pipeline-step" data-animate>
+<div class="card pipeline-step" data-animate>
   <div class="pipeline-icon">
     {{ icon | safe }}
     <span class="pipeline-label">{{ number }}</span>
