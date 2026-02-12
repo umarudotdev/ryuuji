@@ -10,7 +10,7 @@
 <section id="features" class="features section">
   <div class="container">
     <div class="section-header" data-animate>
-      <h2><a href="#features" class="anchor-link">{{ trans(key="features_header", lang=lang) }}</a></h2>
+      <h1><a href="#features" class="anchor-link">{{ trans(key="features_header", lang=lang) }}</a></h1>
       <p>{{ trans(key="features_subheader", lang=lang) | safe }}</p>
     </div>
 
@@ -440,7 +440,7 @@
 
       <div class="download-platforms">
         <div class="platform-item">
-          <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg">
+          <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
             {{ m::icon_linux_tux() }}
             {{ trans(key="download_linux", lang=lang) }}
           </a>
@@ -448,7 +448,7 @@
           <span class="platform-note">{{ trans(key="download_linux_note", lang=lang) | safe }}</span>
         </div>
         <div class="platform-item">
-          <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg">
+          <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
             {{ m::icon_windows_dl() }}
             {{ trans(key="download_windows", lang=lang) }}
           </a>
