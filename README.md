@@ -52,14 +52,6 @@ Platform dependencies:
 | Linux | D-Bus dev libraries (`libdbus-1-dev` on Debian/Ubuntu, `dbus` on Arch) |
 | Windows | None |
 
-### Tauri app (experimental)
-
-A parallel Tauri v2 frontend shares the same runtime crate. Frontend source is in `apps/ryuuji-tauri/ui` (Leptos CSR).
-
-```
-cargo run --package ryuuji-tauri
-```
-
 ## Architecture
 
 ```
@@ -75,8 +67,6 @@ ryuuji-api     ryuuji-parse
 | `ryuuji-parse` | Anime filename tokenizer and multi-pass parser with `phf` keyword tables |
 | `ryuuji-api` | `AnimeService` trait + clients for MAL, AniList, Kitsu |
 | `ryuuji-gui` | Iced 0.14 desktop app — 7 screens, actor-pattern DB, theme system |
-| `ryuuji-runtime` | Shared runtime (DB actor, detection tick, sync) for desktop frontends |
-| `ryuuji-tauri` | Tauri v2 backend using `ryuuji-runtime` with webview frontend |
 
 ## Testing
 
