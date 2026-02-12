@@ -195,6 +195,7 @@
 // ── Code block ─────────────────────────────────────────────
 .code-block {
   display: block;
+  position: relative;
   background-color: $surface-low;
   border: 1px solid $text-outline-variant;
   border-radius: $radius-md;
@@ -214,6 +215,63 @@
 
   .cmd {
     color: $primary;
+  }
+
+}
+
+.copy-btn {
+  position: absolute;
+  top: 50%;
+  right: $space-lg;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: $space-xs;
+  padding: $space-xs $space-sm;
+  border: 1px solid $text-outline-variant;
+  border-radius: $radius-sm;
+  background-color: $surface-container;
+  color: $text-secondary;
+  font-family: $font-sans;
+  font-size: $text-xs;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease,
+              border-color 0.15s ease,
+              color 0.15s ease;
+
+  &:hover {
+    background-color: $surface-highest;
+    border-color: $text-outline;
+    color: $text-primary;
+  }
+
+  &:active {
+    transform: translateY(-50%) scale(0.96);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary;
+    outline-offset: 1px;
+  }
+
+  &.copied {
+    color: $primary;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  // Mobile: icon-only, tighter position to match smaller code-block padding
+  @media (max-width: $bp-mobile) {
+    right: $space-sm;
+    padding: $space-xs;
+
+    span {
+      display: none;
+    }
   }
 }
 
