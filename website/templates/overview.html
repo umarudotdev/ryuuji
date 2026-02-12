@@ -9,12 +9,12 @@
 {# ── Features ─────────────────────────────────────────── #}
 <section id="features" class="features section">
   <div class="container">
-    <div class="section-header">
+    <div class="section-header" data-animate>
       <h2><a href="#features" class="anchor-link">{{ trans(key="features_header", lang=lang) }}</a></h2>
       <p>{{ trans(key="features_subheader", lang=lang) | safe }}</p>
     </div>
 
-    <div class="grid-2">
+    <div class="grid-2" data-stagger>
       {{ m::feature_card(
         title=trans(key="feature_detect_title", lang=lang),
         description=trans(key="feature_detect_desc", lang=lang),
@@ -45,12 +45,12 @@
 {# ── How It Works ─────────────────────────────────────── #}
 <section id="how-it-works" class="how-it-works section">
   <div class="container">
-    <div class="section-header">
+    <div class="section-header" data-animate>
       <h2><a href="#how-it-works" class="anchor-link">{{ trans(key="how_header", lang=lang) }}</a></h2>
       <p>{{ trans(key="how_subheader", lang=lang) }}</p>
     </div>
 
-    <div class="pipeline">
+    <div class="pipeline" data-stagger>
       {{ m::pipeline_step(
         number="1",
         icon=m::icon_eye(),
@@ -59,7 +59,7 @@
         description=trans(key="how_detect_desc", lang=lang)
       ) }}
 
-      <div class="pipeline-arrow" aria-hidden="true">
+      <div class="pipeline-arrow" data-animate aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </div>
 
@@ -71,7 +71,7 @@
         description=trans(key="how_recognize_desc", lang=lang)
       ) }}
 
-      <div class="pipeline-arrow" aria-hidden="true">
+      <div class="pipeline-arrow" data-animate aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </div>
 
@@ -89,12 +89,12 @@
 {# ── Parser Demo ──────────────────────────────────────── #}
 <section id="parser-demo" class="parser-demo section">
   <div class="container">
-    <div class="section-header">
+    <div class="section-header" data-animate>
       <h2><a href="#parser-demo" class="anchor-link">{{ trans(key="demo_header", lang=lang) }}</a></h2>
       <p>{{ trans(key="demo_subheader", lang=lang) }}</p>
     </div>
 
-    <div class="demo-widget">
+    <div class="demo-widget" data-animate>
       <div class="demo-input-area">
         <label for="demo-input" class="sr-only">{{ trans(key="demo_placeholder", lang=lang) }}</label>
         <div class="demo-input-wrapper">
@@ -322,13 +322,13 @@
 {# ── Supported ────────────────────────────────────────── #}
 <section id="supported" class="supported section">
   <div class="container">
-    <div class="section-header">
+    <div class="section-header" data-animate>
       <h2><a href="#supported" class="anchor-link">{{ trans(key="supported_header", lang=lang) }}</a></h2>
       <p>{{ trans(key="supported_subheader", lang=lang) }}</p>
     </div>
 
-    <div class="supported-compact">
-      <div class="supported-row">
+    <div class="supported-compact" data-stagger>
+      <div class="supported-row" data-animate>
         <span class="supported-label">{{ trans(key="supported_players", lang=lang) }}</span>
         <div class="supported-tags">
           {{ m::service_item(name="mpv", color="102, 51, 153") }}
@@ -354,7 +354,7 @@
         </div>
       </div>
 
-      <div class="supported-row">
+      <div class="supported-row" data-animate>
         <span class="supported-label">{{ trans(key="supported_streaming", lang=lang) }}</span>
         <div class="supported-tags">
           {{ m::service_item(name="Crunchyroll", color="244, 117, 33") }}
@@ -366,7 +366,7 @@
         </div>
       </div>
 
-      <div class="supported-row">
+      <div class="supported-row" data-animate>
         <span class="supported-label">{{ trans(key="supported_trackers", lang=lang) }}</span>
         <div class="supported-tags">
           {{ m::service_item(name="MyAnimeList", color="46, 81, 162") }}
@@ -375,7 +375,7 @@
         </div>
       </div>
 
-      <div class="supported-row">
+      <div class="supported-row" data-animate>
         <span class="supported-label">{{ trans(key="supported_browsers", lang=lang) }}</span>
         <div class="supported-tags">
           {{ m::service_item(name="Firefox", icon="firefox.svg", color="255, 113, 63") }}
@@ -391,11 +391,11 @@
 {# ── FAQ ──────────────────────────────────────────────── #}
 <section id="faq" class="faq section">
   <div class="container">
-    <div class="section-header">
+    <div class="section-header" data-animate>
       <h2><a href="#faq" class="anchor-link">{{ trans(key="faq_header", lang=lang) }}</a></h2>
     </div>
 
-    <div class="faq-list">
+    <div class="faq-list" data-stagger>
       {{ m::faq_item(
         question=trans(key="faq_running_q", lang=lang),
         answer=trans(key="faq_running_a", lang=lang)
@@ -432,7 +432,7 @@
 {# ── Download ─────────────────────────────────────────── #}
 <section id="download" class="download section">
   <div class="container">
-    <div class="download-card">
+    <div class="download-card" data-animate>
       <div class="section-header">
         <h2><a href="#download" class="anchor-link">{{ trans(key="download_title", lang=lang) }}</a></h2>
         <p>{{ trans(key="download_subtitle", lang=lang) }}</p>

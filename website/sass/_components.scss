@@ -14,6 +14,8 @@
   line-height: 1;
   transition: background-color 0.15s ease-out,
               border-color 0.15s ease-out,
+              box-shadow 0.15s ease-out,
+              color 0.15s ease-out,
               transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
   white-space: nowrap;
 
@@ -38,6 +40,7 @@
 
   &:hover {
     background-color: $primary-hover;
+    box-shadow: 0 4px 16px rgba($primary, 0.25);
   }
 }
 
@@ -49,6 +52,7 @@
   &:hover {
     background-color: $surface-highest;
     border-color: $text-outline;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -73,6 +77,11 @@
     border-color: $text-outline;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+    .card-icon {
+      background-color: $primary;
+      color: $on-primary;
+    }
   }
 
   @media (max-width: $bp-mobile) {
@@ -91,6 +100,8 @@
   background-color: $primary-container;
   color: $on-primary-container;
   margin-bottom: $space-lg;
+  transition: background-color 0.2s ease-out,
+              color 0.2s ease-out;
 
   svg {
     width: 24px;
@@ -153,11 +164,16 @@
   font-size: $text-sm;
   color: $text-secondary;
   font-weight: 450;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease,
+              color 0.15s ease,
+              transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.15s ease;
 
   &:hover {
     border-color: $text-outline;
     color: $text-primary;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 }
 
@@ -216,6 +232,8 @@
 
   h2 {
     margin-bottom: $space-md;
+    font-family: $font-pixel;
+    font-weight: 400;
   }
 
   .anchor-link {

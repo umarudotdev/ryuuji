@@ -15,8 +15,9 @@
   <!-- Favicon -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
-  <!-- Fonts: preload critical -->
+  <!-- Fonts: preload above-fold fonts -->
   <link rel="preload" href="/fonts/GeistVF.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/GeistPixel-Line.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- Styles -->
   <link rel="stylesheet" href="/main.css">
@@ -24,6 +25,29 @@
   <style>
     /* Critical: prevent FOUC */
     html { background-color: #1A1114; }
+
+    /* Inline @font-face — browser discovers fonts before external CSS arrives */
+    @font-face {
+      font-family: "Geist";
+      src: url("/fonts/GeistVF.woff2") format("woff2");
+      font-weight: 100 900;
+      font-display: swap;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: "Geist Mono";
+      src: url("/fonts/GeistMonoVF.woff2") format("woff2");
+      font-weight: 100 900;
+      font-display: swap;
+      font-style: normal;
+    }
+    @font-face {
+      font-family: "Geist Pixel Line";
+      src: url("/fonts/GeistPixel-Line.woff2") format("woff2");
+      font-weight: 400;
+      font-display: swap;
+      font-style: normal;
+    }
   </style>
 </head>
 <body{% block body_attrs %}{% endblock body_attrs %}>
@@ -97,21 +121,21 @@
 
   {% block footer %}
   <footer class="footer" role="contentinfo">
-    <div class="container footer-grid">
-      <div class="footer-column footer-about">
+    <div class="container footer-grid" data-stagger>
+      <div class="footer-column footer-about" data-animate>
         <div class="footer-brand">
           <img src="/logo-mark.svg" width="24" height="24" alt="Ryuuji logo">
           Ryuuji
         </div>
         <p>{{ trans(key="footer_tagline", lang=lang) }}</p>
       </div>
-      <nav class="footer-column" aria-label="{{ trans(key='footer_project', lang=lang) }}">
+      <nav class="footer-column" data-animate aria-label="{{ trans(key='footer_project', lang=lang) }}">
         <h4 class="footer-column-title">{{ trans(key="footer_project", lang=lang) }}</h4>
         <a href="{{ config.extra.github_url }}" target="_blank" rel="noopener">GitHub</a>
         <a href="{{ config.extra.github_url }}/releases" target="_blank" rel="noopener">{{ trans(key="footer_releases", lang=lang) }}</a>
         <a href="{{ config.extra.github_url }}/issues" target="_blank" rel="noopener">{{ trans(key="footer_issues", lang=lang) }}</a>
       </nav>
-      <nav class="footer-column" aria-label="{{ trans(key='footer_resources', lang=lang) }}">
+      <nav class="footer-column" data-animate aria-label="{{ trans(key='footer_resources', lang=lang) }}">
         <h4 class="footer-column-title">{{ trans(key="footer_resources", lang=lang) }}</h4>
         <a href="{{ config.extra.github_url }}/blob/main/docs/prd.md" target="_blank" rel="noopener">{{ trans(key="footer_docs", lang=lang) }}</a>
         <a href="{{ config.extra.github_url }}/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">{{ trans(key="footer_contributing", lang=lang) }}</a>
@@ -211,6 +235,40 @@
       button.style.right = '10px';
       block.appendChild(button);
     });
+  </script>
+
+  <script>
+    // Scroll-triggered entrance animations
+    (function() {
+      var els = document.querySelectorAll('[data-animate]');
+      var staggerEls = document.querySelectorAll('[data-stagger]');
+      if (!els.length && !staggerEls.length) return;
+
+      // Instant reveal: respect reduced motion or missing IO
+      var instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        || !('IntersectionObserver' in window);
+      if (instant) {
+        els.forEach(function(el) { el.classList.add('is-visible'); });
+        staggerEls.forEach(function(el) { el.classList.add('is-visible'); });
+        return;
+      }
+
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+      els.forEach(function(el) {
+        if (!el.parentElement || !el.parentElement.hasAttribute('data-stagger')) {
+          observer.observe(el);
+        }
+      });
+      staggerEls.forEach(function(el) { observer.observe(el); });
+    })();
   </script>
 </body>
 </html>
