@@ -326,63 +326,95 @@
       <h2><a href="#supported" class="anchor-link">{{ trans(key="supported_header", lang=lang) }}</a></h2>
       <p>{{ trans(key="supported_subheader", lang=lang) }}</p>
     </div>
+  </div>
 
-    <div class="supported-compact" data-stagger>
-      <div class="supported-row" data-animate>
-        <span class="supported-label">{{ trans(key="supported_players", lang=lang) }}</span>
-        <div class="supported-tags">
-          {{ m::service_item(name="mpv", color="102, 51, 153") }}
-          {{ m::service_item(name="VLC", color="255, 136, 0") }}
-          {{ m::service_item(name="MPC-HC") }}
-          {{ m::service_item(name="MPC-BE") }}
-          {{ m::service_item(name="PotPlayer") }}
-          {{ m::service_item(name="Kodi", color="18, 142, 212") }}
-          {{ m::service_item(name="Celluloid") }}
-          {{ m::service_item(name="SMPlayer") }}
-          {{ m::service_item(name="Haruna") }}
-          {{ m::service_item(name="KMPlayer") }}
-          {{ m::service_item(name="GOM Player") }}
-          {{ m::service_item(name="QMPlay2") }}
-          {{ m::service_item(name="GNOME Videos") }}
-          {{ m::service_item(name="Clapper") }}
-          {{ m::service_item(name="Dragon Player") }}
-          {{ m::service_item(name="Parole") }}
-          {{ m::service_item(name="Baka MPlayer") }}
-          {{ m::service_item(name="Elisa") }}
-          {{ m::service_item(name="Windows Media Player") }}
-          {{ m::service_item(name="WMP (New)") }}
-        </div>
+  {# Items mixed across categories so brand colors are evenly distributed.
+     Duplicate tracks ensure pills fill edge-to-edge on wide viewports. #}
+  <div class="supported-marquee" data-stagger>
+    <div class="supported-marquee__row" data-animate>
+      <div class="supported-marquee__track">
+        {{ m::service_item(name="MyAnimeList", color="46, 81, 162") }}
+        {{ m::service_item(name="Crunchyroll", color="244, 117, 33") }}
+        {{ m::service_item(name="mpv", color="102, 51, 153") }}
+        {{ m::service_item(name="Firefox", icon="firefox.svg", color="255, 113, 63") }}
+        {{ m::service_item(name="MPC-HC") }}
+        {{ m::service_item(name="PotPlayer") }}
+        {{ m::service_item(name="Jellyfin", color="0, 164, 217") }}
+        {{ m::service_item(name="Celluloid") }}
+        {{ m::service_item(name="SMPlayer") }}
+        {{ m::service_item(name="AniList", color="61, 180, 242") }}
+        {{ m::service_item(name="Haruna") }}
       </div>
-
-      <div class="supported-row" data-animate>
-        <span class="supported-label">{{ trans(key="supported_streaming", lang=lang) }}</span>
-        <div class="supported-tags">
-          {{ m::service_item(name="Crunchyroll", color="244, 117, 33") }}
-          {{ m::service_item(name="Netflix", icon="netflix.svg", color="229, 9, 20") }}
-          {{ m::service_item(name="Jellyfin", color="0, 164, 217") }}
-          {{ m::service_item(name="Plex", color="233, 160, 13") }}
-          {{ m::service_item(name="Hidive", color="0, 174, 239") }}
-          {{ m::service_item(name="Bilibili", color="0, 161, 214") }}
-        </div>
+      <div class="supported-marquee__track" aria-hidden="true">
+        {{ m::service_item(name="MyAnimeList", color="46, 81, 162") }}
+        {{ m::service_item(name="Crunchyroll", color="244, 117, 33") }}
+        {{ m::service_item(name="mpv", color="102, 51, 153") }}
+        {{ m::service_item(name="Firefox", icon="firefox.svg", color="255, 113, 63") }}
+        {{ m::service_item(name="MPC-HC") }}
+        {{ m::service_item(name="PotPlayer") }}
+        {{ m::service_item(name="Jellyfin", color="0, 164, 217") }}
+        {{ m::service_item(name="Celluloid") }}
+        {{ m::service_item(name="SMPlayer") }}
+        {{ m::service_item(name="AniList", color="61, 180, 242") }}
+        {{ m::service_item(name="Haruna") }}
       </div>
+    </div>
 
-      <div class="supported-row" data-animate>
-        <span class="supported-label">{{ trans(key="supported_trackers", lang=lang) }}</span>
-        <div class="supported-tags">
-          {{ m::service_item(name="MyAnimeList", color="46, 81, 162") }}
-          {{ m::service_item(name="AniList", color="61, 180, 242") }}
-          {{ m::service_item(name="Kitsu", color="239, 83, 63") }}
-        </div>
+    <div class="supported-marquee__row" data-animate>
+      <div class="supported-marquee__track">
+        {{ m::service_item(name="VLC", color="255, 136, 0") }}
+        {{ m::service_item(name="Netflix", icon="netflix.svg", color="229, 9, 20") }}
+        {{ m::service_item(name="Kodi", color="18, 142, 212") }}
+        {{ m::service_item(name="Chrome", icon="chrome.svg", color="66, 133, 244") }}
+        {{ m::service_item(name="MPC-BE") }}
+        {{ m::service_item(name="Hidive", color="0, 174, 239") }}
+        {{ m::service_item(name="KMPlayer") }}
+        {{ m::service_item(name="GOM Player") }}
+        {{ m::service_item(name="Kitsu", color="239, 83, 63") }}
+        {{ m::service_item(name="QMPlay2") }}
+        {{ m::service_item(name="GNOME Videos") }}
       </div>
+      <div class="supported-marquee__track" aria-hidden="true">
+        {{ m::service_item(name="VLC", color="255, 136, 0") }}
+        {{ m::service_item(name="Netflix", icon="netflix.svg", color="229, 9, 20") }}
+        {{ m::service_item(name="Kodi", color="18, 142, 212") }}
+        {{ m::service_item(name="Chrome", icon="chrome.svg", color="66, 133, 244") }}
+        {{ m::service_item(name="MPC-BE") }}
+        {{ m::service_item(name="Hidive", color="0, 174, 239") }}
+        {{ m::service_item(name="KMPlayer") }}
+        {{ m::service_item(name="GOM Player") }}
+        {{ m::service_item(name="Kitsu", color="239, 83, 63") }}
+        {{ m::service_item(name="QMPlay2") }}
+        {{ m::service_item(name="GNOME Videos") }}
+      </div>
+    </div>
 
-      <div class="supported-row" data-animate>
-        <span class="supported-label">{{ trans(key="supported_browsers", lang=lang) }}</span>
-        <div class="supported-tags">
-          {{ m::service_item(name="Firefox", icon="firefox.svg", color="255, 113, 63") }}
-          {{ m::service_item(name="Chrome", icon="chrome.svg", color="66, 133, 244") }}
-          {{ m::service_item(name="Edge", icon="edge.svg", color="0, 120, 215") }}
-          {{ m::service_item(name="Brave", icon="brave.svg", color="251, 84, 43") }}
-        </div>
+    <div class="supported-marquee__row" data-animate>
+      <div class="supported-marquee__track">
+        {{ m::service_item(name="Plex", color="233, 160, 13") }}
+        {{ m::service_item(name="Edge", icon="edge.svg", color="0, 120, 215") }}
+        {{ m::service_item(name="Bilibili", color="0, 161, 214") }}
+        {{ m::service_item(name="Brave", icon="brave.svg", color="251, 84, 43") }}
+        {{ m::service_item(name="Clapper") }}
+        {{ m::service_item(name="Dragon Player") }}
+        {{ m::service_item(name="Parole") }}
+        {{ m::service_item(name="Baka MPlayer") }}
+        {{ m::service_item(name="Elisa") }}
+        {{ m::service_item(name="Windows Media Player") }}
+        {{ m::service_item(name="WMP (New)") }}
+      </div>
+      <div class="supported-marquee__track" aria-hidden="true">
+        {{ m::service_item(name="Plex", color="233, 160, 13") }}
+        {{ m::service_item(name="Edge", icon="edge.svg", color="0, 120, 215") }}
+        {{ m::service_item(name="Bilibili", color="0, 161, 214") }}
+        {{ m::service_item(name="Brave", icon="brave.svg", color="251, 84, 43") }}
+        {{ m::service_item(name="Clapper") }}
+        {{ m::service_item(name="Dragon Player") }}
+        {{ m::service_item(name="Parole") }}
+        {{ m::service_item(name="Baka MPlayer") }}
+        {{ m::service_item(name="Elisa") }}
+        {{ m::service_item(name="Windows Media Player") }}
+        {{ m::service_item(name="WMP (New)") }}
       </div>
     </div>
   </div>
