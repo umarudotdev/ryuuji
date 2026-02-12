@@ -215,28 +215,36 @@
     })();
 
     // Code block copy button
-    document.querySelectorAll('.code-block').forEach(block => {
-      const button = document.createElement('button');
-      button.innerText = i18n.copy;
-      button.className = 'btn btn-sm btn-secondary copy-btn';
+    // SVG templates as inert DOM fragments (no innerHTML on live elements)
+    var iconTemplate = document.createElement('template');
+    iconTemplate.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    var checkTemplate = document.createElement('template');
+    checkTemplate.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 
-      button.onclick = () => {
-        const cmd = block.querySelector('.cmd').innerText;
-        navigator.clipboard.writeText(cmd).then(() => {
-          button.innerText = i18n.copied;
-          button.classList.add('btn-primary');
-          button.classList.remove('btn-secondary');
-          setTimeout(() => {
-            button.innerText = i18n.copy;
-            button.classList.remove('btn-primary');
-            button.classList.add('btn-secondary');
+    function setCopyState(button, icon, text) {
+      while (button.firstChild) button.removeChild(button.firstChild);
+      button.appendChild(icon.cloneNode(true));
+      var span = document.createElement('span');
+      span.textContent = text;
+      button.appendChild(span);
+    }
+
+    document.querySelectorAll('.code-block').forEach(function(block) {
+      var button = document.createElement('button');
+      button.className = 'copy-btn';
+      setCopyState(button, iconTemplate.content.firstChild, i18n.copy);
+
+      button.onclick = function() {
+        var cmd = block.querySelector('.cmd').innerText;
+        navigator.clipboard.writeText(cmd).then(function() {
+          setCopyState(button, checkTemplate.content.firstChild, i18n.copied);
+          button.classList.add('copied');
+          setTimeout(function() {
+            setCopyState(button, iconTemplate.content.firstChild, i18n.copy);
+            button.classList.remove('copied');
           }, 2000);
         });
       };
-      block.style.position = 'relative';
-      button.style.position = 'absolute';
-      button.style.top = '10px';
-      button.style.right = '10px';
       block.appendChild(button);
     });
   </script>
