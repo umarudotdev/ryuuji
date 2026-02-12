@@ -8,31 +8,29 @@
 
   <div class="home-badge">
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-    Free &amp; open source &middot; Linux &amp; Windows
+    {{ trans(key="home_badge", lang=lang) | safe }}
   </div>
 
-  <h1 class="home-headline">Your anime list,<br>on autopilot</h1>
+  <h1 class="home-headline">{{ trans(key="home_headline", lang=lang) | safe }}</h1>
 
   <p class="home-tagline">
-    Just press play. Ryuuji figures out what you're watching<br class="desktop-only">
-    and keeps MyAnimeList, AniList, or Kitsu up to date &mdash;<br class="desktop-only">
-    no browser tabs, no manual updates.
+    {{ trans(key="home_tagline", lang=lang) | safe }}
   </p>
 
   <div class="home-ctas">
-    <a href="/overview/#download" class="btn btn-primary">
+    <a href="{{ get_url(path='@/overview/_index.md', lang=lang) }}#download" class="btn btn-primary">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download
+      {{ trans(key="home_download", lang=lang) }}
     </a>
-    <a href="/overview/" class="btn btn-secondary">
-      See how it works
+    <a href="{{ get_url(path='@/overview/_index.md', lang=lang) }}" class="btn btn-secondary">
+      {{ trans(key="home_learn_more", lang=lang) }}
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
     </a>
   </div>
 </div>
 
 <div class="home-bottom">
-  <span class="home-bottom-label">Works with</span>
+  <span class="home-bottom-label">{{ trans(key="home_works_with", lang=lang) }}</span>
   <div class="home-services">
     <span>MyAnimeList</span>
     <span class="home-dot">&middot;</span>
