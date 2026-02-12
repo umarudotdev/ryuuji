@@ -1,48 +1,64 @@
-# Ryuuji
+<p align="center">
+  <a href="https://ryuuji.umaru.dev">
+    <img src="website/static/logo-mark.svg" width="80" height="80" alt="Ryuuji">
+  </a>
+</p>
 
-Desktop anime tracker that works while you watch.
+<h3 align="center">Ryuuji</h3>
+<p align="center">Your anime list, on autopilot.<br>Just press play — Ryuuji keeps MyAnimeList, AniList, or Kitsu up to date automatically.</p>
 
-Ryuuji automatically detects your media player or streaming service, parses what you're watching, and keeps your anime list in sync — no manual updates needed.
+<p align="center">
+  <a href="https://ryuuji.umaru.dev">Website</a> &nbsp;·&nbsp;
+  <a href="https://github.com/umarudotdev/ryuuji/releases">Download</a> &nbsp;·&nbsp;
+  <a href="https://ryuuji.umaru.dev/overview">Overview</a>
+</p>
+
+---
+
+## How it works
+
+Every few seconds, Ryuuji runs a detection → recognition → sync pipeline:
+
+1. **Detect** — Finds your active media player (MPRIS/D-Bus on Linux, Win32 on Windows) or streaming service in a browser tab
+2. **Parse** — Extracts the anime title and episode from the filename or page title, handling fansub conventions like `[SubGroup] Title - 05v2 (1080p) [CRC32].mkv`
+3. **Match** — 4-level recognition cascade (exact → normalized → fuzzy at 60% threshold) identifies the anime against your local library
+4. **Sync** — Updates your local SQLite database and pushes progress to your connected tracking service
+
+No browser extensions. No manual input. Just press play.
 
 ## Features
 
-- **Auto-detection** — 20+ media players on Linux and Windows, plus streaming services (Crunchyroll, Netflix, Jellyfin, Plex, Hidive, Bilibili) in browsers
-- **Fuzzy recognition** — 4-level matching pipeline (exact → normalized → fuzzy) handles fansub naming conventions like `[SubGroup] Title - 05v2 (1080p) [ABCD1234].mkv`
-- **Multi-service sync** — Push progress to MyAnimeList, AniList, or Kitsu automatically after detection
-- **Local-first** — SQLite database with full watch history, works offline, services are optional
-- **7-screen GUI** — Now Playing, Library, History, Search, Season Charts, Torrents, Settings
-- **Themeable** — Dark/light themes with custom TOML theme support and system appearance detection
+- **20+ media players** — mpv, VLC, MPC-HC, MPC-BE, PotPlayer, Kodi, Celluloid, SMPlayer, Haruna, and more
+- **Streaming services** — Crunchyroll, Netflix, Jellyfin, Plex, Hidive, Bilibili (detected via browser tab)
+- **Multi-service sync** — MyAnimeList (OAuth2 PKCE), AniList (GraphQL), Kitsu (JSON:API)
+- **Local-first** — SQLite with full watch history, works offline, services are optional
+- **Data-driven** — Player and streaming definitions live in TOML config files, not code
+- **Themeable** — Dark/light themes with custom TOML themes and system appearance detection
+- **Cross-platform** — Linux and Windows
 
 ## Building
+
+Requires Rust 2021 edition.
 
 ```
 cargo build --release
 cargo run --package ryuuji-gui --release
 ```
 
-### Tauri App (Parallel)
+Platform dependencies:
 
-Ryuuji now includes a parallel Tauri app scaffold with a shared runtime crate.
+| Platform | Requirement |
+|----------|-------------|
+| Linux | D-Bus dev libraries (`libdbus-1-dev` on Debian/Ubuntu, `dbus` on Arch) |
+| Windows | None |
+
+### Tauri app (experimental)
+
+A parallel Tauri v2 frontend shares the same runtime crate. Frontend source is in `apps/ryuuji-tauri/ui` (Leptos CSR).
 
 ```
 cargo run --package ryuuji-tauri
 ```
-
-Tauri frontend source lives in `apps/ryuuji-tauri/ui` (Leptos CSR). During migration, the desktop app loads static assets from `apps/ryuuji-tauri/dist`.
-
-Requires Rust 2021 edition. Platform-specific dependencies:
-
-- **Linux**: D-Bus development libraries (`libdbus-1-dev` on Debian/Ubuntu, `dbus` on Arch)
-- **Windows**: No extra dependencies
-
-## Usage
-
-1. Launch Ryuuji
-2. (Optional) Connect a tracking service in Settings → Services
-3. Start watching anime in any supported player or streaming service
-4. Ryuuji detects playback, recognizes the anime, and updates your progress
-
-Detection runs every few seconds (configurable). Config lives at `~/.config/ryuuji/ryuuji.toml`.
 
 ## Architecture
 
@@ -52,27 +68,15 @@ ryuuji-gui  →  ryuuji-core  →  ryuuji-detect
 ryuuji-api     ryuuji-parse
 ```
 
-| Crate | Role |
-|-------|------|
-| `ryuuji-core` | Models, SQLite storage, config, orchestrator, 4-level recognition cache |
-| `ryuuji-detect` | Platform-specific player detection (MPRIS on Linux, Win32 on Windows) |
-| `ryuuji-parse` | Anime filename tokenizer + multi-pass parser with compile-time keyword tables |
+| Crate | Purpose |
+|-------|---------|
+| `ryuuji-core` | Domain models, SQLite storage, config, orchestrator, 4-level recognition cache |
+| `ryuuji-detect` | Platform-specific player detection + streaming service detection |
+| `ryuuji-parse` | Anime filename tokenizer and multi-pass parser with `phf` keyword tables |
 | `ryuuji-api` | `AnimeService` trait + clients for MAL, AniList, Kitsu |
-| `ryuuji-gui` | Iced 0.14 desktop app with theming, Lucide icons, Geist fonts |
-| `ryuuji-runtime` | Shared app runtime (DB actor, detection tick, sync orchestration) for desktop frontends |
-| `ryuuji-tauri` | Tauri v2 backend app using `ryuuji-runtime` with webview frontend integration |
-
-### Supported players
-
-mpv, VLC, MPC-HC, MPC-BE, PotPlayer, Kodi, Celluloid, SMPlayer, Haruna, KMPlayer, GOM Player, QMPlay2, and more. Player definitions are data-driven via `players.toml` — add new players through config, not code.
-
-### Supported streaming services
-
-Crunchyroll, Netflix, Jellyfin, Plex, Hidive, Bilibili (detected via browser tab URL/title patterns in `streams.toml`).
-
-### Supported tracking services
-
-MyAnimeList (OAuth2 PKCE), AniList (GraphQL + OAuth2), Kitsu (JSON:API + password grant).
+| `ryuuji-gui` | Iced 0.14 desktop app — 7 screens, actor-pattern DB, theme system |
+| `ryuuji-runtime` | Shared runtime (DB actor, detection tick, sync) for desktop frontends |
+| `ryuuji-tauri` | Tauri v2 backend using `ryuuji-runtime` with webview frontend |
 
 ## Testing
 
@@ -81,6 +85,10 @@ cargo test --workspace
 ```
 
 ~116 unit tests across the workspace, all using in-memory SQLite.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](https://github.com/umarudotdev/ryuuji/blob/main/CONTRIBUTING.md) for guidelines. Architecture decisions are documented in [`docs/decisions/`](docs/decisions/).
 
 ## License
 
