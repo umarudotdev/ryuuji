@@ -43,7 +43,7 @@
 
   <circle cx="64" cy="64" r="64" fill="url(#bg)"/>
 
-  <g transform="rotate(5, 64, 64)">
+  <g transform="rotate(10, 64, 64)">
     <path
       d="M16.615 56.602
          C16.615 51.602, 25 44, 36 37
