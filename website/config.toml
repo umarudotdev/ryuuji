@@ -1,6 +1,7 @@
 base_url = "https://ryuuji.umaru.dev"
 title = "Ryuuji"
 description = "Desktop app that automatically detects what you're watching and syncs your anime list"
+default_language = "en"
 compile_sass = true
 minify_html = true
 generate_feeds = false
@@ -11,3 +12,199 @@ build_search_index = false
 [extra]
 show_screenshots = true
 github_url = "https://github.com/umarudotdev/ryuuji"
+
+# ── English translations ──────────────────────────────────────
+[translations]
+
+# Navigation
+nav_features = "Features"
+nav_faq = "FAQ"
+nav_download = "Download"
+nav_menu = "Menu"
+nav_home_aria = "Ryuuji home"
+
+# Footer
+footer_tagline = "Desktop anime tracker that keeps your list in sync. Built with Rust + Iced."
+footer_project = "Project"
+footer_releases = "Releases"
+footer_issues = "Issues"
+footer_resources = "Resources"
+footer_docs = "Documentation"
+footer_contributing = "Contributing"
+footer_license = "MIT License"
+
+# Home
+home_badge = "Free &amp; open source &middot; Linux &amp; Windows"
+home_headline = "Your anime list,<br>on autopilot"
+home_tagline = "Just press play. Ryuuji figures out what you're watching<br class=\"desktop-only\"> and keeps MyAnimeList, AniList, or Kitsu up to date &mdash;<br class=\"desktop-only\"> no browser tabs, no manual updates."
+home_download = "Download"
+home_learn_more = "See how it works"
+home_works_with = "Works with"
+
+# Features
+features_header = "Everything you need, nothing you don't"
+features_subheader = "Local files, streaming, or both. Ryuuji doesn't care &mdash; it just keeps up."
+feature_detect_title = "Finds your player automatically"
+feature_detect_desc = "mpv, VLC, MPC-HC, Kodi, PotPlayer &mdash; 20+ players on Linux and Windows, plus streaming services like Crunchyroll and Netflix in your browser. Player definitions live in a config file, so adding new ones is just a few lines of TOML."
+feature_parse_title = "Handles even the messiest filenames"
+feature_parse_desc = "Got files named <code>[SubGroup] Title - 05v2 (BD 1080p) [ABCD1234].mkv</code>? No problem. The parser strips tags, version numbers, and resolution markers, then fuzzy-matches against your library so small naming differences never trip it up."
+feature_sync_title = "Syncs to your tracking service"
+feature_sync_desc = "Connect MyAnimeList, AniList, or Kitsu and your progress syncs automatically after each episode. Already have a list somewhere? Import it in one click and pick up right where you left off."
+feature_local_title = "Your data stays on your machine"
+feature_local_desc = "Your library and watch history live in a local database. No account required, no cloud dependency. Tracking services are there if you want them &mdash; not because you need them."
+
+# How it works
+how_header = "How it works"
+how_subheader = "Three things happen in the background every few seconds while you watch."
+how_detect_title = "Detect"
+how_detect_subtitle = "Finds your player"
+how_detect_desc = "Ryuuji scans for running media players on your system &mdash; mpv, VLC, Kodi, you name it. Watching in a browser? It picks up Crunchyroll, Netflix, Jellyfin, and more from the active tab. No extensions needed."
+how_recognize_title = "Recognize"
+how_recognize_subtitle = "Parses the filename or browser tab"
+how_recognize_desc = "The anime title and episode number are extracted from even the messiest fansub names. Fuzzy matching handles minor differences automatically, and an embedded relations database remaps multi-season numbering."
+how_sync_title = "Update & Sync"
+how_sync_subtitle = "Saves and syncs your progress"
+how_sync_desc = "Your episode progress is saved locally and logged in your watch history. Connected to MAL, AniList, or Kitsu? The update gets pushed there too &mdash; automatically, in the background."
+
+# Supported
+supported_header = "Works with what you already use"
+supported_subheader = "No extensions, no plugins."
+supported_players = "Players"
+supported_streaming = "Streaming"
+supported_trackers = "Trackers"
+supported_browsers = "Browsers"
+
+# FAQ
+faq_header = "Frequently asked questions"
+faq_running_q = "Does Ryuuji need to be running all the time?"
+faq_running_a = "Yes &mdash; Ryuuji runs quietly in the background and scans for active media players every few seconds. If nothing is playing, it idles with minimal resource usage."
+faq_streaming_q = "Will it detect anime I'm streaming?"
+faq_streaming_a = "Yes. Ryuuji supports Crunchyroll, Netflix, Jellyfin, Plex, Hidive, and Bilibili in Firefox, Chrome, Edge, and Brave. No browser extension required &mdash; it reads the active tab title directly."
+faq_offline_q = "Can I use it without MAL, AniList, or Kitsu?"
+faq_offline_a = "Absolutely. Ryuuji works fully offline with its local database. Your library, watch history, and progress are all stored on your machine. Tracking services are optional &mdash; connect them if you want cloud sync, skip them if you don't."
+faq_numbering_q = "How does it handle weird episode numbering?"
+faq_numbering_a = "Ryuuji includes an embedded anime-relations database that maps continuous episode numbers to per-season numbering. So if your file says episode 26 but it's actually season 2 episode 1, Ryuuji figures that out automatically."
+faq_player_q = "My media player isn't listed. Can I add it?"
+faq_player_a = "Yes. Add a new entry to <code>~/.config/ryuuji/players.toml</code> with the player's executable name, window class, and a title regex. No code changes needed &mdash; Ryuuji picks it up on the next scan."
+faq_macos_q = "Is macOS supported?"
+faq_macos_a = "Not yet. Ryuuji currently supports Linux and Windows. macOS support depends on finding a reliable way to detect active media players on that platform."
+
+# Download
+download_title = "Ready to try it?"
+download_subtitle = "Download, connect your tracking service, and start watching. Setup takes under a minute."
+download_linux = "Download for Linux"
+download_windows = "Download for Windows"
+download_linux_info = ".AppImage, .deb, .rpm"
+download_linux_note = "Requires <code>libdbus-1-dev</code> for MPRIS detection"
+download_windows_info = ".exe installer, portable"
+download_features_label = "What's included"
+download_feature_detect = "Automatic player detection"
+download_feature_library = "Local anime library"
+download_feature_sync = "MAL, AniList &amp; Kitsu sync"
+download_feature_seasons = "Season browser"
+download_feature_torrents = "Torrent RSS monitor"
+download_source = "Or build from source:"
+
+# JS copy button
+copy = "Copy"
+copied = "Copied!"
+
+# ── Brazilian Portuguese ──────────────────────────────────────
+[languages.pt-br]
+title = "Ryuuji"
+description = "Aplicativo desktop que detecta automaticamente o que você está assistindo e sincroniza sua lista de anime"
+
+[languages.pt-br.translations]
+
+# Navigation
+nav_features = "Recursos"
+nav_faq = "FAQ"
+nav_download = "Download"
+nav_menu = "Menu"
+nav_home_aria = "Ryuuji início"
+
+# Footer
+footer_tagline = "Rastreador de anime desktop que mantém sua lista sincronizada. Feito com Rust + Iced."
+footer_project = "Projeto"
+footer_releases = "Versões"
+footer_issues = "Problemas"
+footer_resources = "Recursos"
+footer_docs = "Documentação"
+footer_contributing = "Contribuir"
+footer_license = "Licença MIT"
+
+# Home
+home_badge = "Gratuito e open source &middot; Linux e Windows"
+home_headline = "Sua lista de anime,<br>no piloto automático"
+home_tagline = "Só dê play. O Ryuuji descobre o que você está assistindo<br class=\"desktop-only\"> e mantém o MyAnimeList, AniList ou Kitsu atualizado &mdash;<br class=\"desktop-only\"> sem abas extras, sem atualizações manuais."
+home_download = "Download"
+home_learn_more = "Veja como funciona"
+home_works_with = "Funciona com"
+
+# Features
+features_header = "Tudo que você precisa, nada que não precisa"
+features_subheader = "Arquivos locais, streaming, ou ambos. O Ryuuji não liga &mdash; ele só acompanha."
+feature_detect_title = "Encontra seu player automaticamente"
+feature_detect_desc = "mpv, VLC, MPC-HC, Kodi, PotPlayer &mdash; mais de 20 players no Linux e Windows, além de serviços de streaming como Crunchyroll e Netflix no navegador. As definições de players ficam em um arquivo de configuração, então adicionar novos é só algumas linhas de TOML."
+feature_parse_title = "Lida até com os nomes de arquivo mais bagunçados"
+feature_parse_desc = "Tem arquivos com nomes tipo <code>[SubGroup] Title - 05v2 (BD 1080p) [ABCD1234].mkv</code>? Sem problema. O parser remove tags, números de versão e marcadores de resolução, depois faz correspondência fuzzy com sua biblioteca para que pequenas diferenças nos nomes nunca atrapalhem."
+feature_sync_title = "Sincroniza com seu serviço de tracking"
+feature_sync_desc = "Conecte o MyAnimeList, AniList ou Kitsu e seu progresso sincroniza automaticamente após cada episódio. Já tem uma lista em algum lugar? Importe com um clique e continue de onde parou."
+feature_local_title = "Seus dados ficam na sua máquina"
+feature_local_desc = "Sua biblioteca e histórico de visualização ficam em um banco de dados local. Sem necessidade de conta, sem dependência de nuvem. Os serviços de tracking estão lá se você quiser &mdash; não porque você precisa deles."
+
+# How it works
+how_header = "Como funciona"
+how_subheader = "Três coisas acontecem em segundo plano a cada poucos segundos enquanto você assiste."
+how_detect_title = "Detectar"
+how_detect_subtitle = "Encontra seu player"
+how_detect_desc = "O Ryuuji procura players de mídia em execução no seu sistema &mdash; mpv, VLC, Kodi, e por aí vai. Assistindo no navegador? Ele detecta Crunchyroll, Netflix, Jellyfin e mais na aba ativa. Sem extensões necessárias."
+how_recognize_title = "Reconhecer"
+how_recognize_subtitle = "Analisa o nome do arquivo ou aba do navegador"
+how_recognize_desc = "O título do anime e o número do episódio são extraídos até dos nomes de fansub mais confusos. A correspondência fuzzy lida com pequenas diferenças automaticamente, e um banco de dados de relações embutido remapeia numeração entre temporadas."
+how_sync_title = "Atualizar e Sincronizar"
+how_sync_subtitle = "Salva e sincroniza seu progresso"
+how_sync_desc = "Seu progresso de episódios é salvo localmente e registrado no seu histórico. Conectado ao MAL, AniList ou Kitsu? A atualização é enviada para lá também &mdash; automaticamente, em segundo plano."
+
+# Supported
+supported_header = "Funciona com o que você já usa"
+supported_subheader = "Sem extensões, sem plugins."
+supported_players = "Players"
+supported_streaming = "Streaming"
+supported_trackers = "Trackers"
+supported_browsers = "Navegadores"
+
+# FAQ
+faq_header = "Perguntas frequentes"
+faq_running_q = "O Ryuuji precisa estar rodando o tempo todo?"
+faq_running_a = "Sim &mdash; o Ryuuji roda silenciosamente em segundo plano e procura players de mídia ativos a cada poucos segundos. Se nada estiver tocando, ele fica ocioso com uso mínimo de recursos."
+faq_streaming_q = "Ele detecta anime que estou assistindo por streaming?"
+faq_streaming_a = "Sim. O Ryuuji suporta Crunchyroll, Netflix, Jellyfin, Plex, Hidive e Bilibili no Firefox, Chrome, Edge e Brave. Sem extensão de navegador necessária &mdash; ele lê o título da aba ativa diretamente."
+faq_offline_q = "Posso usar sem MAL, AniList ou Kitsu?"
+faq_offline_a = "Com certeza. O Ryuuji funciona totalmente offline com seu banco de dados local. Sua biblioteca, histórico e progresso ficam todos na sua máquina. Os serviços de tracking são opcionais &mdash; conecte se quiser sincronização na nuvem, pule se não quiser."
+faq_numbering_q = "Como ele lida com numeração estranha de episódios?"
+faq_numbering_a = "O Ryuuji inclui um banco de dados embutido de relações de anime que mapeia números contínuos de episódios para numeração por temporada. Então se seu arquivo diz episódio 26 mas na verdade é temporada 2 episódio 1, o Ryuuji descobre isso automaticamente."
+faq_player_q = "Meu player de mídia não está na lista. Posso adicioná-lo?"
+faq_player_a = "Sim. Adicione uma nova entrada em <code>~/.config/ryuuji/players.toml</code> com o nome do executável, classe de janela e uma regex de título. Sem precisar alterar código &mdash; o Ryuuji detecta na próxima verificação."
+faq_macos_q = "macOS é suportado?"
+faq_macos_a = "Ainda não. O Ryuuji atualmente suporta Linux e Windows. O suporte ao macOS depende de encontrar uma forma confiável de detectar players de mídia ativos nessa plataforma."
+
+# Download
+download_title = "Pronto para experimentar?"
+download_subtitle = "Baixe, conecte seu serviço de tracking e comece a assistir. A configuração leva menos de um minuto."
+download_linux = "Download para Linux"
+download_windows = "Download para Windows"
+download_linux_info = ".AppImage, .deb, .rpm"
+download_linux_note = "Requer <code>libdbus-1-dev</code> para detecção MPRIS"
+download_windows_info = "Instalador .exe, portátil"
+download_features_label = "O que está incluído"
+download_feature_detect = "Detecção automática de player"
+download_feature_library = "Biblioteca de anime local"
+download_feature_sync = "Sincronização MAL, AniList e Kitsu"
+download_feature_seasons = "Navegador de temporadas"
+download_feature_torrents = "Monitor de RSS de torrent"
+download_source = "Ou compile do código fonte:"
+
+# JS copy button
+copy = "Copiar"
+copied = "Copiado!"
