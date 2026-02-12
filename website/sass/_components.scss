@@ -71,7 +71,8 @@
   padding: $space-2xl;
   transition: background-color 0.3s ease,
               opacity 0.3s ease,
-              transform 0.3s ease;
+              transform 0.3s ease,
+              box-shadow 0.3s ease;
 
   .card-icon {
     background-color: $primary;
@@ -95,6 +96,7 @@
     background-color: $surface-container;
     opacity: 1;
     transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 
     .card-icon {
       background-color: $primary;
