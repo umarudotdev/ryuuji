@@ -3,3 +3,5 @@
 *.db-journal
 .env
 website/public/
+website/static/wasm/*.d.ts
+website/static/wasm/package.json
