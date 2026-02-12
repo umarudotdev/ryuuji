@@ -599,6 +599,22 @@ body::after {
   flex-direction: column;
   height: calc(100vh - 80px);
   height: calc(100dvh - 80px);
+  position: relative;
+  overflow: hidden;
+
+  // Subtle grid — flat, radially faded, sits behind hero content
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -10%;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba($text-outline-variant, 0.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba($text-outline-variant, 0.15) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 65% 65% at 50% 45%, black 15%, transparent 75%);
+    pointer-events: none;
+  }
 }
 
 .home-center {
@@ -609,6 +625,8 @@ body::after {
   justify-content: center;
   text-align: center;
   padding-inline: $container-padding;
+  position: relative;
+  z-index: 1;
 }
 
 .home-logo {
@@ -698,6 +716,8 @@ body::after {
   gap: $space-xl;
   padding: $space-xl $container-padding;
   border-top: 1px solid $text-outline-variant;
+  position: relative;
+  z-index: 1;
 
   @media (max-width: $bp-mobile) {
     flex-direction: column;
