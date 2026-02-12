@@ -42,7 +42,7 @@ home_learn_more = "See how it works"
 home_works_with = "Works with"
 
 # Features
-features_header = "Everything you need, nothing you don't"
+features_header = "Built for how you watch"
 features_subheader = "Local files, streaming, or both. Ryuuji doesn't care. It just keeps up."
 feature_detect_title = "Finds your player automatically"
 feature_detect_desc = "mpv, VLC, MPC-HC, Kodi, PotPlayer. Over 20 players on Linux and Windows, plus streaming services like Crunchyroll and Netflix right in your browser."
@@ -75,7 +75,7 @@ supported_trackers = "Trackers"
 supported_browsers = "Browsers"
 
 # FAQ
-faq_header = "Frequently asked questions"
+faq_header = "Questions"
 faq_running_q = "Does Ryuuji need to be running all the time?"
 faq_running_a = "Yes. Ryuuji runs quietly in the background and scans for active media players every few seconds. If nothing is playing, it idles with minimal resource usage."
 faq_streaming_q = "Will it detect anime I'm streaming?"
@@ -90,7 +90,7 @@ faq_macos_q = "Is macOS supported?"
 faq_macos_a = "Not yet. Ryuuji currently supports Linux and Windows. macOS support depends on finding a reliable way to detect active media players on that platform."
 
 # Download
-download_title = "Ready to try it?"
+download_title = "Get Ryuuji"
 download_subtitle = "Download and start watching. Ryuuji tracks your progress from the first episode."
 download_linux = "Download for Linux"
 download_windows = "Download for Windows"
@@ -150,7 +150,7 @@ home_learn_more = "Veja como funciona"
 home_works_with = "Funciona com"
 
 # Features
-features_header = "Tudo que você precisa, nada que não precisa"
+features_header = "Feito pro jeito que você assiste"
 features_subheader = "Arquivos locais, streaming, ou ambos. O Ryuuji não liga. Ele só acompanha."
 feature_detect_title = "Encontra seu player automaticamente"
 feature_detect_desc = "mpv, VLC, MPC-HC, Kodi, PotPlayer. Mais de 20 players no Linux e Windows, além de serviços de streaming como Crunchyroll e Netflix direto no navegador."
@@ -183,7 +183,7 @@ supported_trackers = "Trackers"
 supported_browsers = "Navegadores"
 
 # FAQ
-faq_header = "Perguntas frequentes"
+faq_header = "Perguntas"
 faq_running_q = "O Ryuuji precisa estar rodando o tempo todo?"
 faq_running_a = "Sim. O Ryuuji roda silenciosamente em segundo plano e procura players de mídia ativos a cada poucos segundos. Se nada estiver tocando, ele fica ocioso com uso mínimo de recursos."
 faq_streaming_q = "Ele detecta anime que estou assistindo por streaming?"
@@ -198,7 +198,7 @@ faq_macos_q = "macOS é suportado?"
 faq_macos_a = "Ainda não. O Ryuuji atualmente suporta Linux e Windows. O suporte ao macOS depende de encontrar uma forma confiável de detectar players de mídia ativos nessa plataforma."
 
 # Download
-download_title = "Pronto para experimentar?"
+download_title = "Baixe o Ryuuji"
 download_subtitle = "Baixe e comece a assistir. O Ryuuji rastreia seu progresso desde o primeiro episódio."
 download_linux = "Download para Linux"
 download_windows = "Download para Windows"
