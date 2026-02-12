@@ -96,10 +96,8 @@ impl History {
                 if let Ok(Some(row)) = *result {
                     self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
                     self.episode_input = row.entry.watched_episodes.to_string();
-                    self.start_date_input =
-                        row.entry.start_date.clone().unwrap_or_default();
-                    self.finish_date_input =
-                        row.entry.finish_date.clone().unwrap_or_default();
+                    self.start_date_input = row.entry.start_date.clone().unwrap_or_default();
+                    self.finish_date_input = row.entry.finish_date.clone().unwrap_or_default();
                     self.notes_input = row.entry.notes.clone().unwrap_or_default();
                     self.rewatch_count_input = row.entry.rewatch_count.to_string();
                     self.selected_row = Some(row);
@@ -193,11 +191,23 @@ impl History {
                 if let Some(anime_id) = self.selected_anime {
                     if let Some(db) = db {
                         let db = db.clone();
-                        let start = if self.start_date_input.is_empty() { None } else { Some(self.start_date_input.clone()) };
-                        let finish = if self.finish_date_input.is_empty() { None } else { Some(self.finish_date_input.clone()) };
+                        let start = if self.start_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.start_date_input.clone())
+                        };
+                        let finish = if self.finish_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.finish_date_input.clone())
+                        };
                         return Action::RunTask(Task::perform(
                             async move { db.update_library_dates(anime_id, start, finish).await },
-                            |r| app::Message::History(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                            |r| {
+                                app::Message::History(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
                         ));
                     }
                 }
@@ -211,11 +221,23 @@ impl History {
                 if let Some(anime_id) = self.selected_anime {
                     if let Some(db) = db {
                         let db = db.clone();
-                        let start = if self.start_date_input.is_empty() { None } else { Some(self.start_date_input.clone()) };
-                        let finish = if self.finish_date_input.is_empty() { None } else { Some(self.finish_date_input.clone()) };
+                        let start = if self.start_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.start_date_input.clone())
+                        };
+                        let finish = if self.finish_date_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.finish_date_input.clone())
+                        };
                         return Action::RunTask(Task::perform(
                             async move { db.update_library_dates(anime_id, start, finish).await },
-                            |r| app::Message::History(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                            |r| {
+                                app::Message::History(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
                         ));
                     }
                 }
@@ -229,10 +251,18 @@ impl History {
                 if let Some(anime_id) = self.selected_anime {
                     if let Some(db) = db {
                         let db = db.clone();
-                        let notes = if self.notes_input.is_empty() { None } else { Some(self.notes_input.clone()) };
+                        let notes = if self.notes_input.is_empty() {
+                            None
+                        } else {
+                            Some(self.notes_input.clone())
+                        };
                         return Action::RunTask(Task::perform(
                             async move { db.update_library_notes(anime_id, notes).await },
-                            |r| app::Message::History(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                            |r| {
+                                app::Message::History(Message::DbOperationDone(
+                                    r.map_err(|e| e.to_string()),
+                                ))
+                            },
                         ));
                     }
                 }
@@ -244,7 +274,11 @@ impl History {
                     let count = self.rewatch_count_input.parse::<u32>().unwrap_or(0);
                     return Action::RunTask(Task::perform(
                         async move { db.update_library_rewatch(anime_id, toggled, count).await },
-                        |r| app::Message::History(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                        |r| {
+                            app::Message::History(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
                     ));
                 }
                 Action::None
@@ -253,10 +287,18 @@ impl History {
                 self.rewatch_count_input = count.to_string();
                 if let Some(db) = db {
                     let db = db.clone();
-                    let rewatching = self.selected_row.as_ref().map(|r| r.entry.rewatching).unwrap_or(false);
+                    let rewatching = self
+                        .selected_row
+                        .as_ref()
+                        .map(|r| r.entry.rewatching)
+                        .unwrap_or(false);
                     return Action::RunTask(Task::perform(
                         async move { db.update_library_rewatch(anime_id, rewatching, count).await },
-                        |r| app::Message::History(Message::DbOperationDone(r.map_err(|e| e.to_string()))),
+                        |r| {
+                            app::Message::History(Message::DbOperationDone(
+                                r.map_err(|e| e.to_string()),
+                            ))
+                        },
                     ));
                 }
                 Action::None

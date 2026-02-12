@@ -88,6 +88,7 @@ impl RecognitionCache {
     ///
     /// Flow: query cache → exact index → normalized index → fuzzy scan.
     /// Results are stored in the query cache for subsequent calls.
+    #[tracing::instrument(name = "recognize", skip(self, storage), fields(query = %query))]
     pub fn recognize(&mut self, query: &str, storage: &Storage) -> MatchResult {
         if query.is_empty() {
             return MatchResult::NoMatch;
@@ -98,16 +99,23 @@ impl RecognitionCache {
                 tracing::error!("Failed to populate recognition cache: {e}");
                 return MatchResult::NoMatch;
             }
+            tracing::debug!(
+                anime_count = self.entries.len(),
+                exact_keys = self.exact_index.len(),
+                "Recognition cache populated"
+            );
         }
 
         // 1. Check query cache.
         if let Some(cached) = self.query_cache_lookup(query) {
+            tracing::debug!(method = "query_cache", "Recognition hit");
             return cached;
         }
 
         // 2. Check exact index.
         if let Some(&anime_id) = self.exact_index.get(query) {
             if let Some(anime) = self.find_entry(anime_id) {
+                tracing::debug!(method = "exact", matched = %anime.title.preferred(), "Recognition hit");
                 let result = MatchResult::Matched(anime);
                 self.query_cache_insert(query, &result);
                 return result;
@@ -118,6 +126,7 @@ impl RecognitionCache {
         let normalized = matcher::normalize(query);
         if let Some(&anime_id) = self.normalized_index.get(&normalized) {
             if let Some(anime) = self.find_entry(anime_id) {
+                tracing::debug!(method = "normalized", matched = %anime.title.preferred(), "Recognition hit");
                 let result = MatchResult::Matched(anime);
                 self.query_cache_insert(query, &result);
                 return result;
@@ -126,6 +135,20 @@ impl RecognitionCache {
 
         // 4. Fuzzy fallback over all entries.
         let result = self.fuzzy_scan(&normalized);
+        match &result {
+            MatchResult::Fuzzy(anime, confidence) => {
+                tracing::debug!(
+                    method = "fuzzy",
+                    matched = %anime.title.preferred(),
+                    confidence = format!("{:.1}%", confidence * 100.0),
+                    "Recognition hit"
+                );
+            }
+            MatchResult::NoMatch => {
+                tracing::debug!("No recognition match");
+            }
+            _ => {}
+        }
         self.query_cache_insert(query, &result);
         result
     }

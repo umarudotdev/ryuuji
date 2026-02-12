@@ -185,9 +185,12 @@ impl AniListClient {
 
     async fn graphql_request<T: serde::de::DeserializeOwned>(
         &self,
+        operation: &str,
         query: &str,
         variables: serde_json::Value,
     ) -> Result<T, AniListError> {
+        tracing::debug!(operation, "AniList GraphQL request");
+
         let resp = self
             .http
             .post(API_URL)
@@ -201,15 +204,18 @@ impl AniListClient {
             .send()
             .await?;
 
-        if !resp.status().is_success() {
-            let status = resp.status().as_u16();
+        let status = resp.status();
+        if !status.is_success() {
+            let status_code = status.as_u16();
             let body = resp.text().await.unwrap_or_default();
+            tracing::warn!(operation, status = status_code, "AniList API error");
             return Err(AniListError::Api {
-                status,
+                status: status_code,
                 message: body,
             });
         }
 
+        tracing::debug!(operation, status = %status, "AniList response received");
         resp.json::<T>()
             .await
             .map_err(|e| AniListError::Parse(e.to_string()))
@@ -218,7 +224,7 @@ impl AniListClient {
     /// Get the authenticated user's ID.
     pub async fn get_viewer_id(&self) -> Result<u64, AniListError> {
         let resp: GraphQLResponse<ViewerResponse> = self
-            .graphql_request(VIEWER_QUERY, serde_json::json!({}))
+            .graphql_request("Viewer", VIEWER_QUERY, serde_json::json!({}))
             .await?;
         Ok(resp.data.viewer.id)
     }
@@ -227,7 +233,11 @@ impl AniListClient {
     pub async fn get_user_list_full(&self) -> Result<Vec<MediaListEntry>, AniListError> {
         let user_id = self.get_viewer_id().await?;
         let resp: GraphQLResponse<MediaListCollectionResponse> = self
-            .graphql_request(USER_LIST_QUERY, serde_json::json!({ "userId": user_id }))
+            .graphql_request(
+                "UserList",
+                USER_LIST_QUERY,
+                serde_json::json!({ "userId": user_id }),
+            )
             .await?;
 
         let entries: Vec<MediaListEntry> = resp
@@ -244,7 +254,11 @@ impl AniListClient {
     /// Search for anime (raw types).
     async fn search_raw(&self, query: &str) -> Result<Vec<AniListMedia>, AniListError> {
         let resp: GraphQLResponse<PageResponse> = self
-            .graphql_request(SEARCH_QUERY, serde_json::json!({ "search": query }))
+            .graphql_request(
+                "Search",
+                SEARCH_QUERY,
+                serde_json::json!({ "search": query }),
+            )
             .await?;
 
         Ok(resp.data.page.media)
@@ -315,14 +329,18 @@ impl AnimeService for AniListClient {
         }
 
         let _: serde_json::Value = self
-            .graphql_request(UPDATE_LIBRARY_ENTRY_MUTATION, vars)
+            .graphql_request("UpdateLibraryEntry", UPDATE_LIBRARY_ENTRY_MUTATION, vars)
             .await?;
         Ok(())
     }
 
     async fn get_anime(&self, anime_id: u64) -> Result<AnimeSearchResult, AniListError> {
         let resp: GraphQLResponse<MediaResponse> = self
-            .graphql_request(GET_ANIME_QUERY, serde_json::json!({ "id": anime_id }))
+            .graphql_request(
+                "GetAnime",
+                GET_ANIME_QUERY,
+                serde_json::json!({ "id": anime_id }),
+            )
             .await?;
         Ok(resp.data.media.into_search_result())
     }
@@ -331,6 +349,7 @@ impl AnimeService for AniListClient {
         let anilist_status = map_status_to_anilist(status);
         let _: serde_json::Value = self
             .graphql_request(
+                "AddLibraryEntry",
                 ADD_LIBRARY_ENTRY_MUTATION,
                 serde_json::json!({
                     "mediaId": anime_id,
@@ -345,6 +364,7 @@ impl AnimeService for AniListClient {
         // Step 1: Look up the library entry ID for this media.
         let lookup: Result<GraphQLResponse<MediaListLookupResponse>, _> = self
             .graphql_request(
+                "FindMediaListEntry",
                 FIND_MEDIA_LIST_ENTRY_QUERY,
                 serde_json::json!({ "mediaId": anime_id }),
             )
@@ -361,6 +381,7 @@ impl AnimeService for AniListClient {
         // Step 2: Delete by library entry ID.
         let _: serde_json::Value = self
             .graphql_request(
+                "DeleteLibraryEntry",
                 DELETE_LIBRARY_ENTRY_MUTATION,
                 serde_json::json!({ "id": entry_id }),
             )
@@ -376,6 +397,7 @@ impl AnimeService for AniListClient {
     ) -> Result<SeasonPage, AniListError> {
         let resp: GraphQLResponse<SeasonBrowseResponse> = self
             .graphql_request(
+                "SeasonBrowse",
                 SEASON_BROWSE_QUERY,
                 serde_json::json!({
                     "season": season.to_anilist_str(),

@@ -113,10 +113,8 @@ impl Library {
                 if let Some(row) = self.entries.iter().find(|r| r.anime.id == id) {
                     self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
                     self.episode_input = row.entry.watched_episodes.to_string();
-                    self.start_date_input =
-                        row.entry.start_date.clone().unwrap_or_default();
-                    self.finish_date_input =
-                        row.entry.finish_date.clone().unwrap_or_default();
+                    self.start_date_input = row.entry.start_date.clone().unwrap_or_default();
+                    self.finish_date_input = row.entry.finish_date.clone().unwrap_or_default();
                     self.notes_input = row.entry.notes.clone().unwrap_or_default();
                     self.rewatch_count_input = row.entry.rewatch_count.to_string();
                 }
@@ -287,9 +285,7 @@ impl Library {
                     let db = db.clone();
                     let count = self.rewatch_count_input.parse::<u32>().unwrap_or(0);
                     return Action::RunTask(Task::perform(
-                        async move {
-                            db.update_library_rewatch(anime_id, toggled, count).await
-                        },
+                        async move { db.update_library_rewatch(anime_id, toggled, count).await },
                         |r| {
                             app::Message::Library(Message::DbOperationDone(
                                 r.map_err(|e| e.to_string()),
@@ -310,9 +306,7 @@ impl Library {
                         .map(|r| r.entry.rewatching)
                         .unwrap_or(false);
                     return Action::RunTask(Task::perform(
-                        async move {
-                            db.update_library_rewatch(anime_id, rewatching, count).await
-                        },
+                        async move { db.update_library_rewatch(anime_id, rewatching, count).await },
                         |r| {
                             app::Message::Library(Message::DbOperationDone(
                                 r.map_err(|e| e.to_string()),

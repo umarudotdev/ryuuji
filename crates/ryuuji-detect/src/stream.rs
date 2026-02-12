@@ -161,14 +161,16 @@ pub fn detect_stream(
     if let Some(url) = player.file_path.as_deref() {
         if url.starts_with("http") {
             if let Some(idx) = stream_db.match_url(url) {
-                // URL matched a service — extract the title from the browser tab title.
                 let title = player.media_title.as_deref()?;
                 let extracted = stream_db.extract_title(idx, title)?;
+                let service = stream_db.service_name(idx)?.to_string();
+                tracing::debug!(strategy = "url", service = %service, "Stream URL pattern matched");
                 return Some(StreamMatch {
-                    service_name: stream_db.service_name(idx)?.to_string(),
+                    service_name: service,
                     extracted_title: extracted,
                 });
             }
+            tracing::debug!(url = %url, "URL did not match any stream service");
         }
     }
 
@@ -176,13 +178,16 @@ pub fn detect_stream(
     if let Some(title) = player.media_title.as_deref() {
         if let Some(idx) = stream_db.match_title(title) {
             let extracted = stream_db.extract_title(idx, title)?;
+            let service = stream_db.service_name(idx)?.to_string();
+            tracing::debug!(strategy = "title", service = %service, "Stream title pattern matched");
             return Some(StreamMatch {
-                service_name: stream_db.service_name(idx)?.to_string(),
+                service_name: service,
                 extracted_title: extracted,
             });
         }
     }
 
+    tracing::debug!("No stream service matched for browser player");
     None
 }
 
