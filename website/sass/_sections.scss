@@ -13,6 +13,12 @@
   animation: 200ms ease-out 100ms both fade-in;
 }
 
+// Navbar persists across navigations — no fade, no snapshot flicker
+::view-transition-old(site-nav),
+::view-transition-new(site-nav) {
+  animation: none;
+}
+
 @keyframes fade-out {
   to { opacity: 0; }
 }
@@ -26,9 +32,9 @@
 // adds .is-visible to trigger the transition (one-shot).
 [data-animate] {
   opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1),
-              transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(12px);
+  transition: opacity 800ms cubic-bezier(0.2, 0, 0, 1),
+              transform 800ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 [data-animate].is-visible {
@@ -43,11 +49,11 @@
 }
 
 [data-stagger].is-visible > [data-animate]:nth-child(1) { transition-delay: 0ms; }
-[data-stagger].is-visible > [data-animate]:nth-child(2) { transition-delay: 50ms; }
-[data-stagger].is-visible > [data-animate]:nth-child(3) { transition-delay: 100ms; }
-[data-stagger].is-visible > [data-animate]:nth-child(4) { transition-delay: 150ms; }
-[data-stagger].is-visible > [data-animate]:nth-child(5) { transition-delay: 200ms; }
-[data-stagger].is-visible > [data-animate]:nth-child(6) { transition-delay: 250ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(2) { transition-delay: 150ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(3) { transition-delay: 300ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(4) { transition-delay: 450ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(5) { transition-delay: 600ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(6) { transition-delay: 750ms; }
 
 // Pipeline arrows — horizontal nudge, override stagger delay
 .pipeline-arrow[data-animate] {
@@ -198,7 +204,9 @@ body::after {
   max-width: min(100% - 2rem, 1000px);
 
   nav {
+    view-transition-name: site-nav;
     position: relative;
+    user-select: none;
     // Surface gradient — curved glass refracts more light at the top
     background: linear-gradient(
       180deg,
@@ -652,6 +660,7 @@ body::after {
   color: $primary;
   font-size: $text-sm;
   font-weight: 500;
+  user-select: none;
   margin-bottom: $space-2xl;
 
   @media (max-width: $bp-mobile) {
@@ -719,6 +728,7 @@ body::after {
   border-top: 1px solid $text-outline-variant;
   position: relative;
   z-index: 1;
+  user-select: none;
 
   @media (max-width: $bp-mobile) {
     flex-direction: column;
@@ -874,6 +884,7 @@ body::after {
   color: $primary;
   font-size: $text-sm;
   font-weight: 500;
+  user-select: none;
   margin-bottom: $space-2xl;
 
   @media (max-width: $bp-mobile) {
@@ -998,6 +1009,7 @@ body::after {
   corner-shape: squircle;
   background-color: $primary-container;
   color: $on-primary-container;
+  user-select: none;
   margin-bottom: $space-lg;
   transition: background-color 0.3s ease,
               color 0.3s ease;
@@ -1018,6 +1030,7 @@ body::after {
   font-size: $text-xs;
   font-weight: 700;
   line-height: 1;
+  user-select: none;
 }
 
 .pipeline-subtitle {
@@ -1030,6 +1043,7 @@ body::after {
   display: flex;
   align-items: center;
   color: $text-outline;
+  user-select: none;
   margin-top: 72px; // vertically center with the icon area
   @media (max-width: $bp-tablet) {
     margin-top: 0;
@@ -1192,6 +1206,7 @@ body::after {
   color: $text-outline;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  user-select: none;
 }
 
 .demo-example-btn {
@@ -1204,6 +1219,7 @@ body::after {
   font-size: $text-xs;
   font-weight: 500;
   cursor: pointer;
+  user-select: none;
   transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 
   &:hover {
@@ -1403,52 +1419,62 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
   }
 }
 
-// ── Supported (compact) ─────────────────────────────────────
+// ── Supported ────────────────────────────────────────────────
 .supported {
   background-color: $surface-base;
+  overflow: hidden;
 }
 
-.supported-compact {
-  max-width: 840px;
-  margin-inline: auto;
+.supported-marquee {
   display: flex;
   flex-direction: column;
-  gap: $space-xl;
+  gap: $space-sm;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
 }
 
-.supported-row {
+.supported-marquee__row {
   display: flex;
-  align-items: baseline;
-  gap: $space-lg;
-
-  @media (max-width: $bp-mobile) {
-    flex-direction: column;
-    gap: $space-sm;
-  }
+  width: max-content;
 }
 
-.supported-label {
+.supported-marquee__track {
+  display: flex;
+  gap: $space-md;
+  padding-right: $space-md;
   flex-shrink: 0;
-  width: 80px;
-  font-size: $text-xs;
-  font-weight: 600;
-  color: $text-outline;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-
-  @media (max-width: $bp-mobile) {
-    width: auto;
-  }
-}
-
-.supported-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-xs;
 
   .logo-grid-item {
+    flex-shrink: 0;
     font-size: $text-xs;
-    padding: $space-xxs $space-sm;
+    padding: $space-xs $space-sm;
+  }
+}
+
+// Pill entrance — staggered slide-up per row
+.supported-marquee .logo-grid-item {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.supported-marquee.is-visible .logo-grid-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@for $i from 1 through 11 {
+  .supported-marquee.is-visible .logo-grid-item:nth-child(#{$i}) {
+    transition-delay: #{($i - 1) * 40}ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .supported-marquee .logo-grid-item {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
 
@@ -1671,6 +1697,7 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
+    user-select: none;
     margin-bottom: $space-md;
   }
 
@@ -1758,6 +1785,7 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
   color: $text-primary;
   font-weight: 600;
   font-size: $text-base;
+  user-select: none;
   margin-bottom: $space-sm;
 
   @media (max-width: $bp-mobile) {
@@ -1818,5 +1846,6 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 600;
+  user-select: none;
   margin-bottom: $space-xs;
 }

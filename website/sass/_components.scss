@@ -18,6 +18,7 @@
               color 0.15s ease-out,
               transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
   white-space: nowrap;
+  user-select: none;
 
   &:hover {
     transform: translateY(-1px);
@@ -118,6 +119,7 @@
   background-color: $primary-container;
   color: $on-primary-container;
   margin-bottom: $space-lg;
+  user-select: none;
   transition: background-color 0.3s ease,
               color 0.3s ease;
 
@@ -147,6 +149,7 @@
   font-weight: 500;
   background-color: $surface-high;
   color: $text-secondary;
+  user-select: none;
 }
 
 .badge-primary {
@@ -177,22 +180,11 @@
   padding: $space-sm $space-lg;
   background-color: $surface-container;
   border: 1px solid $text-outline-variant;
-  border-radius: $radius-md;
-  corner-shape: squircle;
+  border-radius: 2000px;
   font-size: $text-sm;
   color: $text-secondary;
   font-weight: 450;
-  transition: border-color 0.15s ease,
-              color 0.15s ease,
-              transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.15s ease;
-
-  &:hover {
-    border-color: $text-outline;
-    color: $text-primary;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  }
+  user-select: none;
 }
 
 // ── Step indicator ─────────────────────────────────────────
@@ -208,6 +200,7 @@
   font-size: $text-lg;
   font-weight: 600;
   flex-shrink: 0;
+  user-select: none;
 }
 
 // ── Code block ─────────────────────────────────────────────
@@ -255,6 +248,7 @@
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
+  user-select: none;
   transition: background-color 0.15s ease,
               border-color 0.15s ease,
               color 0.15s ease;
