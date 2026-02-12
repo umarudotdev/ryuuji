@@ -965,22 +965,6 @@ body::after {
   text-align: center;
   padding: $space-2xl $space-xl;
 
-  // Pipeline icon colors (parallels .card-icon handling in .card)
-  .pipeline-icon {
-    background-color: $primary;
-    color: $on-primary;
-  }
-
-  .pipeline:hover & .pipeline-icon {
-    background-color: $primary-container;
-    color: $on-primary-container;
-  }
-
-  .pipeline:hover &:hover .pipeline-icon {
-    background-color: $primary;
-    color: $on-primary;
-  }
-
   h3 {
     margin-bottom: $space-xxs;
     font-size: $text-lg;

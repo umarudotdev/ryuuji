@@ -70,8 +70,9 @@
   corner-shape: squircle;
   padding: $space-2xl;
   transition: background-color 0.3s ease,
+              border-color 0.3s ease,
               opacity 0.3s ease,
-              transform 0.3s ease,
+              transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
               box-shadow 0.3s ease;
 
   .card-icon {
@@ -79,29 +80,12 @@
     color: $on-primary;
   }
 
-  // Fade siblings when any card in the container is hovered
-  .grid-2:hover &,
-  .pipeline:hover & {
-    background-color: transparent;
-    opacity: 0.5;
-
-    .card-icon {
-      background-color: $primary-container;
-      color: $on-primary-container;
-    }
-  }
-
-  .grid-2:hover &:hover,
-  .pipeline:hover &:hover {
-    background-color: $surface-container;
-    opacity: 1;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-
-    .card-icon {
-      background-color: $primary;
-      color: $on-primary;
-    }
+  &:hover {
+    transform: translateY(-4px);
+    background-color: $surface-high;
+    border-color: rgba($primary, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25),
+                0 16px 40px rgba($primary, 0.06);
   }
 
   @media (max-width: $bp-mobile) {
