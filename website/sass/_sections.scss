@@ -21,6 +21,71 @@
   from { opacity: 0; }
 }
 
+// ── Scroll-triggered entrance animations ──────────────────────
+// Elements start invisible and slide up; IntersectionObserver
+// adds .is-visible to trigger the transition (one-shot).
+[data-animate] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-animate].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+// Stagger container — children reveal in sequence
+[data-stagger].is-visible > [data-animate] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-stagger].is-visible > [data-animate]:nth-child(1) { transition-delay: 0ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(2) { transition-delay: 50ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(3) { transition-delay: 100ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(4) { transition-delay: 150ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(5) { transition-delay: 200ms; }
+[data-stagger].is-visible > [data-animate]:nth-child(6) { transition-delay: 250ms; }
+
+// Pipeline arrows — horizontal nudge, override stagger delay
+.pipeline-arrow[data-animate] {
+  transform: translateX(4px);
+  transition-duration: 400ms;
+}
+
+[data-stagger].is-visible > .pipeline-arrow[data-animate],
+.pipeline-arrow[data-animate].is-visible {
+  transform: translateX(0);
+  transition-delay: 300ms;
+}
+
+@media (max-width: $bp-tablet) {
+  .pipeline-arrow[data-animate] {
+    transform: rotate(90deg) translateX(4px);
+  }
+
+  [data-stagger].is-visible > .pipeline-arrow[data-animate],
+  .pipeline-arrow[data-animate].is-visible {
+    transform: rotate(90deg) translateX(0);
+  }
+}
+
+// Section header — subtitle staggers behind heading
+.section-header[data-animate] p {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: 80ms;
+}
+
+.section-header[data-animate].is-visible p {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 // ── Ambient backgrounds ───────────────────────────────────────
 // Content sits above effect overlays so text stays crisp
 #site-nav,
@@ -390,11 +455,13 @@ body::after {
     padding: 8px 16px;
     margin-left: 2px;
     transition: background-color 0.15s ease-out,
-                color 0.15s ease-out;
+                color 0.15s ease-out,
+                box-shadow 0.15s ease-out;
 
     &:hover {
       background-color: $primary;
       color: $on-primary;
+      box-shadow: 0 2px 12px rgba($primary, 0.3);
     }
   }
 
@@ -576,7 +643,8 @@ body::after {
 
 .home-headline {
   font-size: $text-hero;
-  font-weight: 800;
+  font-weight: 400;
+  font-family: $font-pixel;
   line-height: $lh-tight;
   letter-spacing: -0.02em;
   margin-bottom: $space-xl;
@@ -666,6 +734,49 @@ body::after {
   opacity: 0.5;
 }
 
+// ── Hero entrance (page-load stagger) ─────────────────────────
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-enter-subtle {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-home .home-logo,
+.page-home .home-badge,
+.page-home .home-headline,
+.page-home .home-tagline,
+.page-home .home-ctas {
+  opacity: 0;
+  animation: hero-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.page-home .home-logo     { animation-delay: 0ms; }
+.page-home .home-badge    { animation-delay: 80ms; }
+.page-home .home-headline { animation-delay: 140ms; }
+.page-home .home-tagline  { animation-delay: 200ms; }
+.page-home .home-ctas     { animation-delay: 280ms; }
+
+.page-home .home-bottom {
+  opacity: 0;
+  animation: hero-enter-subtle 500ms cubic-bezier(0.22, 1, 0.36, 1) 380ms forwards;
+}
+
 // ── Overview page spacer ──────────────────────────────────────
 .overview-spacer {
   height: 96px;
@@ -753,6 +864,8 @@ body::after {
 .hero h1 {
   margin-bottom: $space-xl;
   font-size: $text-hero;
+  font-family: $font-pixel;
+  font-weight: 400;
 
   @media (max-width: $bp-tablet) {
     font-size: $text-3xl;
@@ -842,6 +955,11 @@ body::after {
     border-color: rgba($primary, 0.4);
     box-shadow: 0 4px 16px rgba($primary, 0.08);
     transform: translateY(-2px);
+
+    .pipeline-icon {
+      background-color: $primary;
+      color: $on-primary;
+    }
   }
 
   h3 {
@@ -878,6 +996,8 @@ body::after {
   background-color: $primary-container;
   color: $on-primary-container;
   margin-bottom: $space-lg;
+  transition: background-color 0.2s ease-out,
+              color 0.2s ease-out;
 }
 
 .pipeline-label {
@@ -1385,6 +1505,50 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
   }
 }
 
+.faq-item[open] > .faq-answer {
+  animation: faq-reveal 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes faq-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+// Smooth expand/collapse in browsers supporting interpolate-size
+@supports (interpolate-size: allow-keywords) {
+  .faq-item {
+    interpolate-size: allow-keywords;
+  }
+
+  .faq-item::details-content {
+    overflow: hidden;
+    height: 0;
+    opacity: 0;
+    transition: height 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                content-visibility 300ms allow-discrete;
+  }
+
+  .faq-item[open]::details-content {
+    height: auto;
+    opacity: 1;
+  }
+
+  @starting-style {
+    .faq-item[open]::details-content {
+      height: 0;
+      opacity: 0;
+    }
+  }
+
+  // Disable keyframe fallback — ::details-content handles opacity
+  .faq-item[open] > .faq-answer {
+    animation: none;
+  }
+}
+
 .faq-answer {
   padding: 0 $space-xl $space-xl;
 
@@ -1602,10 +1766,34 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
     font-size: $text-sm;
     color: $text-outline;
     text-decoration: none;
+    position: relative;
+    width: fit-content;
     transition: color 0.15s ease;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background-color: $primary-dim;
+      transform: scaleX(0);
+      transform-origin: right;
+      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
 
     &:hover {
       color: $text-primary;
+
+      &::after {
+        transform: scaleX(1);
+        transform-origin: left;
+      }
+    }
+
+    @media (max-width: $bp-mobile) {
+      margin-inline: auto;
     }
   }
 }

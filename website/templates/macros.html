@@ -1,5 +1,5 @@
 {% macro feature_card(title, description, icon) %}
-<div class="card">
+<div class="card" data-animate>
   <div class="card-icon">
     {{ icon | safe }}
   </div>
@@ -84,7 +84,7 @@
 {% endmacro %}
 
 {% macro pipeline_step(number, icon, title, subtitle, description) %}
-<div class="pipeline-step">
+<div class="pipeline-step" data-animate>
   <div class="pipeline-icon">
     {{ icon | safe }}
     <span class="pipeline-label">{{ number }}</span>
@@ -96,7 +96,7 @@
 {% endmacro %}
 
 {% macro faq_item(question, answer) %}
-<details class="faq-item" name="faq">
+<details class="faq-item" name="faq" data-animate>
   <summary>
     <span>{{ question }}</span>
     <svg class="faq-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>

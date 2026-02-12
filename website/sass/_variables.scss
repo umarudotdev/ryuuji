@@ -57,6 +57,7 @@ $space-3xl: 48px;
 // ── Typography ─────────────────────────────────────────────
 $font-sans: "Geist", system-ui, -apple-system, sans-serif;
 $font-mono: "Geist Mono", ui-monospace, monospace;
+$font-pixel: "Geist Pixel Line", $font-sans;
 
 $text-xs:  0.75rem;   // 12px
 $text-sm:  0.8125rem; // 13px

@@ -45,6 +45,21 @@ button {
   cursor: pointer;
 }
 
+// ── Selection ──────────────────────────────────────────
+::selection {
+  background-color: rgba($primary, 0.25);
+  color: $text-primary;
+}
+
+code ::selection,
+code::selection,
+.mono ::selection,
+.mono::selection,
+.code-block ::selection,
+.code-block::selection {
+  background-color: rgba($primary, 0.18);
+}
+
 // Respect motion preferences globally
 @media (prefers-reduced-motion: reduce) {
   *,

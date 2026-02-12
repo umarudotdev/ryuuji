@@ -1,20 +1,5 @@
-// Font-face declarations + text styles
-
-@font-face {
-  font-family: "Geist";
-  src: url("/fonts/GeistVF.woff2") format("woff2");
-  font-weight: 100 900;
-  font-display: swap;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "Geist Mono";
-  src: url("/fonts/GeistMonoVF.woff2") format("woff2");
-  font-weight: 100 900;
-  font-display: swap;
-  font-style: normal;
-}
+// Text styles
+// @font-face declarations are inlined in base.html <head> for earlier discovery
 
 body {
   font-family: $font-sans;
