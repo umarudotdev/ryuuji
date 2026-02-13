@@ -99,6 +99,12 @@ $_card-ease: cubic-bezier(0.16, 1, 0.3, 1); // strong ease-out
       color: $on-primary;
       transition-duration: 150ms;
     }
+
+    .pipeline-label {
+      background-color: $on-primary;
+      color: $primary;
+      transition-duration: 150ms;
+    }
   }
 
   @media (max-width: $bp-mobile) {
