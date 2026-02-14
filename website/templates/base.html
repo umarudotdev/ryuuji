@@ -79,15 +79,16 @@
 
       <div class="nav-end">
         <div class="nav-lang-dropdown" id="lang-dropdown">
-          <button class="nav-lang-trigger" aria-expanded="false" aria-haspopup="true">
+          <button class="nav-lang-trigger" aria-expanded="false" aria-haspopup="menu" aria-label="{% if lang == 'pt-br' %}Idioma: Português{% else %}Language: English{% endif %}">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
             {% if lang == "pt-br" %}PT{% else %}EN{% endif %}
             <svg class="nav-lang-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <div class="nav-lang-menu">
+          <div class="nav-lang-menu" role="menu">
             {% for t in section.translations %}
-            <a href="{{ t.permalink }}"{% if t.lang == lang %} class="active" aria-current="true"{% endif %}>
-              {% if t.lang == "pt-br" %}Português{% else %}English{% endif %}
+            <a href="{{ t.permalink }}" role="menuitem"{% if t.lang == lang %} class="active" aria-current="true"{% endif %} tabindex="-1">
+              <span class="nav-lang-label">{% if t.lang == "pt-br" %}Português{% else %}English{% endif %}</span>
+              {% if t.lang == lang %}<svg class="nav-lang-check" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{% endif %}
             </a>
             {% endfor %}
           </div>
@@ -188,16 +189,56 @@
       var langDropdown = document.getElementById('lang-dropdown');
       if (langDropdown) {
         var langTrigger = langDropdown.querySelector('.nav-lang-trigger');
+        var langMenu = langDropdown.querySelector('.nav-lang-menu');
+        var langItems = langMenu.querySelectorAll('[role="menuitem"]');
+
+        function openLangMenu() {
+          langDropdown.classList.add('open');
+          langTrigger.setAttribute('aria-expanded', 'true');
+          // Focus the active item, or first item
+          var active = langMenu.querySelector('.active') || langItems[0];
+          if (active) active.focus();
+        }
+
+        function closeLangMenu(restoreFocus) {
+          langDropdown.classList.remove('open');
+          langTrigger.setAttribute('aria-expanded', 'false');
+          if (restoreFocus) langTrigger.focus();
+        }
+
         langTrigger.addEventListener('click', function() {
-          var open = langDropdown.classList.toggle('open');
-          langTrigger.setAttribute('aria-expanded', open);
+          if (langDropdown.classList.contains('open')) {
+            closeLangMenu(true);
+          } else {
+            openLangMenu();
+          }
         });
 
-        // Close on focus leaving the dropdown (keyboard navigation)
+        // Arrow key navigation within the menu
+        langDropdown.addEventListener('keydown', function(e) {
+          if (!langDropdown.classList.contains('open')) return;
+          var items = Array.prototype.slice.call(langItems);
+          var idx = items.indexOf(document.activeElement);
+
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            items[(idx + 1) % items.length].focus();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[(idx - 1 + items.length) % items.length].focus();
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            items[0].focus();
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            items[items.length - 1].focus();
+          }
+        });
+
+        // Close on focus leaving the dropdown
         langDropdown.addEventListener('focusout', function(e) {
           if (!langDropdown.contains(e.relatedTarget)) {
-            langDropdown.classList.remove('open');
-            langTrigger.setAttribute('aria-expanded', 'false');
+            closeLangMenu(false);
           }
         });
       }
@@ -209,8 +250,7 @@
           toggle.setAttribute('aria-expanded', 'false');
         }
         if (langDropdown && langDropdown.classList.contains('open') && !langDropdown.contains(e.target)) {
-          langDropdown.classList.remove('open');
-          langDropdown.querySelector('.nav-lang-trigger').setAttribute('aria-expanded', 'false');
+          closeLangMenu(false);
         }
       });
 
@@ -222,9 +262,7 @@
             toggle.focus();
           }
           if (langDropdown && langDropdown.classList.contains('open')) {
-            langDropdown.classList.remove('open');
-            langDropdown.querySelector('.nav-lang-trigger').setAttribute('aria-expanded', 'false');
-            langDropdown.querySelector('.nav-lang-trigger').focus();
+            closeLangMenu(true);
           }
         }
       });
