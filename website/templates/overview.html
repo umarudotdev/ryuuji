@@ -483,18 +483,24 @@
 
       <div class="download-platforms">
         <div class="platform-item">
-          <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
-            {{ m::icon_linux_tux() }}
-            {{ trans(key="download_linux", lang=lang) }}
-          </a>
+          <div class="btn-wrapper">
+            <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
+              {{ m::icon_linux_tux() }}
+              {{ trans(key="download_linux", lang=lang) }}
+            </a>
+            <span class="btn-badge">preview</span>
+          </div>
           <span class="platform-info">{{ trans(key="download_linux_info", lang=lang) }}</span>
           <span class="platform-note">{{ trans(key="download_linux_note", lang=lang) | safe }}</span>
         </div>
         <div class="platform-item">
-          <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
-            {{ m::icon_windows_dl() }}
-            {{ trans(key="download_windows", lang=lang) }}
-          </a>
+          <div class="btn-wrapper">
+            <a href="{{ config.extra.github_url }}/releases/latest" class="btn btn-primary btn-lg" target="_blank" rel="noopener noreferrer">
+              {{ m::icon_windows_dl() }}
+              {{ trans(key="download_windows", lang=lang) }}
+            </a>
+            <span class="btn-badge">preview</span>
+          </div>
           <span class="platform-info">{{ trans(key="download_windows_info", lang=lang) }}</span>
         </div>
       </div>
@@ -502,11 +508,11 @@
       <div class="download-features">
         <p class="download-features-label">{{ trans(key="download_features_label", lang=lang) }}</p>
         <ul>
-          <li>{{ trans(key="download_feature_detect", lang=lang) }}</li>
-          <li>{{ trans(key="download_feature_library", lang=lang) }}</li>
-          <li>{{ trans(key="download_feature_sync", lang=lang) | safe }}</li>
-          <li>{{ trans(key="download_feature_seasons", lang=lang) }}</li>
-          <li>{{ trans(key="download_feature_torrents", lang=lang) }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_detect", lang=lang) }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_library", lang=lang) }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_sync", lang=lang) | safe }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_seasons", lang=lang) }}</li>
+          <li>{{ m::icon_check() }} {{ trans(key="download_feature_torrents", lang=lang) }}</li>
         </ul>
       </div>
 
