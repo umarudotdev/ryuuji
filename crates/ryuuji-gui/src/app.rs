@@ -14,7 +14,7 @@ use crate::db::DbHandle;
 use crate::discord::DiscordHandle;
 use crate::keyboard::Shortcut;
 use crate::screen::{
-    history, library, now_playing, search, seasons, settings, stats, torrents, Action,
+    debug, history, library, now_playing, search, seasons, settings, stats, torrents, Action,
     ContextAction, ModalKind, Page,
 };
 use crate::style;
@@ -42,6 +42,7 @@ pub struct Ryuuji {
     seasons: seasons::Seasons,
     torrents: torrents::Torrents,
     stats: stats::Stats,
+    debug: debug::Debug,
     settings: settings::Settings,
     // Cover images
     cover_cache: CoverCache,
@@ -92,6 +93,7 @@ impl Default for Ryuuji {
             seasons: seasons::Seasons::new(),
             torrents: torrents::Torrents::new(),
             stats: stats::Stats::new(),
+            debug: debug::Debug::new(),
             settings: settings_screen,
             cover_cache: CoverCache::default(),
             modal_state: None,
@@ -124,6 +126,7 @@ pub enum Message {
     Torrents(torrents::Message),
     TorrentTick,
     Stats(stats::Message),
+    Debug(debug::Message),
     Settings(settings::Message),
     Shortcut(Shortcut),
 }
@@ -214,6 +217,10 @@ impl Ryuuji {
                 }
                 if page == Page::Stats {
                     let action = self.stats.load_stats(self.db.as_ref());
+                    return self.handle_action(action);
+                }
+                if page == Page::Debug {
+                    let action = self.debug.refresh(&self.event_log, self.db.as_ref());
                     return self.handle_action(action);
                 }
                 if page == Page::Settings {
@@ -893,6 +900,10 @@ impl Ryuuji {
             }
             Message::Stats(msg) => {
                 let action = self.stats.update(msg);
+                self.handle_action(action)
+            }
+            Message::Debug(msg) => {
+                let action = self.debug.update(msg);
                 self.handle_action(action)
             }
             Message::Shortcut(shortcut) => self.handle_shortcut(shortcut),
@@ -2087,6 +2098,7 @@ impl Ryuuji {
                 .view(cs, &self.cover_cache)
                 .map(Message::Torrents),
             Page::Stats => self.stats.view(cs).map(Message::Stats),
+            Page::Debug => self.debug.view(cs).map(Message::Debug),
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
@@ -2239,6 +2251,7 @@ impl Ryuuji {
             iced::widget::Space::new().height(Length::Fill),
             column![
                 nav_item(icons::icon_chart_bar(), "Stats", Page::Stats),
+                nav_item(icons::icon_activity(), "Debug", Page::Debug),
                 nav_item(icons::icon_settings(), "Settings", Page::Settings),
             ]
             .spacing(style::SPACE_XS)
