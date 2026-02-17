@@ -843,7 +843,7 @@ impl Torrents {
             let date_str = item
                 .pub_date
                 .as_ref()
-                .map(|dt| crate::format::relative_time(dt))
+                .map(crate::format::relative_time)
                 .unwrap_or_else(|| "-".into());
 
             let item_row = button(

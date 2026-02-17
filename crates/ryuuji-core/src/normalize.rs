@@ -55,7 +55,7 @@ fn transliterate(s: &str) -> String {
             '\u{2026}' => result.push_str("..."),                     // ellipsis
             '\u{00E6}' => result.push_str("ae"),                      // æ
             '\u{0153}' => result.push_str("oe"),                      // œ
-            '\u{00F0}' => result.push_str("d"),                       // ð
+            '\u{00F0}' => result.push('d'),                           // ð
             '\u{00FE}' => result.push_str("th"),                      // þ
             '\u{00DF}' => result.push_str("ss"),                      // ß
             c => result.push(c),

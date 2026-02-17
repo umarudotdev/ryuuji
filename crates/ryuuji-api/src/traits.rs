@@ -178,6 +178,17 @@ impl AnimeSeason {
     }
 }
 
+impl std::fmt::Display for AnimeSeason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Winter => write!(f, "Winter"),
+            Self::Spring => write!(f, "Spring"),
+            Self::Summer => write!(f, "Summer"),
+            Self::Fall => write!(f, "Fall"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,16 +215,5 @@ mod tests {
         assert_eq!(AnimeSeason::Spring.to_kitsu_str(), "spring");
         assert_eq!(AnimeSeason::Summer.to_kitsu_str(), "summer");
         assert_eq!(AnimeSeason::Fall.to_kitsu_str(), "fall");
-    }
-}
-
-impl std::fmt::Display for AnimeSeason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Winter => write!(f, "Winter"),
-            Self::Spring => write!(f, "Spring"),
-            Self::Summer => write!(f, "Summer"),
-            Self::Fall => write!(f, "Fall"),
-        }
     }
 }

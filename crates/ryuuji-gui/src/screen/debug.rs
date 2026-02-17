@@ -28,6 +28,7 @@ pub struct Debug {
 #[derive(Debug, Clone)]
 pub enum Message {
     /// New event log snapshot received.
+    #[allow(dead_code)]
     EventsRefreshed(Vec<EventEntry>),
     /// Cache stats loaded from DB actor.
     CacheStatsLoaded(CacheStats),
