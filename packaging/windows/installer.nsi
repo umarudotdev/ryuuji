@@ -5,6 +5,7 @@
 ;   VERSION      - e.g. "0.1.0"
 ;   BINARY_PATH  - absolute path to ryuuji.exe
 ;   LICENSE_PATH - absolute path to LICENSE
+;   ICON_PATH    - absolute path to icon.ico
 
 !include "MUI2.nsh"
 
@@ -25,8 +26,8 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 
 ; Interface settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_ICON "${ICON_PATH}"
+!define MUI_UNICON "${ICON_PATH}"
 
 ; Pages
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_PATH}"

@@ -147,6 +147,7 @@ jobs:
             -DVERSION=${{ steps.version.outputs.VERSION }}
             -DBINARY_PATH=${{ github.workspace }}\build\ryuuji.exe
             -DLICENSE_PATH=${{ github.workspace }}\LICENSE
+            -DICON_PATH=${{ github.workspace }}\crates\ryuuji-gui\assets\icon.ico
 
       - name: Move installer
         shell: bash
