@@ -7,7 +7,6 @@ pub mod modal;
 pub mod rounded_cover;
 pub mod stepper;
 
-pub use anime_card::{library_card, online_card};
 pub use anime_list_item::anime_list_item;
 pub use detail_panel::{detail_panel, online_detail_panel};
 pub use empty_state::empty_state;

@@ -115,6 +115,9 @@ pub struct Settings {
     // Torrents
     pub torrent_enabled: bool,
     pub torrent_interval_input: String,
+    pub torrent_download_dir_input: String,
+    pub torrent_client_input: String,
+    pub torrent_auto_download: bool,
     // Integrations
     pub discord_enabled: bool,
     // Watch folders
@@ -183,6 +186,11 @@ pub enum Message {
     TorrentEnabledToggled(bool),
     TorrentIntervalChanged(String),
     TorrentIntervalSubmitted,
+    TorrentDownloadDirChanged(String),
+    TorrentDownloadDirSubmitted,
+    TorrentClientChanged(String),
+    TorrentClientSubmitted,
+    TorrentAutoDownloadToggled(bool),
     // Watch folders
     NewFolderInputChanged(String),
     AddWatchFolder,
@@ -252,6 +260,9 @@ impl Settings {
             mal_busy: false,
             torrent_enabled: config.torrent.enabled,
             torrent_interval_input: config.torrent.auto_check_interval.to_string(),
+            torrent_download_dir_input: config.torrent.download_dir.clone().unwrap_or_default(),
+            torrent_client_input: config.torrent.torrent_client.clone().unwrap_or_default(),
+            torrent_auto_download: config.torrent.auto_download,
             discord_enabled: config.discord.enabled,
             watch_folders: config.library.watch_folders.clone(),
             new_folder_input: String::new(),
@@ -556,6 +567,38 @@ impl Settings {
                 let _ = config.save();
                 Action::None
             }
+            Message::TorrentDownloadDirChanged(val) => {
+                self.torrent_download_dir_input = val;
+                Action::None
+            }
+            Message::TorrentDownloadDirSubmitted => {
+                config.torrent.download_dir = if self.torrent_download_dir_input.trim().is_empty() {
+                    None
+                } else {
+                    Some(self.torrent_download_dir_input.trim().to_string())
+                };
+                let _ = config.save();
+                Action::None
+            }
+            Message::TorrentClientChanged(val) => {
+                self.torrent_client_input = val;
+                Action::None
+            }
+            Message::TorrentClientSubmitted => {
+                config.torrent.torrent_client = if self.torrent_client_input.trim().is_empty() {
+                    None
+                } else {
+                    Some(self.torrent_client_input.trim().to_string())
+                };
+                let _ = config.save();
+                Action::None
+            }
+            Message::TorrentAutoDownloadToggled(val) => {
+                self.torrent_auto_download = val;
+                config.torrent.auto_download = val;
+                let _ = config.save();
+                Action::None
+            }
 
             // ── Watch Folders ────────────────────────────────────
             Message::NewFolderInputChanged(val) => {
@@ -748,8 +791,8 @@ impl Settings {
             .padding(style::SPACE_XL)
             .width(Length::Fill);
 
-        let content_scroll = crate::widgets::styled_scrollable(content_pane, cs)
-            .height(Length::Fill);
+        let content_scroll =
+            crate::widgets::styled_scrollable(content_pane, cs).height(Length::Fill);
 
         row![sidebar_container, content_scroll]
             .height(Length::Fill)
@@ -768,7 +811,7 @@ impl Settings {
                     .line_height(style::LINE_HEIGHT_LOOSE),
                 row![
                     text("Theme")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     pick_list(
@@ -776,8 +819,8 @@ impl Settings {
                         Some(&self.selected_theme),
                         |name: String| Message::ThemeChanged(name),
                     )
-                    .text_size(style::TEXT_SM)
-                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .text_size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
                     .style(theme::pick_list_style(cs))
                     .menu_style(theme::pick_list_menu_style(cs)),
                 ]
@@ -785,7 +828,7 @@ impl Settings {
                 .spacing(style::SPACE_MD),
                 row![
                     text("Mode")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     pick_list(
@@ -793,8 +836,8 @@ impl Settings {
                         Some(self.selected_mode),
                         |mode: ThemeMode| Message::ModeChanged(mode),
                     )
-                    .text_size(style::TEXT_SM)
-                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .text_size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
                     .style(theme::pick_list_style(cs))
                     .menu_style(theme::pick_list_menu_style(cs)),
                 ]
@@ -819,7 +862,7 @@ impl Settings {
                     .line_height(style::LINE_HEIGHT_LOOSE),
                 row![
                     text("Detection interval (seconds)")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("5", &self.interval_input)
@@ -834,10 +877,10 @@ impl Settings {
                 .spacing(style::SPACE_MD),
                 toggler(self.close_to_tray)
                     .label("Close to system tray")
-                    .text_size(style::TEXT_BASE)
+                    .text_size(style::INPUT_FONT_SIZE)
                     .on_toggle(Message::CloseToTrayToggled)
                     .spacing(style::SPACE_SM)
-                    .size(22.0)
+                    .size(style::TOGGLER_SIZE)
                     .style(theme::toggler_style(cs)),
             ]
             .spacing(style::SPACE_SM),
@@ -858,17 +901,17 @@ impl Settings {
                     .line_height(style::LINE_HEIGHT_LOOSE),
                 toggler(self.auto_update)
                     .label("Auto-update progress from detected playback")
-                    .text_size(style::TEXT_BASE)
+                    .text_size(style::INPUT_FONT_SIZE)
                     .on_toggle(Message::AutoUpdateToggled)
                     .spacing(style::SPACE_SM)
-                    .size(22.0)
+                    .size(style::TOGGLER_SIZE)
                     .style(theme::toggler_style(cs)),
                 toggler(self.confirm_update)
                     .label("Confirm before updating")
-                    .text_size(style::TEXT_BASE)
+                    .text_size(style::INPUT_FONT_SIZE)
                     .on_toggle(Message::ConfirmUpdateToggled)
                     .spacing(style::SPACE_SM)
-                    .size(22.0)
+                    .size(style::TOGGLER_SIZE)
                     .style(theme::toggler_style(cs)),
             ]
             .spacing(style::SPACE_SM),
@@ -888,7 +931,7 @@ impl Settings {
                 .line_height(style::LINE_HEIGHT_LOOSE),
             row![
                 text("Primary service")
-                    .size(style::TEXT_BASE)
+                    .size(style::INPUT_FONT_SIZE)
                     .line_height(style::LINE_HEIGHT_NORMAL)
                     .width(Length::Fill),
                 pick_list(
@@ -896,8 +939,8 @@ impl Settings {
                     Some(&self.primary_service),
                     |svc: String| Message::PrimaryServiceChanged(svc),
                 )
-                .text_size(style::TEXT_SM)
-                .padding([style::SPACE_SM, style::SPACE_MD])
+                .text_size(style::INPUT_FONT_SIZE)
+                .padding(style::INPUT_PADDING)
                 .style(theme::pick_list_style(cs))
                 .menu_style(theme::pick_list_menu_style(cs)),
             ]
@@ -918,10 +961,10 @@ impl Settings {
         content = content.push(
             toggler(self.anilist_enabled)
                 .label("Enable AniList sync")
-                .text_size(style::TEXT_BASE)
+                .text_size(style::INPUT_FONT_SIZE)
                 .on_toggle(Message::AniListEnabledToggled)
                 .spacing(style::SPACE_SM)
-                .size(22.0)
+                .size(style::TOGGLER_SIZE)
                 .style(theme::toggler_style(cs)),
         );
 
@@ -929,7 +972,7 @@ impl Settings {
             content = content.push(
                 row![
                     text("Client ID")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("your-client-id", &self.anilist_client_id)
@@ -946,7 +989,7 @@ impl Settings {
             content = content.push(
                 row![
                     text("Client Secret")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("your-client-secret", &self.anilist_client_secret)
@@ -1018,10 +1061,10 @@ impl Settings {
         content = content.push(
             toggler(self.kitsu_enabled)
                 .label("Enable Kitsu sync")
-                .text_size(style::TEXT_BASE)
+                .text_size(style::INPUT_FONT_SIZE)
                 .on_toggle(Message::KitsuEnabledToggled)
                 .spacing(style::SPACE_SM)
-                .size(22.0)
+                .size(style::TOGGLER_SIZE)
                 .style(theme::toggler_style(cs)),
         );
 
@@ -1029,7 +1072,7 @@ impl Settings {
             content = content.push(
                 row![
                     text("Username")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("email or username", &self.kitsu_username)
@@ -1045,7 +1088,7 @@ impl Settings {
             content = content.push(
                 row![
                     text("Password")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("password", &self.kitsu_password)
@@ -1110,10 +1153,10 @@ impl Settings {
         content = content.push(
             toggler(self.mal_enabled)
                 .label("Enable MAL sync")
-                .text_size(style::TEXT_BASE)
+                .text_size(style::INPUT_FONT_SIZE)
                 .on_toggle(Message::MalEnabledToggled)
                 .spacing(style::SPACE_SM)
-                .size(22.0)
+                .size(style::TOGGLER_SIZE)
                 .style(theme::toggler_style(cs)),
         );
 
@@ -1121,7 +1164,7 @@ impl Settings {
             content = content.push(
                 row![
                     text("Client ID")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("your-client-id", &self.mal_client_id)
@@ -1192,10 +1235,10 @@ impl Settings {
                 .line_height(style::LINE_HEIGHT_LOOSE),
             toggler(self.torrent_enabled)
                 .label("Enable torrent RSS feature")
-                .text_size(style::TEXT_BASE)
+                .text_size(style::INPUT_FONT_SIZE)
                 .on_toggle(Message::TorrentEnabledToggled)
                 .spacing(style::SPACE_SM)
-                .size(22.0)
+                .size(style::TOGGLER_SIZE)
                 .style(theme::toggler_style(cs)),
         ]
         .spacing(style::SPACE_SM);
@@ -1204,7 +1247,7 @@ impl Settings {
             content = content.push(
                 row![
                     text("Auto-check interval (minutes, 0 = off)")
-                        .size(style::TEXT_BASE)
+                        .size(style::INPUT_FONT_SIZE)
                         .line_height(style::LINE_HEIGHT_NORMAL)
                         .width(Length::Fill),
                     text_input("0", &self.torrent_interval_input)
@@ -1217,6 +1260,49 @@ impl Settings {
                 ]
                 .align_y(Alignment::Center)
                 .spacing(style::SPACE_MD),
+            );
+            content = content.push(
+                row![
+                    text("Download directory")
+                        .size(style::INPUT_FONT_SIZE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    text_input("~/Downloads", &self.torrent_download_dir_input)
+                        .on_input(Message::TorrentDownloadDirChanged)
+                        .on_submit(Message::TorrentDownloadDirSubmitted)
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
+                        .width(Length::Fixed(240.0))
+                        .style(theme::text_input_style(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_MD),
+            );
+            content = content.push(
+                row![
+                    text("Torrent client command")
+                        .size(style::INPUT_FONT_SIZE)
+                        .line_height(style::LINE_HEIGHT_NORMAL)
+                        .width(Length::Fill),
+                    text_input("e.g. qbittorrent {}", &self.torrent_client_input)
+                        .on_input(Message::TorrentClientChanged)
+                        .on_submit(Message::TorrentClientSubmitted)
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
+                        .width(Length::Fixed(240.0))
+                        .style(theme::text_input_style(cs)),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(style::SPACE_MD),
+            );
+            content = content.push(
+                toggler(self.torrent_auto_download)
+                    .label("Auto-download preferred torrents")
+                    .text_size(style::INPUT_FONT_SIZE)
+                    .on_toggle(Message::TorrentAutoDownloadToggled)
+                    .spacing(style::SPACE_SM)
+                    .size(style::TOGGLER_SIZE)
+                    .style(theme::toggler_style(cs)),
             );
         }
 
@@ -1237,10 +1323,10 @@ impl Settings {
                     .line_height(style::LINE_HEIGHT_LOOSE),
                 toggler(self.discord_enabled)
                     .label("Discord Rich Presence")
-                    .text_size(style::TEXT_BASE)
+                    .text_size(style::INPUT_FONT_SIZE)
                     .on_toggle(Message::DiscordEnabledToggled)
                     .spacing(style::SPACE_SM)
-                    .size(22.0)
+                    .size(style::TOGGLER_SIZE)
                     .style(theme::toggler_style(cs)),
             ]
             .spacing(style::SPACE_SM),
@@ -1342,10 +1428,10 @@ impl Settings {
                 .line_height(style::LINE_HEIGHT_LOOSE),
             toggler(self.scan_on_startup)
                 .label("Scan on startup")
-                .text_size(style::TEXT_BASE)
+                .text_size(style::INPUT_FONT_SIZE)
                 .on_toggle(Message::ScanOnStartupToggled)
                 .spacing(style::SPACE_SM)
-                .size(22.0)
+                .size(style::TOGGLER_SIZE)
                 .style(theme::toggler_style(cs)),
         ]
         .spacing(style::SPACE_SM);

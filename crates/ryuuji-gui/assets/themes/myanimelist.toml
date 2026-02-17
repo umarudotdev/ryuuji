@@ -2,42 +2,43 @@
 name = "MyAnimeList"
 
 # ── Dark variant ───────────────────────────────────────────────────
+# Based on MAL's actual dark mode color scheme.
 
 [dark.surface]
-container_lowest = "#080A14"
-base = "#0D0F1A"
-container_low = "#141825"
-container = "#1A1F30"
-container_high = "#222840"
-container_highest = "#2B3252"
-bright = "#363D5A"
+container_lowest = "#0E0E0E"   # slightly below page bg
+base = "#121212"               # page background
+container_low = "#181818"      # content cards
+container = "#1E1E1E"          # between cards and elevated
+container_high = "#222222"     # secondary surface
+container_highest = "#333333"  # dropdown menus
+bright = "#353535"             # elevated surfaces / buttons
 
 [dark.text]
-on_surface = "#DEE0EA"
-on_surface_variant = "#9CA0B8"
-outline = "#6C7194"
-outline_variant = "#3C4264"
+on_surface = "#E0E0E0"        # primary text
+on_surface_variant = "#A3A3A3" # secondary/muted text
+outline = "#787878"            # dimmed text
+outline_variant = "#3A3A3A"   # subtle borders
 
 [dark.primary]
-base = "#5181D5"
-hover = "#6493E2"
-dim = "#3C6CC0"
-on_primary = "#FFFFFF"
-container = "#2E51A2"
-on_container = "#C2D5F4"
+base = "#2E51A2"              # MAL blue (navigation bar)
+hover = "#3A62B8"             # lighter blue on hover
+dim = "#2D4276"               # edit/action button blue
+on_primary = "#FFFFFF"        # white text on blue
+container = "#2D4276"         # tonal container
+on_container = "#ABC4ED"      # light blue link color
 
 [dark.secondary]
-container = "#2B3252"
-on_container = "#9CA0B8"
+container = "#333333"         # dropdown menus
+on_container = "#A3A3A3"      # muted text
 
 [dark.tertiary]
-base = "#F9D457"
-on_tertiary = "#1A1F30"
+base = "#FF8F81"              # salmon/coral accent
+on_tertiary = "#121212"       # dark text on accent
 
 [dark.error]
-base = "#F44E5A"
-hover = "#D13A45"
-pressed = "#B42D37"
+base = "#C81A42"              # MAL red (event/announcement bar)
+hover = "#A81538"
+pressed = "#8D1030"
 on_error = "#FFFFFF"
 
 [dark.status]
@@ -48,8 +49,8 @@ dropped = "#F44E5A"
 plan = "#9CA0B8"
 
 [dark.inverse]
-surface = "#DEE0EA"
-on_surface = "#0D0F1A"
+surface = "#E0E0E0"
+on_surface = "#121212"
 scrim = "#000000"
 modal_backdrop = "#000000BF"
 
@@ -57,18 +58,18 @@ modal_backdrop = "#000000BF"
 
 [light.surface]
 container_lowest = "#FFFFFF"
-base = "#F1F3F9"
-container_low = "#EBEDF5"
-container = "#E4E6F0"
-container_high = "#DDDFE9"
-container_highest = "#D6D8E4"
-bright = "#CDCFDD"
+base = "#F5F5F5"
+container_low = "#EEEEEE"
+container = "#E8E8E8"
+container_high = "#E0E0E0"
+container_highest = "#D6D6D6"
+bright = "#CCCCCC"
 
 [light.text]
-on_surface = "#1B1E2E"
-on_surface_variant = "#484C66"
-outline = "#707494"
-outline_variant = "#C4C7D8"
+on_surface = "#1C1C1C"
+on_surface_variant = "#5C5C5C"
+outline = "#878787"
+outline_variant = "#D0D0D0"
 
 [light.primary]
 base = "#2E51A2"
@@ -76,20 +77,20 @@ hover = "#243F82"
 dim = "#4267B5"
 on_primary = "#FFFFFF"
 container = "#CFD9F4"
-on_container = "#142344"
+on_container = "#1A2E5C"
 
 [light.secondary]
-container = "#DEE1F0"
-on_container = "#1B1E2E"
+container = "#E0E4EF"
+on_container = "#1C1C1C"
 
 [light.tertiary]
-base = "#9C7400"
+base = "#C04030"
 on_tertiary = "#FFFFFF"
 
 [light.error]
-base = "#BA1A1A"
-hover = "#9C1414"
-pressed = "#7E0E0E"
+base = "#C81A42"
+hover = "#A81538"
+pressed = "#8D1030"
 on_error = "#FFFFFF"
 
 [light.status]
@@ -100,7 +101,7 @@ dropped = "#A12F31"
 plan = "#484C66"
 
 [light.inverse]
-surface = "#1B1E2E"
-on_surface = "#F1F3F9"
+surface = "#1C1C1C"
+on_surface = "#F5F5F5"
 scrim = "#000000"
 modal_backdrop = "#0000008C"

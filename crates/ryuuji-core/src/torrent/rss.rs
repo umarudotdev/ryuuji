@@ -89,15 +89,20 @@ pub async fn fetch_feed(
     Ok(items)
 }
 
-/// Fetch all enabled feeds and return items keyed by feed ID.
+/// Fetch all enabled feeds concurrently and return items keyed by feed ID.
 pub async fn fetch_all_feeds(
     client: &reqwest::Client,
     feeds: &[TorrentFeed],
 ) -> Vec<(i64, Result<Vec<TorrentItem>, RyuujiError>)> {
-    let mut results = Vec::new();
-    for feed in feeds.iter().filter(|f| f.enabled) {
-        let result = fetch_feed(client, feed).await;
-        results.push((feed.id, result));
-    }
-    results
+    let futures: Vec<_> = feeds
+        .iter()
+        .filter(|f| f.enabled)
+        .map(|feed| {
+            let client = client.clone();
+            let feed_id = feed.id;
+            let feed = feed.clone();
+            async move { (feed_id, fetch_feed(&client, &feed).await) }
+        })
+        .collect();
+    futures::future::join_all(futures).await
 }

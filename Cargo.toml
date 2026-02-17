@@ -54,6 +54,9 @@ dark-light = "2"
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }
 
+# Async utilities
+futures = "0.3"
+
 # RSS & URL
 rss = "2"
 url = "2"

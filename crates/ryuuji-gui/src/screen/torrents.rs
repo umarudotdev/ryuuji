@@ -5,6 +5,7 @@ use iced::widget::{
 };
 use iced::{Alignment, Element, Length, Task};
 
+use ryuuji_core::config::TorrentConfig;
 use ryuuji_core::torrent::{
     FilterAction, FilterCondition, FilterElement, FilterOperator, FilterState, MatchMode,
     TorrentFeed, TorrentFilter, TorrentItem,
@@ -32,6 +33,7 @@ pub enum FeedFilter {
     #[default]
     All,
     Matched,
+    Unmatched,
     Preferred,
     Selected,
     Discarded,
@@ -41,6 +43,7 @@ impl FeedFilter {
     pub const ALL: &[FeedFilter] = &[
         Self::All,
         Self::Matched,
+        Self::Unmatched,
         Self::Preferred,
         Self::Selected,
         Self::Discarded,
@@ -50,6 +53,7 @@ impl FeedFilter {
         match self {
             Self::All => "All",
             Self::Matched => "Matched",
+            Self::Unmatched => "Unmatched",
             Self::Preferred => "Preferred",
             Self::Selected => "Selected",
             Self::Discarded => "Discarded",
@@ -60,6 +64,7 @@ impl FeedFilter {
         match self {
             Self::All => true,
             Self::Matched => item.anime_id.is_some(),
+            Self::Unmatched => item.anime_id.is_none(),
             Self::Preferred => item.filter_state == FilterState::Preferred,
             Self::Selected => item.filter_state == FilterState::Selected,
             Self::Discarded => item.filter_state == FilterState::Discarded,
@@ -75,6 +80,7 @@ pub enum FeedSort {
     Episode,
     Seeders,
     Size,
+    Date,
 }
 
 /// Torrent screen state.
@@ -99,6 +105,9 @@ pub struct Torrents {
     // Filter editing
     pub editing_filter: Option<TorrentFilter>,
     pub filter_name_input: String,
+    // New-torrent notification tracking
+    seen_guids: HashSet<String>,
+    first_load: bool,
 }
 
 /// Messages handled by the Torrents screen.
@@ -108,7 +117,8 @@ pub enum Message {
     SearchChanged(String),
     // Feed tab
     RefreshFeeds,
-    FeedItemsLoaded(Result<Vec<TorrentItem>, String>),
+    /// (items, auto_downloaded_count)
+    FeedItemsLoaded(Result<(Vec<TorrentItem>, usize), String>),
     ToggleItem(String),
     DownloadSelected,
     DownloadDone(Result<usize, String>),
@@ -164,11 +174,18 @@ impl Torrents {
             feed_url_input: String::new(),
             editing_filter: None,
             filter_name_input: String::new(),
+            seen_guids: HashSet::new(),
+            first_load: true,
         }
     }
 
     /// Handle a message, returning an Action for the app router.
-    pub fn update(&mut self, msg: Message, db: Option<&DbHandle>) -> Action {
+    pub fn update(
+        &mut self,
+        msg: Message,
+        db: Option<&DbHandle>,
+        torrent_config: &TorrentConfig,
+    ) -> Action {
         match msg {
             Message::TabChanged(tab) => {
                 self.tab = tab;
@@ -189,11 +206,38 @@ impl Torrents {
             // ── Feed tab ─────────────────────────────────────────
             Message::RefreshFeeds => {
                 self.loading = true;
-                self.refresh_feeds(db)
+                self.refresh_feeds(db, torrent_config)
             }
-            Message::FeedItemsLoaded(Ok(items)) => {
+            Message::FeedItemsLoaded(Ok((items, auto_count))) => {
+                // Track new matched torrents for notifications.
+                let new_matched = if self.first_load {
+                    self.first_load = false;
+                    0
+                } else {
+                    items
+                        .iter()
+                        .filter(|i| i.anime_id.is_some() && !self.seen_guids.contains(&i.guid))
+                        .count()
+                };
+                // Update seen GUIDs.
+                self.seen_guids.clear();
+                self.seen_guids.extend(items.iter().map(|i| i.guid.clone()));
+
                 self.feed_items = items;
                 self.loading = false;
+
+                if auto_count > 0 {
+                    return Action::ShowToast(
+                        format!("Auto-downloaded {auto_count} torrent(s)"),
+                        crate::toast::ToastKind::Success,
+                    );
+                }
+                if new_matched > 0 {
+                    return Action::ShowToast(
+                        format!("{new_matched} new matched torrent(s)"),
+                        crate::toast::ToastKind::Info,
+                    );
+                }
                 Action::SetStatus(format!("Loaded {} torrents", self.feed_items.len()))
             }
             Message::FeedItemsLoaded(Err(e)) => {
@@ -208,7 +252,7 @@ impl Torrents {
                 }
                 Action::None
             }
-            Message::DownloadSelected => self.download_selected(db),
+            Message::DownloadSelected => self.download_selected(db, torrent_config),
             Message::DownloadDone(Ok(count)) => {
                 self.selected_items.clear();
                 Action::SetStatus(format!("Sent {count} torrents to client"))
@@ -256,11 +300,19 @@ impl Torrents {
                 if let Some(ref f) = feed {
                     self.feed_name_input = f.name.clone();
                     self.feed_url_input = f.url.clone();
+                    self.editing_feed = feed;
                 } else {
                     self.feed_name_input.clear();
                     self.feed_url_input.clear();
+                    // Use a sentinel TorrentFeed so the edit form renders.
+                    self.editing_feed = Some(TorrentFeed {
+                        id: 0,
+                        name: String::new(),
+                        url: String::new(),
+                        enabled: true,
+                        last_checked: None,
+                    });
                 }
-                self.editing_feed = feed;
                 Action::None
             }
             Message::FeedNameChanged(s) => {
@@ -409,19 +461,21 @@ impl Torrents {
         ))
     }
 
-    /// Refresh feeds: load feeds → fetch RSS → match → apply filters → filter archived.
-    pub fn refresh_feeds(&self, db: Option<&DbHandle>) -> Action {
+    /// Refresh feeds: load feeds → fetch RSS → match → apply filters → auto-download.
+    pub fn refresh_feeds(&self, db: Option<&DbHandle>, config: &TorrentConfig) -> Action {
         let Some(db) = db else {
             return Action::None;
         };
         let db = db.clone();
+        let auto_download = config.auto_download;
+        let torrent_client = config.torrent_client.clone();
         Action::RunTask(Task::perform(
             async move {
                 // Load feeds and filters from DB.
                 let feeds = db.get_torrent_feeds().await.map_err(|e| e.to_string())?;
                 let filters = db.get_torrent_filters().await.map_err(|e| e.to_string())?;
 
-                // Fetch RSS from all enabled feeds.
+                // Fetch RSS from all enabled feeds concurrently.
                 let client = reqwest::Client::new();
                 let results = ryuuji_core::torrent::rss::fetch_all_feeds(&client, &feeds).await;
                 let mut all_items: Vec<TorrentItem> = Vec::new();
@@ -438,17 +492,39 @@ impl Torrents {
                 // Apply filters.
                 ryuuji_core::torrent::engine::apply_filters(&mut all_items, &filters);
 
-                Ok(all_items)
+                // Auto-download preferred items.
+                let mut auto_count = 0usize;
+                if auto_download {
+                    for item in &all_items {
+                        if item.filter_state == FilterState::Preferred {
+                            let link = item.magnet_link.as_deref().or(item.link.as_deref());
+                            if let Some(url) = link {
+                                launch_download(url, torrent_client.as_deref());
+                                auto_count += 1;
+                            }
+                            let _ = db
+                                .archive_torrent(
+                                    item.guid.clone(),
+                                    item.title.clone(),
+                                    "auto-downloaded".into(),
+                                )
+                                .await;
+                        }
+                    }
+                }
+
+                Ok((all_items, auto_count))
             },
             |r| app::Message::Torrents(Message::FeedItemsLoaded(r)),
         ))
     }
 
-    fn download_selected(&self, db: Option<&DbHandle>) -> Action {
+    fn download_selected(&self, db: Option<&DbHandle>, config: &TorrentConfig) -> Action {
         let Some(db) = db else {
             return Action::None;
         };
         let db = db.clone();
+        let torrent_client = config.torrent_client.clone();
         let items: Vec<TorrentItem> = self
             .feed_items
             .iter()
@@ -460,17 +536,15 @@ impl Torrents {
             async move {
                 let mut count = 0usize;
                 for item in &items {
+                    let link = item.magnet_link.as_deref().or(item.link.as_deref());
+                    if let Some(url) = link {
+                        launch_download(url, torrent_client.as_deref());
+                        count += 1;
+                    }
                     // Archive the item.
                     let _ = db
                         .archive_torrent(item.guid.clone(), item.title.clone(), "downloaded".into())
                         .await;
-
-                    // Open magnet or torrent link.
-                    let link = item.magnet_link.as_deref().or(item.link.as_deref());
-                    if let Some(url) = link {
-                        let _ = open::that(url);
-                        count += 1;
-                    }
                 }
                 Ok(count)
             },
@@ -568,6 +642,7 @@ impl Torrents {
                 FeedSort::Episode => ia.episode.cmp(&ib.episode),
                 FeedSort::Seeders => ia.seeders.cmp(&ib.seeders),
                 FeedSort::Size => ia.size.cmp(&ib.size),
+                FeedSort::Date => ia.pub_date.cmp(&ib.pub_date),
             };
             if self.sort_ascending {
                 ord
@@ -648,24 +723,53 @@ impl Torrents {
         cover_cache: &'a CoverCache,
     ) -> Element<'a, Message> {
         // Toolbar: refresh + download + search
+        let refresh_label = if self.loading {
+            "Refreshing..."
+        } else {
+            "Refresh"
+        };
         let toolbar = row![
-            button(text("Refresh").size(style::TEXT_SM))
-                .padding([style::SPACE_SM, style::SPACE_LG])
-                .on_press(Message::RefreshFeeds)
-                .style(theme::ghost_button(cs)),
-            button(text(format!("Download ({})", self.selected_items.len())).size(style::TEXT_SM))
-                .padding([style::SPACE_SM, style::SPACE_LG])
-                .on_press_maybe(if self.selected_items.is_empty() {
-                    None
-                } else {
-                    Some(Message::DownloadSelected)
-                })
-                .style(theme::ghost_button(cs)),
+            button(
+                row![
+                    lucide_icons::iced::icon_refresh_cw()
+                        .size(style::TEXT_SM)
+                        .color(cs.on_surface_variant),
+                    text(refresh_label).size(style::TEXT_SM),
+                ]
+                .spacing(style::SPACE_XS)
+                .align_y(Alignment::Center),
+            )
+            .padding([style::SPACE_SM, style::SPACE_LG])
+            .on_press_maybe(if self.loading {
+                None
+            } else {
+                Some(Message::RefreshFeeds)
+            })
+            .style(theme::ghost_button(cs)),
+            button(
+                row![
+                    lucide_icons::iced::icon_download()
+                        .size(style::TEXT_SM)
+                        .color(cs.on_surface_variant),
+                    text(format!("Download ({})", self.selected_items.len())).size(style::TEXT_SM),
+                ]
+                .spacing(style::SPACE_XS)
+                .align_y(Alignment::Center),
+            )
+            .padding([style::SPACE_SM, style::SPACE_LG])
+            .on_press_maybe(if self.selected_items.is_empty() {
+                None
+            } else {
+                Some(Message::DownloadSelected)
+            })
+            .style(theme::ghost_button(cs)),
             Space::new().width(Length::Fill),
             text_input("Search torrents...", &self.search_query)
                 .on_input(Message::SearchChanged)
-                .size(style::TEXT_SM)
-                .width(Length::Fixed(200.0)),
+                .size(style::INPUT_FONT_SIZE)
+                .padding(style::INPUT_PADDING)
+                .width(Length::Fixed(200.0))
+                .style(theme::text_input_style(cs)),
         ]
         .spacing(style::SPACE_SM)
         .align_y(Alignment::Center);
@@ -674,28 +778,33 @@ impl Torrents {
         let filter_chips = self.feed_filter_chips(cs);
 
         if self.feed_items.is_empty() {
-            let msg = if self.loading {
-                "Loading..."
-            } else {
-                "No torrents. Click Refresh to load RSS feeds."
-            };
-            return column![
-                toolbar,
-                filter_chips,
+            let empty = if self.loading {
                 container(
-                    text(msg)
+                    text("Loading...")
                         .size(style::TEXT_SM)
                         .color(cs.on_surface_variant)
                         .line_height(style::LINE_HEIGHT_LOOSE),
                 )
                 .center_x(Length::Fill)
-                .padding(style::SPACE_3XL),
-            ]
-            .spacing(style::SPACE_SM)
-            .padding([style::SPACE_SM, style::SPACE_XL])
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into();
+                .padding(style::SPACE_3XL)
+                .into()
+            } else {
+                crate::widgets::empty_state(
+                    cs,
+                    lucide_icons::iced::icon_rss()
+                        .size(48.0)
+                        .color(cs.outline)
+                        .into(),
+                    "No torrents",
+                    "Click Refresh to load RSS feeds",
+                )
+            };
+            return column![toolbar, filter_chips, empty,]
+                .spacing(style::SPACE_SM)
+                .padding([style::SPACE_SM, style::SPACE_XL])
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into();
         }
 
         let visible = self.visible_feed_indices();
@@ -731,6 +840,11 @@ impl Torrents {
                 (Some(s), Some(l)) => format!("{s}/{l}"),
                 _ => "-".into(),
             };
+            let date_str = item
+                .pub_date
+                .as_ref()
+                .map(|dt| crate::format::relative_time(dt))
+                .unwrap_or_else(|| "-".into());
 
             let item_row = button(
                 row![
@@ -760,6 +874,10 @@ impl Torrents {
                         .size(style::TEXT_SM)
                         .color(cs.on_surface_variant)
                         .width(Length::Fixed(60.0)),
+                    text(date_str)
+                        .size(style::TEXT_SM)
+                        .color(cs.on_surface_variant)
+                        .width(Length::Fixed(70.0)),
                 ]
                 .spacing(style::SPACE_SM)
                 .align_y(Alignment::Center),
@@ -919,6 +1037,20 @@ impl Torrents {
                 .padding(0)
                 .style(theme::ghost_button(cs))
                 .width(Length::Fixed(60.0)),
+                // Date header (sortable)
+                button(
+                    text(format!("Date{}", sort_indicator(FeedSort::Date)))
+                        .size(style::TEXT_XS)
+                        .color(if self.feed_sort == FeedSort::Date {
+                            cs.primary
+                        } else {
+                            cs.on_surface_variant
+                        })
+                )
+                .on_press(Message::FeedSortChanged(FeedSort::Date))
+                .padding(0)
+                .style(theme::ghost_button(cs))
+                .width(Length::Fixed(70.0)),
             ]
             .spacing(style::SPACE_SM)
             .align_y(Alignment::Center),
@@ -930,10 +1062,19 @@ impl Torrents {
     // ── Sources tab view ─────────────────────────────────────────
 
     fn sources_view(&self, cs: &ColorScheme) -> Element<'_, Message> {
-        let toolbar = row![button(text("Add Feed").size(style::TEXT_SM))
-            .padding([style::SPACE_SM, style::SPACE_LG])
-            .on_press(Message::EditFeed(None))
-            .style(theme::ghost_button(cs)),]
+        let toolbar = row![button(
+            row![
+                lucide_icons::iced::icon_plus()
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant),
+                text("Add Feed").size(style::TEXT_SM),
+            ]
+            .spacing(style::SPACE_XS)
+            .align_y(Alignment::Center),
+        )
+        .padding([style::SPACE_SM, style::SPACE_LG])
+        .on_press(Message::EditFeed(None))
+        .style(theme::ghost_button(cs)),]
         .spacing(style::SPACE_SM);
 
         let mut content = column![toolbar].spacing(style::SPACE_MD);
@@ -943,14 +1084,18 @@ impl Torrents {
             let form = container(
                 column![
                     text("Feed Source")
-                        .size(style::TEXT_BASE)
+                        .size(style::TEXT_SM)
                         .font(style::FONT_HEADING),
                     text_input("Feed name", &self.feed_name_input)
                         .on_input(Message::FeedNameChanged)
-                        .size(style::TEXT_SM),
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
+                        .style(theme::text_input_style(cs)),
                     text_input("RSS URL", &self.feed_url_input)
                         .on_input(Message::FeedUrlChanged)
-                        .size(style::TEXT_SM),
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
+                        .style(theme::text_input_style(cs)),
                     row![
                         Space::new().width(Length::Fill),
                         button(text("Cancel").size(style::TEXT_SM))
@@ -971,6 +1116,18 @@ impl Torrents {
             content = content.push(form);
         }
 
+        if self.feeds.is_empty() && self.editing_feed.is_none() {
+            content = content.push(crate::widgets::empty_state(
+                cs,
+                lucide_icons::iced::icon_radio()
+                    .size(48.0)
+                    .color(cs.outline)
+                    .into(),
+                "No feeds",
+                "Add an RSS feed to get started",
+            ));
+        }
+
         // Feed list
         for feed in &self.feeds {
             let feed_id = feed.id;
@@ -986,7 +1143,8 @@ impl Torrents {
                 row![
                     toggler(enabled)
                         .on_toggle(move |v| Message::ToggleFeed(feed_id, v))
-                        .size(16.0),
+                        .size(style::TOGGLER_SIZE)
+                        .style(theme::toggler_style(cs)),
                     column![
                         text(&feed.name)
                             .size(style::TEXT_SM)
@@ -1002,14 +1160,22 @@ impl Torrents {
                     ]
                     .spacing(style::SPACE_XXS)
                     .width(Length::Fill),
-                    button(text("Edit").size(style::TEXT_XS))
-                        .padding([style::SPACE_XS, style::SPACE_SM])
-                        .on_press(Message::EditFeed(Some(feed.clone())))
-                        .style(theme::ghost_button(cs)),
-                    button(text("Delete").size(style::TEXT_XS))
-                        .padding([style::SPACE_XS, style::SPACE_SM])
-                        .on_press(Message::DeleteFeed(feed_id))
-                        .style(theme::ghost_button(cs)),
+                    button(
+                        lucide_icons::iced::icon_pencil()
+                            .size(style::TEXT_SM)
+                            .color(cs.on_surface_variant),
+                    )
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .on_press(Message::EditFeed(Some(feed.clone())))
+                    .style(theme::icon_button(cs)),
+                    button(
+                        lucide_icons::iced::icon_trash_2()
+                            .size(style::TEXT_SM)
+                            .color(cs.on_surface_variant),
+                    )
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .on_press(Message::DeleteFeed(feed_id))
+                    .style(theme::icon_button(cs)),
                 ]
                 .spacing(style::SPACE_MD)
                 .align_y(Alignment::Center),
@@ -1033,18 +1199,27 @@ impl Torrents {
     // ── Filters tab view ─────────────────────────────────────────
 
     fn filter_view(&self, cs: &ColorScheme) -> Element<'_, Message> {
-        let toolbar = row![button(text("Add Filter").size(style::TEXT_SM))
-            .padding([style::SPACE_SM, style::SPACE_LG])
-            .on_press(Message::EditFilter(Some(TorrentFilter {
-                id: 0,
-                name: String::new(),
-                enabled: true,
-                priority: 0,
-                match_mode: MatchMode::All,
-                action: FilterAction::Select,
-                conditions: vec![],
-            })))
-            .style(theme::ghost_button(cs)),]
+        let toolbar = row![button(
+            row![
+                lucide_icons::iced::icon_plus()
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant),
+                text("Add Filter").size(style::TEXT_SM),
+            ]
+            .spacing(style::SPACE_XS)
+            .align_y(Alignment::Center),
+        )
+        .padding([style::SPACE_SM, style::SPACE_LG])
+        .on_press(Message::EditFilter(Some(TorrentFilter {
+            id: 0,
+            name: String::new(),
+            enabled: true,
+            priority: 0,
+            match_mode: MatchMode::All,
+            action: FilterAction::Select,
+            conditions: vec![],
+        })))
+        .style(theme::ghost_button(cs)),]
         .spacing(style::SPACE_SM);
 
         let mut content = column![toolbar].spacing(style::SPACE_MD);
@@ -1053,11 +1228,13 @@ impl Torrents {
         if let Some(ref filter) = self.editing_filter {
             let mut form = column![
                 text("Filter Rule")
-                    .size(style::TEXT_BASE)
+                    .size(style::TEXT_SM)
                     .font(style::FONT_HEADING),
                 text_input("Filter name", &self.filter_name_input)
                     .on_input(Message::FilterNameChanged)
-                    .size(style::TEXT_SM),
+                    .size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
+                    .style(theme::text_input_style(cs)),
                 row![
                     text("Match:").size(style::TEXT_SM),
                     pick_list(
@@ -1065,7 +1242,10 @@ impl Torrents {
                         Some(filter.match_mode),
                         Message::FilterMatchModeChanged,
                     )
-                    .text_size(style::TEXT_SM),
+                    .text_size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
+                    .style(theme::pick_list_style(cs))
+                    .menu_style(theme::pick_list_menu_style(cs)),
                     text("Action:").size(style::TEXT_SM),
                     pick_list(
                         &[
@@ -1076,7 +1256,10 @@ impl Torrents {
                         Some(filter.action),
                         Message::FilterActionChanged,
                     )
-                    .text_size(style::TEXT_SM),
+                    .text_size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
+                    .style(theme::pick_list_style(cs))
+                    .menu_style(theme::pick_list_menu_style(cs)),
                 ]
                 .spacing(style::SPACE_SM)
                 .align_y(Alignment::Center),
@@ -1098,7 +1281,10 @@ impl Torrents {
                         Some(cond.element),
                         move |e| Message::ConditionElementChanged(i, e),
                     )
-                    .text_size(style::TEXT_SM)
+                    .text_size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
+                    .style(theme::pick_list_style(cs))
+                    .menu_style(theme::pick_list_menu_style(cs))
                     .width(Length::Fixed(100.0)),
                     pick_list(
                         &[
@@ -1113,16 +1299,25 @@ impl Torrents {
                         Some(cond.operator),
                         move |o| Message::ConditionOperatorChanged(i, o),
                     )
-                    .text_size(style::TEXT_SM)
+                    .text_size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
+                    .style(theme::pick_list_style(cs))
+                    .menu_style(theme::pick_list_menu_style(cs))
                     .width(Length::Fixed(120.0)),
                     text_input("value", &cond.value)
                         .on_input(move |v| Message::ConditionValueChanged(i, v))
-                        .size(style::TEXT_SM)
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
+                        .style(theme::text_input_style(cs))
                         .width(Length::Fill),
-                    button(text("\u{00D7}").size(style::TEXT_SM))
-                        .padding([style::SPACE_XS, style::SPACE_SM])
-                        .on_press(Message::RemoveCondition(idx))
-                        .style(theme::ghost_button(cs)),
+                    button(
+                        lucide_icons::iced::icon_x()
+                            .size(style::TEXT_SM)
+                            .color(cs.on_surface_variant),
+                    )
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .on_press(Message::RemoveCondition(idx))
+                    .style(theme::icon_button(cs)),
                 ]
                 .spacing(style::SPACE_SM)
                 .align_y(Alignment::Center);
@@ -1131,10 +1326,19 @@ impl Torrents {
 
             form = form.push(
                 row![
-                    button(text("+ Condition").size(style::TEXT_SM))
-                        .padding([style::SPACE_SM, style::SPACE_LG])
-                        .on_press(Message::AddCondition)
-                        .style(theme::ghost_button(cs)),
+                    button(
+                        row![
+                            lucide_icons::iced::icon_plus()
+                                .size(style::TEXT_SM)
+                                .color(cs.on_surface_variant),
+                            text("Condition").size(style::TEXT_SM),
+                        ]
+                        .spacing(style::SPACE_XS)
+                        .align_y(Alignment::Center),
+                    )
+                    .padding([style::SPACE_SM, style::SPACE_LG])
+                    .on_press(Message::AddCondition)
+                    .style(theme::ghost_button(cs)),
                     Space::new().width(Length::Fill),
                     button(text("Cancel").size(style::TEXT_SM))
                         .padding([style::SPACE_SM, style::SPACE_LG])
@@ -1153,6 +1357,18 @@ impl Torrents {
                     .style(theme::card(cs))
                     .padding(style::SPACE_LG),
             );
+        }
+
+        if self.filters.is_empty() && self.editing_filter.is_none() {
+            content = content.push(crate::widgets::empty_state(
+                cs,
+                lucide_icons::iced::icon_list_filter()
+                    .size(48.0)
+                    .color(cs.outline)
+                    .into(),
+                "No filters",
+                "Create a filter to auto-sort torrents",
+            ));
         }
 
         // Filter list
@@ -1181,7 +1397,8 @@ impl Torrents {
                 row![
                     toggler(enabled)
                         .on_toggle(move |v| Message::ToggleFilter(filter_id, v))
-                        .size(16.0),
+                        .size(style::TOGGLER_SIZE)
+                        .style(theme::toggler_style(cs)),
                     column![
                         text(&filter.name)
                             .size(style::TEXT_SM)
@@ -1205,14 +1422,22 @@ impl Torrents {
                     ]
                     .spacing(style::SPACE_XXS)
                     .width(Length::Fill),
-                    button(text("Edit").size(style::TEXT_XS))
-                        .padding([style::SPACE_XS, style::SPACE_SM])
-                        .on_press(Message::EditFilter(Some(filter.clone())))
-                        .style(theme::ghost_button(cs)),
-                    button(text("Delete").size(style::TEXT_XS))
-                        .padding([style::SPACE_XS, style::SPACE_SM])
-                        .on_press(Message::DeleteFilter(filter_id))
-                        .style(theme::ghost_button(cs)),
+                    button(
+                        lucide_icons::iced::icon_pencil()
+                            .size(style::TEXT_SM)
+                            .color(cs.on_surface_variant),
+                    )
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .on_press(Message::EditFilter(Some(filter.clone())))
+                    .style(theme::icon_button(cs)),
+                    button(
+                        lucide_icons::iced::icon_trash_2()
+                            .size(style::TEXT_SM)
+                            .color(cs.on_surface_variant),
+                    )
+                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .on_press(Message::DeleteFilter(filter_id))
+                    .style(theme::icon_button(cs)),
                 ]
                 .spacing(style::SPACE_MD)
                 .align_y(Alignment::Center),
@@ -1410,4 +1635,30 @@ fn torrent_detail_panel<'a>(
     )
     .height(Length::Fill)
     .into()
+}
+
+// ── Download helper ──────────────────────────────────────────────
+
+/// Launch a download using the configured torrent client or fall back to `open::that`.
+fn launch_download(url: &str, torrent_client: Option<&str>) {
+    if let Some(cmd_template) = torrent_client {
+        let parts: Vec<&str> = cmd_template.split_whitespace().collect();
+        if let Some((&program, args_template)) = parts.split_first() {
+            let args: Vec<String> = if cmd_template.contains("{}") {
+                args_template.iter().map(|a| a.replace("{}", url)).collect()
+            } else {
+                let mut a: Vec<String> = args_template.iter().map(|s| s.to_string()).collect();
+                a.push(url.to_string());
+                a
+            };
+            match std::process::Command::new(program).args(&args).spawn() {
+                Ok(_) => tracing::info!(client = program, url, "Launched torrent client"),
+                Err(e) => {
+                    tracing::warn!(client = program, error = %e, "Failed to launch torrent client")
+                }
+            }
+        }
+    } else {
+        let _ = open::that(url);
+    }
 }

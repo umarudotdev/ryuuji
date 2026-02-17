@@ -125,8 +125,12 @@ pub struct TorrentConfig {
     pub auto_check_interval: u64,
     /// Download directory for .torrent files.
     pub download_dir: Option<String>,
-    /// Path to external torrent client.
+    /// Command template for external torrent client, e.g. `"qbittorrent {}"`.
+    /// `{}` is replaced with the magnet URI or .torrent link.
     pub torrent_client: Option<String>,
+    /// Auto-download items with Preferred filter state on each RSS refresh.
+    #[serde(default)]
+    pub auto_download: bool,
 }
 
 /// Logging configuration.
