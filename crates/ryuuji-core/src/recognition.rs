@@ -3,6 +3,7 @@ use std::collections::{HashMap, VecDeque};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 
+use crate::debug_log::CacheStats;
 use crate::error::RyuujiError;
 use crate::matcher::{self, MatchResult};
 use crate::models::Anime;
@@ -25,6 +26,7 @@ pub struct RecognitionCache {
     normalized_index: HashMap<String, i64>,
     query_cache: VecDeque<(String, CachedMatch)>,
     populated: bool,
+    stats: CacheStats,
 }
 
 /// A cached recognition result (avoids cloning full Anime on every cache hit).
@@ -49,6 +51,7 @@ impl RecognitionCache {
             normalized_index: HashMap::new(),
             query_cache: VecDeque::with_capacity(QUERY_CACHE_CAPACITY),
             populated: false,
+            stats: CacheStats::default(),
         }
     }
 
@@ -72,6 +75,7 @@ impl RecognitionCache {
         }
 
         self.populated = true;
+        self.stats.entries_indexed = self.entries.len();
         Ok(())
     }
 
@@ -82,6 +86,12 @@ impl RecognitionCache {
         self.exact_index.clear();
         self.normalized_index.clear();
         self.query_cache.clear();
+        self.stats = CacheStats::default();
+    }
+
+    /// Return current cache statistics.
+    pub fn stats(&self) -> CacheStats {
+        self.stats.clone()
     }
 
     /// Recognize an anime title, using cached indices for fast lookup.
@@ -109,6 +119,7 @@ impl RecognitionCache {
         // 1. Check query cache.
         if let Some(cached) = self.query_cache_lookup(query) {
             tracing::debug!(method = "query_cache", "Recognition hit");
+            self.stats.hits_lru += 1;
             return cached;
         }
 
@@ -118,6 +129,8 @@ impl RecognitionCache {
                 tracing::debug!(method = "exact", matched = %anime.title.preferred(), "Recognition hit");
                 let result = MatchResult::Matched(anime);
                 self.query_cache_insert(query, &result);
+                self.stats.hits_exact += 1;
+                self.stats.lru_size = self.query_cache.len();
                 return result;
             }
         }
@@ -129,6 +142,8 @@ impl RecognitionCache {
                 tracing::debug!(method = "normalized", matched = %anime.title.preferred(), "Recognition hit");
                 let result = MatchResult::Matched(anime);
                 self.query_cache_insert(query, &result);
+                self.stats.hits_normalized += 1;
+                self.stats.lru_size = self.query_cache.len();
                 return result;
             }
         }
@@ -143,13 +158,16 @@ impl RecognitionCache {
                     confidence = format!("{:.1}%", confidence * 100.0),
                     "Recognition hit"
                 );
+                self.stats.hits_fuzzy += 1;
             }
             MatchResult::NoMatch => {
                 tracing::debug!("No recognition match");
+                self.stats.misses += 1;
             }
             _ => {}
         }
         self.query_cache_insert(query, &result);
+        self.stats.lru_size = self.query_cache.len();
         result
     }
 
@@ -420,5 +438,58 @@ mod tests {
             cache.recognize("", &storage),
             MatchResult::NoMatch
         ));
+    }
+
+    #[test]
+    fn test_cache_stats_exact() {
+        let storage = Storage::open_memory().unwrap();
+        insert_frieren(&storage);
+
+        let mut cache = RecognitionCache::new();
+        cache.recognize("Sousou no Frieren", &storage);
+        let stats = cache.stats();
+        assert_eq!(stats.hits_exact, 1);
+        assert_eq!(stats.misses, 0);
+    }
+
+    #[test]
+    fn test_cache_stats_lru() {
+        let storage = Storage::open_memory().unwrap();
+        insert_frieren(&storage);
+
+        let mut cache = RecognitionCache::new();
+        // First call: exact hit.
+        cache.recognize("Sousou no Frieren", &storage);
+        // Second call: LRU cache hit.
+        cache.recognize("Sousou no Frieren", &storage);
+        let stats = cache.stats();
+        assert_eq!(stats.hits_exact, 1);
+        assert_eq!(stats.hits_lru, 1);
+    }
+
+    #[test]
+    fn test_cache_stats_reset_on_invalidate() {
+        let storage = Storage::open_memory().unwrap();
+        insert_frieren(&storage);
+
+        let mut cache = RecognitionCache::new();
+        cache.recognize("Sousou no Frieren", &storage);
+        assert_eq!(cache.stats().hits_exact, 1);
+
+        cache.invalidate();
+        let stats = cache.stats();
+        assert_eq!(stats.hits_exact, 0);
+        assert_eq!(stats.entries_indexed, 0);
+    }
+
+    #[test]
+    fn test_cache_stats_miss() {
+        let storage = Storage::open_memory().unwrap();
+        insert_frieren(&storage);
+
+        let mut cache = RecognitionCache::new();
+        cache.recognize("Totally Unknown Anime Title", &storage);
+        let stats = cache.stats();
+        assert_eq!(stats.misses, 1);
     }
 }
