@@ -33,14 +33,13 @@ pub fn toast_overlay<'a, Message: Clone + 'a>(
         return iced::widget::Space::new().width(0).height(0).into();
     }
 
-    let mut toast_column = column![].spacing(style::SPACE_SM).width(Length::Fixed(320.0));
+    let mut toast_column = column![]
+        .spacing(style::SPACE_SM)
+        .width(Length::Fixed(320.0));
 
     for toast in toasts {
         let (icon, bg_color) = match toast.kind {
-            ToastKind::Success => (
-                lucide_icons::iced::icon_circle_check(),
-                cs.status_completed,
-            ),
+            ToastKind::Success => (lucide_icons::iced::icon_circle_check(), cs.status_completed),
             ToastKind::Error => (lucide_icons::iced::icon_circle_x(), cs.error),
             ToastKind::Info => (lucide_icons::iced::icon_info(), cs.primary),
         };

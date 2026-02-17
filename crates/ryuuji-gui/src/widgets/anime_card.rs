@@ -38,10 +38,13 @@ pub fn anime_card<'a, Message: Clone + 'static>(
         text(title.to_string())
             .size(style::TEXT_SM)
             .font(style::FONT_HEADING)
+            .color(cs.on_surface)
             .line_height(style::LINE_HEIGHT_NORMAL)
             .wrapping(iced::widget::text::Wrapping::WordOrGlyph),
     )
-    .height(Length::Fixed(style::TEXT_SM * style::LINE_HEIGHT_NORMAL * 2.0 + 2.0))
+    .height(Length::Fixed(
+        style::TEXT_SM * style::LINE_HEIGHT_NORMAL * 2.0 + 2.0,
+    ))
     .clip(true);
 
     // Episode text
@@ -65,8 +68,7 @@ pub fn anime_card<'a, Message: Clone + 'static>(
     }
 
     // Status color indicator — thin left border via a styled container
-    let inner = container(card_content)
-        .style(theme::anime_card_style(cs, status_color));
+    let inner = container(card_content).style(theme::anime_card_style(cs, status_color));
 
     button(inner)
         .padding(0)

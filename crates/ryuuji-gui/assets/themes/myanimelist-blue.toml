@@ -1,0 +1,107 @@
+[meta]
+name = "MyAnimeList Blue"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Navy-tinted variant inspired by MAL's brand blue.
+
+[dark.surface]
+container_lowest = "#080A14"
+base = "#0D0F1A"
+container_low = "#141825"
+container = "#1A1F30"
+container_high = "#222840"
+container_highest = "#2B3252"
+bright = "#363D5A"
+
+[dark.text]
+on_surface = "#DEE0EA"
+on_surface_variant = "#9CA0B8"
+outline = "#6C7194"
+outline_variant = "#3C4264"
+
+[dark.primary]
+base = "#5181D5"
+hover = "#6493E2"
+dim = "#3C6CC0"
+on_primary = "#FFFFFF"
+container = "#2E51A2"
+on_container = "#C2D5F4"
+
+[dark.secondary]
+container = "#2B3252"
+on_container = "#9CA0B8"
+
+[dark.tertiary]
+base = "#F9D457"
+on_tertiary = "#1A1F30"
+
+[dark.error]
+base = "#F44E5A"
+hover = "#D13A45"
+pressed = "#B42D37"
+on_error = "#FFFFFF"
+
+[dark.status]
+watching = "#2DB039"
+completed = "#5181D5"
+on_hold = "#F9D457"
+dropped = "#F44E5A"
+plan = "#9CA0B8"
+
+[dark.inverse]
+surface = "#DEE0EA"
+on_surface = "#0D0F1A"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#F1F3F9"
+container_low = "#EBEDF5"
+container = "#E4E6F0"
+container_high = "#DDDFE9"
+container_highest = "#D6D8E4"
+bright = "#CDCFDD"
+
+[light.text]
+on_surface = "#1B1E2E"
+on_surface_variant = "#484C66"
+outline = "#707494"
+outline_variant = "#C4C7D8"
+
+[light.primary]
+base = "#2E51A2"
+hover = "#243F82"
+dim = "#4267B5"
+on_primary = "#FFFFFF"
+container = "#CFD9F4"
+on_container = "#142344"
+
+[light.secondary]
+container = "#DEE1F0"
+on_container = "#1B1E2E"
+
+[light.tertiary]
+base = "#9C7400"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#BA1A1A"
+hover = "#9C1414"
+pressed = "#7E0E0E"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#1F8A2C"
+completed = "#2E51A2"
+on_hold = "#9C7400"
+dropped = "#A12F31"
+plan = "#484C66"
+
+[light.inverse]
+surface = "#1B1E2E"
+on_surface = "#F1F3F9"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

@@ -282,10 +282,7 @@ pub fn settings_nav_item(
 
     move |_theme, status| {
         let bg = if is_active {
-            Some(Background::Color(Color {
-                a: 0.12,
-                ..primary
-            }))
+            Some(Background::Color(Color { a: 0.12, ..primary }))
         } else {
             match status {
                 button::Status::Hovered => Some(Background::Color(surface_bright)),

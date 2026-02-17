@@ -340,13 +340,13 @@ impl Seasons {
         }
 
         // View mode toggle
-        let list_icon = lucide_icons::iced::icon_list()
-            .size(style::TEXT_SM)
-            .color(if self.view_mode == ViewMode::List {
+        let list_icon = lucide_icons::iced::icon_list().size(style::TEXT_SM).color(
+            if self.view_mode == ViewMode::List {
                 cs.primary
             } else {
                 cs.on_surface_variant
-            });
+            },
+        );
         let grid_icon = lucide_icons::iced::icon_layout_grid()
             .size(style::TEXT_SM)
             .color(if self.view_mode == ViewMode::Grid {

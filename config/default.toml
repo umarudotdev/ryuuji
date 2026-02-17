@@ -53,3 +53,5 @@ file_logging = true
 enabled = false
 # Auto-check interval in minutes (0 = disabled).
 auto_check_interval = 0
+# Auto-download torrents matching a "Prefer" filter.
+auto_download = false

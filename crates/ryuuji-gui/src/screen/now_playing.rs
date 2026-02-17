@@ -173,12 +173,7 @@ fn playing_dashboard<'a>(
                 let p = (entry.watched_episodes as f32 / t as f32).clamp(0.0, 1.0);
                 (
                     p,
-                    format!(
-                        "Ep {} / {}  ({:.0}%)",
-                        entry.watched_episodes,
-                        t,
-                        p * 100.0
-                    ),
+                    format!("Ep {} / {}  ({:.0}%)", entry.watched_episodes, t, p * 100.0),
                 )
             }
             _ => (0.0, format!("Ep {}", entry.watched_episodes)),
@@ -201,26 +196,30 @@ fn playing_dashboard<'a>(
         let max_ep = lib_row.anime.episodes.unwrap_or(u32::MAX);
 
         let ep_dec = if entry.watched_episodes > 0 {
-            Some(Message::EpisodeChanged(anime_id, entry.watched_episodes - 1))
+            Some(Message::EpisodeChanged(
+                anime_id,
+                entry.watched_episodes - 1,
+            ))
         } else {
             None
         };
         let ep_inc = if entry.watched_episodes < max_ep {
-            Some(Message::EpisodeChanged(anime_id, entry.watched_episodes + 1))
+            Some(Message::EpisodeChanged(
+                anime_id,
+                entry.watched_episodes + 1,
+            ))
         } else {
             None
         };
 
-        title_block = title_block.push(
-            widgets::stepper(
-                cs,
-                episode_input,
-                Message::EpisodeInputChanged,
-                Message::EpisodeInputSubmitted,
-                ep_dec,
-                ep_inc,
-            ),
-        );
+        title_block = title_block.push(widgets::stepper(
+            cs,
+            episode_input,
+            Message::EpisodeInputChanged,
+            Message::EpisodeInputSubmitted,
+            ep_dec,
+            ep_inc,
+        ));
     } else {
         // Show episode from detection for unmatched media
         let episode_text = media
@@ -383,11 +382,7 @@ fn playing_dashboard<'a>(
         .spacing(style::SPACE_SM);
 
         if entry.rewatching {
-            entry_col = entry_col.push(info_row(
-                cs,
-                "Rewatch #",
-                entry.rewatch_count.to_string(),
-            ));
+            entry_col = entry_col.push(info_row(cs, "Rewatch #", entry.rewatch_count.to_string()));
         }
 
         let entry_card = container(entry_col)
@@ -396,8 +391,7 @@ fn playing_dashboard<'a>(
             .width(Length::FillPortion(1));
 
         if !info_rows.is_empty() {
-            let mut info_col =
-                column![section_heading(cs, "Anime Info")].spacing(style::SPACE_SM);
+            let mut info_col = column![section_heading(cs, "Anime Info")].spacing(style::SPACE_SM);
             for r in info_rows {
                 info_col = info_col.push(r);
             }

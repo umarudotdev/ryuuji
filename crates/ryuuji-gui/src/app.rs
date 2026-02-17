@@ -217,6 +217,7 @@ impl Ryuuji {
                     let action = self.torrents.update(
                         torrents::Message::TabChanged(self.torrents.tab),
                         self.db.as_ref(),
+                        &self.config.torrent,
                     );
                     return self.handle_action(action);
                 }
@@ -432,15 +433,13 @@ impl Ryuuji {
                     self.now_playing.matched_row = row;
                     cover_task
                 }
-                now_playing::Message::EpisodeChanged(id, ep) => {
-                    self.spawn_sync_update(
-                        id,
-                        LibraryEntryUpdate {
-                            episode: Some(ep),
-                            ..Default::default()
-                        },
-                    )
-                }
+                now_playing::Message::EpisodeChanged(id, ep) => self.spawn_sync_update(
+                    id,
+                    LibraryEntryUpdate {
+                        episode: Some(ep),
+                        ..Default::default()
+                    },
+                ),
                 now_playing::Message::EpisodeInputChanged(val) => {
                     self.now_playing.episode_input = val;
                     Task::none()
@@ -933,11 +932,15 @@ impl Ryuuji {
                 cover_task
             }
             Message::Torrents(msg) => {
-                let action = self.torrents.update(msg, self.db.as_ref());
+                let action = self
+                    .torrents
+                    .update(msg, self.db.as_ref(), &self.config.torrent);
                 self.handle_action(action)
             }
             Message::TorrentTick => {
-                let action = self.torrents.refresh_feeds(self.db.as_ref());
+                let action = self
+                    .torrents
+                    .refresh_feeds(self.db.as_ref(), &self.config.torrent);
                 self.handle_action(action)
             }
             Message::Stats(msg) => {
@@ -948,11 +951,7 @@ impl Ryuuji {
             Message::ShowToast(message, kind) => {
                 let id = self.next_toast_id;
                 self.next_toast_id += 1;
-                self.toasts.push(Toast {
-                    id,
-                    message,
-                    kind,
-                });
+                self.toasts.push(Toast { id, message, kind });
                 // Auto-dismiss after delay.
                 Task::perform(
                     async {
@@ -2086,9 +2085,7 @@ impl Ryuuji {
                 Task::none()
             }
             Action::RunTask(task) => task,
-            Action::ShowToast(message, kind) => {
-                self.update(Message::ShowToast(message, kind))
-            }
+            Action::ShowToast(message, kind) => self.update(Message::ShowToast(message, kind)),
         }
     }
 
@@ -2326,16 +2323,14 @@ impl Ryuuji {
                 nav_item(icons::icon_search(), "Search", Page::Search),
                 nav_item(icons::icon_calendar(), "Seasons", Page::Seasons),
                 nav_item(icons::icon_download(), "Torrents", Page::Torrents),
+                nav_item(icons::icon_chart_bar(), "Stats", Page::Stats),
             ]
             .spacing(style::SPACE_XS)
             .align_x(Alignment::Center),
             iced::widget::Space::new().height(Length::Fill),
-            column![
-                nav_item(icons::icon_chart_bar(), "Stats", Page::Stats),
-                nav_item(icons::icon_settings(), "Settings", Page::Settings),
-            ]
-            .spacing(style::SPACE_XS)
-            .align_x(Alignment::Center),
+            column![nav_item(icons::icon_settings(), "Settings", Page::Settings),]
+                .spacing(style::SPACE_XS)
+                .align_x(Alignment::Center),
         ]
         .align_x(Alignment::Center)
         .width(Length::Fill)
@@ -2345,7 +2340,11 @@ impl Ryuuji {
             .style(theme::nav_rail_bg(cs))
             .width(Length::Fixed(style::NAV_RAIL_WIDTH))
             .height(Length::Fill)
-            .padding(iced::Padding::new(0.0).top(style::SPACE_LG))
+            .padding(
+                iced::Padding::new(0.0)
+                    .top(style::SPACE_LG)
+                    .bottom(style::SPACE_LG),
+            )
             .into()
     }
 }
