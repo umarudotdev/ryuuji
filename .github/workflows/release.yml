@@ -96,12 +96,15 @@ jobs:
           cp crates/ryuuji-gui/assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/ryuuji.png
           ./linuxdeploy --appdir AppDir --output appimage --desktop-file AppDir/usr/share/applications/ryuuji.desktop
 
+      - name: Flatten .deb to workspace root
+        run: cp target/debian/ryuuji_*.deb .
+
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
           name: packages-linux
           path: |
-            target/debian/ryuuji_*.deb
+            ryuuji_*.deb
             Ryuuji-*.AppImage
 
   package-windows:
