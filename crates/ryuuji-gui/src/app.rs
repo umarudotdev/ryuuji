@@ -4,6 +4,7 @@ use iced::{Alignment, Element, Length, Subscription, Task, Theme};
 
 use chrono::Utc;
 use ryuuji_core::config::AppConfig;
+use ryuuji_core::debug_log::{self, DebugEvent, SharedEventLog};
 use ryuuji_core::models::{Anime, AnimeIds, AnimeTitle, DetectedMedia, LibraryEntry, WatchStatus};
 use ryuuji_core::orchestrator::UpdateOutcome;
 use ryuuji_core::storage::LibraryRow;
@@ -29,6 +30,7 @@ pub struct Ryuuji {
     page: Page,
     config: AppConfig,
     db: Option<DbHandle>,
+    event_log: SharedEventLog,
     // Theme
     current_theme: RyuujiTheme,
     active_mode: ThemeMode,
@@ -56,8 +58,9 @@ impl Default for Ryuuji {
     fn default() -> Self {
         let config = AppConfig::load().unwrap_or_default();
         let settings_screen = settings::Settings::from_config(&config);
+        let event_log = debug_log::shared_event_log();
         let db = match AppConfig::ensure_db_path() {
-            Ok(path) => DbHandle::open(&path),
+            Ok(path) => DbHandle::open(&path, event_log.clone()),
             Err(e) => {
                 tracing::error!(error = %e, "Failed to create database directory");
                 None
@@ -79,6 +82,7 @@ impl Default for Ryuuji {
             page: Page::default(),
             config,
             db,
+            event_log,
             current_theme,
             active_mode,
             now_playing: now_playing::NowPlaying::new(),
@@ -231,7 +235,10 @@ impl Ryuuji {
                 }
                 Task::none()
             }
-            Message::DetectionTick => Task::perform(detect_and_parse(), Message::DetectionResult),
+            Message::DetectionTick => {
+                let log = self.event_log.clone();
+                Task::perform(detect_and_parse(log), Message::DetectionResult)
+            }
             Message::DetectionResult(media) => {
                 if media.is_none() {
                     self.now_playing.matched_row = None;
@@ -2252,11 +2259,28 @@ impl Ryuuji {
 
 /// Perform media detection and filename parsing off the main thread.
 #[tracing::instrument(name = "detect_and_parse", skip_all)]
-async fn detect_and_parse() -> Option<DetectedMedia> {
+async fn detect_and_parse(event_log: SharedEventLog) -> Option<DetectedMedia> {
     let players = ryuuji_detect::detect_players();
     tracing::debug!(player_count = players.len(), "Detection tick");
 
+    {
+        let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+        log.push(DebugEvent::DetectionTick {
+            players_found: players.len() as u32,
+        });
+    }
+
     let player = players.into_iter().next()?;
+
+    {
+        let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+        log.push(DebugEvent::PlayerDetected {
+            player_name: player.player_name.clone(),
+            file_path: player.file_path.clone(),
+            is_browser: player.is_browser,
+            media_title: player.media_title.clone(),
+        });
+    }
 
     if player.is_browser {
         // Browser detected — try stream service matching.
@@ -2270,16 +2294,40 @@ async fn detect_and_parse() -> Option<DetectedMedia> {
                     title = %m.extracted_title,
                     "Stream service matched"
                 );
+                {
+                    let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+                    log.push(DebugEvent::StreamMatched {
+                        service_name: m.service_name.clone(),
+                        extracted_title: m.extracted_title.clone(),
+                    });
+                }
                 m
             }
             None => {
                 tracing::debug!(player = %player.player_name, "Browser detected but no stream service matched");
+                {
+                    let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+                    log.push(DebugEvent::StreamNotMatched {
+                        player_name: player.player_name.clone(),
+                    });
+                }
                 return None;
             }
         };
 
         let raw_title = stream_match.extracted_title;
         let parsed = ryuuji_parse::parse(&raw_title);
+
+        {
+            let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+            log.push(DebugEvent::Parsed {
+                raw_title: raw_title.clone(),
+                title: parsed.title.clone(),
+                episode: parsed.episode_number,
+                group: parsed.release_group.clone(),
+                resolution: parsed.resolution.clone(),
+            });
+        }
 
         return Some(DetectedMedia {
             player_name: player.player_name,
@@ -2306,6 +2354,17 @@ async fn detect_and_parse() -> Option<DetectedMedia> {
 
     tracing::debug!(player = %player.player_name, raw_title = %raw_title, "Parsing filename");
     let parsed = ryuuji_parse::parse(&raw_title);
+
+    {
+        let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+        log.push(DebugEvent::Parsed {
+            raw_title: raw_title.clone(),
+            title: parsed.title.clone(),
+            episode: parsed.episode_number,
+            group: parsed.release_group.clone(),
+            resolution: parsed.resolution.clone(),
+        });
+    }
 
     Some(DetectedMedia {
         player_name: player.player_name,
