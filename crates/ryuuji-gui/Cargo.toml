@@ -39,6 +39,9 @@ open = "5"
 arboard = { workspace = true }
 discord-rich-presence = { workspace = true }
 
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
 [package.metadata.deb]
 name = "ryuuji"
 depends = "$auto, libdbus-1-3"
