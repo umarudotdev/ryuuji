@@ -1,0 +1,106 @@
+[meta]
+name = "Rosé Pine"
+
+# ── Dark variant (Rosé Pine Main) ─────────────────────────────────
+
+[dark.surface]
+container_lowest = "#16141f"   # darker than base
+base = "#191724"               # base
+container_low = "#1f1d2e"      # surface
+container = "#26233a"          # overlay
+container_high = "#2d2a3e"     # between overlay and muted
+container_highest = "#342f48"  # toward muted
+bright = "#3d3852"             # brighter surface
+
+[dark.text]
+on_surface = "#e0def4"         # text
+on_surface_variant = "#908caa" # subtle
+outline = "#6e6a86"            # muted
+outline_variant = "#3d3852"    # border tone
+
+[dark.primary]
+base = "#31748f"               # pine
+hover = "#3b8aa8"
+dim = "#296579"
+on_primary = "#e0def4"         # text on pine
+container = "#1f4a5e"
+on_container = "#9ccfd8"       # foam (light pine)
+
+[dark.secondary]
+container = "#2d2746"          # iris-tinted overlay
+on_container = "#c4a7e7"       # iris
+
+[dark.tertiary]
+base = "#f6c177"               # gold
+on_tertiary = "#191724"
+
+[dark.error]
+base = "#eb6f92"               # love
+hover = "#d4577a"
+pressed = "#c04468"
+on_error = "#191724"
+
+[dark.status]
+watching = "#31748f"           # pine
+completed = "#9ccfd8"          # foam
+on_hold = "#f6c177"            # gold
+dropped = "#eb6f92"            # love
+plan = "#908caa"               # subtle
+
+[dark.inverse]
+surface = "#e0def4"
+on_surface = "#191724"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant (Rosé Pine Dawn) ────────────────────────────────
+
+[light.surface]
+container_lowest = "#fffaf3"   # surface (lightest)
+base = "#faf4ed"               # base
+container_low = "#f4ede5"
+container = "#f2e9e1"          # overlay
+container_high = "#e8dfd6"
+container_highest = "#dfd6cd"
+bright = "#d4cbc2"
+
+[light.text]
+on_surface = "#464261"         # text (dark)
+on_surface_variant = "#797593" # subtle
+outline = "#9893a5"            # muted
+outline_variant = "#dfd6cd"    # border tone
+
+[light.primary]
+base = "#286983"               # pine
+hover = "#1f5469"
+dim = "#3a7d97"
+on_primary = "#fffaf3"
+container = "#c4e2ec"
+on_container = "#1a4a5e"
+
+[light.secondary]
+container = "#e8dff0"
+on_container = "#464261"
+
+[light.tertiary]
+base = "#ea9d34"               # gold
+on_tertiary = "#faf4ed"
+
+[light.error]
+base = "#b4637a"               # love
+hover = "#9a4f65"
+pressed = "#833d53"
+on_error = "#fffaf3"
+
+[light.status]
+watching = "#286983"           # pine
+completed = "#56949f"          # foam
+on_hold = "#ea9d34"            # gold
+dropped = "#b4637a"            # love
+plan = "#797593"               # subtle
+
+[light.inverse]
+surface = "#464261"
+on_surface = "#faf4ed"
+scrim = "#000000"
+modal_backdrop = "#0000008C"
