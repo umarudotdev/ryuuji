@@ -1506,6 +1506,42 @@ $demo-cat-file:    $text-outline;   // muted — checksum, extension, language, 
   user-select: none;
 }
 
+.download-scoop {
+  margin-bottom: $space-2xl;
+  text-align: center;
+
+  p {
+    font-size: $text-sm;
+    color: $text-outline;
+    margin-bottom: $space-md;
+
+    a {
+      color: $primary-dim;
+      text-decoration: none;
+      border-bottom: 1px solid rgba($primary-dim, 0.3);
+      transition: border-color 0.15s ease;
+
+      &:hover {
+        border-color: $primary-dim;
+      }
+    }
+  }
+
+  .code-block {
+    display: inline-block;
+    text-align: left;
+
+    & + .code-block {
+      margin-top: $space-xs;
+    }
+
+    @media (max-width: $bp-mobile) {
+      font-size: $text-xs;
+      padding: $space-md $space-lg;
+    }
+  }
+}
+
 .download-features {
   margin-bottom: $space-2xl;
 
