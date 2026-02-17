@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://ryuuji.umaru.dev">
-    <img src="assets/logo-mark.svg" width="80" height="80" alt="Ryuuji">
+    <img src="assets/logo-icon.svg" width="80" height="80" alt="Ryuuji">
   </a>
 </p>
 
