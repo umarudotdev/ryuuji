@@ -18,6 +18,9 @@ pub(crate) const DEFAULT_THEME_TOML: &str = include_str!("../assets/themes/defau
 /// Embedded Tokyo Night theme.
 pub(crate) const TOKYO_NIGHT_THEME_TOML: &str = include_str!("../assets/themes/tokyo-night.toml");
 
+/// Embedded MyAnimeList theme.
+pub(crate) const MAL_THEME_TOML: &str = include_str!("../assets/themes/myanimelist.toml");
+
 /// A fully loaded theme with both appearance variants.
 #[derive(Debug, Clone)]
 pub struct RyuujiTheme {
@@ -75,6 +78,7 @@ pub fn available_themes() -> Vec<RyuujiTheme> {
         RyuujiTheme::default_theme(),
         RyuujiTheme::from_toml(TOKYO_NIGHT_THEME_TOML)
             .expect("embedded Tokyo Night theme is valid TOML"),
+        RyuujiTheme::from_toml(MAL_THEME_TOML).expect("embedded MyAnimeList theme is valid TOML"),
     ];
 
     // Scan user themes directory.
