@@ -17,6 +17,7 @@ pub struct TokenResponse {
 
 /// Authenticate with Kitsu using Resource Owner Password Grant.
 pub async fn authenticate(username: &str, password: &str) -> Result<TokenResponse, KitsuError> {
+    tracing::info!(username, "Kitsu: authenticating");
     let http = reqwest::Client::new();
     let resp = http
         .post(TOKEN_URL)
@@ -44,6 +45,7 @@ pub async fn authenticate(username: &str, password: &str) -> Result<TokenRespons
 
 /// Refresh an expired access token.
 pub async fn refresh(refresh_token: &str) -> Result<TokenResponse, KitsuError> {
+    tracing::debug!("Kitsu: refreshing access token");
     let http = reqwest::Client::new();
     let resp = http
         .post(TOKEN_URL)

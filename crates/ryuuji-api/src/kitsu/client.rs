@@ -178,6 +178,7 @@ impl AnimeService for KitsuClient {
     }
 
     async fn search_anime(&self, query: &str) -> Result<Vec<AnimeSearchResult>, KitsuError> {
+        tracing::debug!(query, "Kitsu: searching anime");
         let resp = self
             .http
             .get(format!("{BASE_URL}/anime"))
@@ -201,14 +202,26 @@ impl AnimeService for KitsuClient {
             .data
             .into_iter()
             .filter_map(|r| {
-                let id: u64 = r.id.parse().ok()?;
-                let attrs: KitsuAnimeAttributes = serde_json::from_value(r.attributes).ok()?;
-                Some(attrs.into_search_result(id))
+                let id: u64 = match r.id.parse() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        tracing::warn!(raw_id = %r.id, error = %e, "Kitsu: failed to parse resource ID");
+                        return None;
+                    }
+                };
+                match serde_json::from_value::<KitsuAnimeAttributes>(r.attributes) {
+                    Ok(attrs) => Some(attrs.into_search_result(id)),
+                    Err(e) => {
+                        tracing::warn!(id, error = %e, "Kitsu: failed to deserialize anime attributes");
+                        None
+                    }
+                }
             })
             .collect())
     }
 
     async fn get_user_list(&self) -> Result<Vec<UserListEntry>, KitsuError> {
+        tracing::debug!("Kitsu: fetching user anime list");
         let items = self.get_user_list_full().await?;
         Ok(items
             .into_iter()
@@ -221,6 +234,7 @@ impl AnimeService for KitsuClient {
         anime_id: u64,
         update: LibraryEntryUpdate,
     ) -> Result<(), KitsuError> {
+        tracing::debug!(anime_id, "Kitsu: updating library entry");
         // First, find the library entry ID for this anime.
         let user_id = self.get_user_id().await?;
         let entry_id = self.find_library_entry_id(&user_id, anime_id).await?;
@@ -327,6 +341,7 @@ impl AnimeService for KitsuClient {
     }
 
     async fn add_library_entry(&self, anime_id: u64, status: &str) -> Result<(), KitsuError> {
+        tracing::debug!(anime_id, status, "Kitsu: adding library entry");
         let user_id = self.get_user_id().await?;
         let kitsu_status = map_status_to_kitsu(status);
 
@@ -372,6 +387,7 @@ impl AnimeService for KitsuClient {
     }
 
     async fn delete_library_entry(&self, anime_id: u64) -> Result<(), KitsuError> {
+        tracing::debug!(anime_id, "Kitsu: deleting library entry");
         let user_id = self.get_user_id().await?;
         let entry_id = self.find_library_entry_id(&user_id, anime_id).await?;
 
@@ -402,6 +418,7 @@ impl AnimeService for KitsuClient {
         year: u32,
         page: u32,
     ) -> Result<SeasonPage, KitsuError> {
+        tracing::debug!(%season, year, page, "Kitsu: browsing season");
         let offset = (page.saturating_sub(1)) * 20;
 
         let resp = self
@@ -435,9 +452,20 @@ impl AnimeService for KitsuClient {
             .data
             .into_iter()
             .filter_map(|r| {
-                let id: u64 = r.id.parse().ok()?;
-                let attrs: KitsuAnimeAttributes = serde_json::from_value(r.attributes).ok()?;
-                Some(attrs.into_search_result(id))
+                let id: u64 = match r.id.parse() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        tracing::warn!(raw_id = %r.id, error = %e, "Kitsu: failed to parse resource ID");
+                        return None;
+                    }
+                };
+                match serde_json::from_value::<KitsuAnimeAttributes>(r.attributes) {
+                    Ok(attrs) => Some(attrs.into_search_result(id)),
+                    Err(e) => {
+                        tracing::warn!(id, error = %e, "Kitsu: failed to deserialize anime attributes");
+                        None
+                    }
+                }
             })
             .collect();
 

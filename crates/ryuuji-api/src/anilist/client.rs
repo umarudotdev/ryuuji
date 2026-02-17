@@ -375,7 +375,10 @@ impl AnimeService for AniListClient {
                 Some(entry) => entry.id,
                 None => return Ok(()), // Not in list — already deleted.
             },
-            Err(_) => return Ok(()), // Lookup failed — treat as not in list.
+            Err(e) => {
+                tracing::warn!(error = %e, "AniList library entry lookup failed, treating as not in list");
+                return Ok(());
+            }
         };
 
         // Step 2: Delete by library entry ID.

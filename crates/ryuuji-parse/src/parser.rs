@@ -2,6 +2,8 @@ pub mod episode;
 pub mod season;
 pub mod title;
 
+use tracing::trace;
+
 use crate::elements::Elements;
 use crate::keyword::{self, KeywordKind};
 use crate::tokenizer::{self, Token, TokenKind};
@@ -35,6 +37,7 @@ pub fn parse(filename: &str) -> Elements {
     let mut identified = vec![false; tokens.len()];
 
     elements.file_extension = extension;
+    trace!(filename, tokens = tokens.len(), "Tokenized");
 
     // Pass 1: Identify keywords in bracketed tokens (contextual).
     identify_keywords_contextual(&tokens, &mut elements, &mut identified, true);
@@ -65,6 +68,13 @@ pub fn parse(filename: &str) -> Elements {
 
     // Pass 10: Extract episode title.
     elements.episode_title = title::extract_episode_title(&tokens, &identified, episode_idx);
+
+    trace!(
+        title = elements.title.as_deref().unwrap_or(""),
+        episode = elements.episode_number,
+        group = elements.release_group.as_deref().unwrap_or(""),
+        "Parse complete"
+    );
 
     elements
 }

@@ -139,6 +139,8 @@ pub enum Message {
     StatsLoaded(Result<LibraryStats, String>),
     ExportLibrary,
     ExportResult(Result<String, String>),
+    // About
+    OpenLogsFolder,
 }
 
 // ── Implementation ─────────────────────────────────────────────────
@@ -311,6 +313,7 @@ impl Settings {
                         self.anilist_status = "Logged in to AniList.".into();
                     }
                     Err(e) => {
+                        tracing::warn!(service = "anilist", error = %e, "Login failed");
                         self.anilist_status = format!("Login failed: {e}");
                     }
                 }
@@ -329,6 +332,7 @@ impl Settings {
                         Action::RefreshLibrary
                     }
                     Err(e) => {
+                        tracing::warn!(service = "anilist", error = %e, "Import failed");
                         self.anilist_status = format!("Import failed: {e}");
                         Action::None
                     }
@@ -368,6 +372,7 @@ impl Settings {
                         self.kitsu_status = "Logged in to Kitsu.".into();
                     }
                     Err(e) => {
+                        tracing::warn!(service = "kitsu", error = %e, "Login failed");
                         self.kitsu_status = format!("Login failed: {e}");
                     }
                 }
@@ -386,6 +391,7 @@ impl Settings {
                         Action::RefreshLibrary
                     }
                     Err(e) => {
+                        tracing::warn!(service = "kitsu", error = %e, "Import failed");
                         self.kitsu_status = format!("Import failed: {e}");
                         Action::None
                     }
@@ -431,6 +437,7 @@ impl Settings {
                         self.mal_status = "Logged in to MAL.".into();
                     }
                     Err(e) => {
+                        tracing::warn!(service = "mal", error = %e, "Login failed");
                         self.mal_status = format!("Login failed: {e}");
                     }
                 }
@@ -449,6 +456,7 @@ impl Settings {
                         Action::RefreshLibrary
                     }
                     Err(e) => {
+                        tracing::warn!(service = "mal", error = %e, "Import failed");
                         self.mal_status = format!("Import failed: {e}");
                         Action::None
                     }
@@ -523,6 +531,7 @@ impl Settings {
                         self.scan_status = summary;
                     }
                     Err(e) => {
+                        tracing::warn!(error = %e, "Watch folder scan failed");
                         self.scan_status = format!("Scan failed: {e}");
                     }
                 }
@@ -541,7 +550,10 @@ impl Settings {
             Message::StatsLoaded(result) => {
                 match result {
                     Ok(stats) => self.library_stats = Some(stats),
-                    Err(_) => self.library_stats = None,
+                    Err(e) => {
+                        tracing::warn!(error = %e, "Failed to load library stats");
+                        self.library_stats = None;
+                    }
                 }
                 Action::None
             }
@@ -557,8 +569,18 @@ impl Settings {
                         self.export_status = format!("Exported to {path}");
                     }
                     Err(e) => {
+                        tracing::warn!(error = %e, "Library export failed");
                         self.export_status = format!("Export failed: {e}");
                     }
+                }
+                Action::None
+            }
+
+            // ── About ────────────────────────────────────────────
+            Message::OpenLogsFolder => {
+                let log_dir = AppConfig::log_dir();
+                if let Err(e) = open::that(&log_dir) {
+                    tracing::warn!(path = %log_dir.display(), error = %e, "Failed to open logs folder");
                 }
                 Action::None
             }
@@ -1288,6 +1310,7 @@ impl Settings {
         let version = env!("CARGO_PKG_VERSION");
         let config_path = AppConfig::config_path().display().to_string();
         let db_path = AppConfig::db_path().display().to_string();
+        let log_dir = AppConfig::log_dir().display().to_string();
 
         container(
             column![
@@ -1321,6 +1344,22 @@ impl Settings {
                         .line_height(style::LINE_HEIGHT_LOOSE),
                 ]
                 .spacing(style::SPACE_SM),
+                row![
+                    text("Logs:")
+                        .size(style::TEXT_SM)
+                        .color(cs.on_surface_variant)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                    text(log_dir)
+                        .size(style::TEXT_SM)
+                        .color(cs.outline)
+                        .line_height(style::LINE_HEIGHT_LOOSE),
+                    button(text("Open").size(style::TEXT_SM))
+                        .on_press(Message::OpenLogsFolder)
+                        .padding([style::SPACE_XXS, style::SPACE_SM])
+                        .style(theme::ghost_button(cs)),
+                ]
+                .spacing(style::SPACE_SM)
+                .align_y(Alignment::Center),
             ]
             .spacing(style::SPACE_SM),
         )

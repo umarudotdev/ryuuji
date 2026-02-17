@@ -99,6 +99,7 @@ impl AnimeService for MalClient {
     }
 
     async fn search_anime(&self, query: &str) -> Result<Vec<AnimeSearchResult>, MalError> {
+        tracing::debug!(query, "MAL: searching anime");
         let resp = self
             .http
             .get(format!("{BASE_URL}/v2/anime"))
@@ -121,6 +122,7 @@ impl AnimeService for MalClient {
     }
 
     async fn get_user_list(&self) -> Result<Vec<UserListEntry>, MalError> {
+        tracing::debug!("MAL: fetching user anime list");
         let items = self.get_user_list_full().await?;
         Ok(items
             .into_iter()
@@ -133,6 +135,7 @@ impl AnimeService for MalClient {
         anime_id: u64,
         update: LibraryEntryUpdate,
     ) -> Result<(), MalError> {
+        tracing::debug!(anime_id, "MAL: updating library entry");
         let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
 
         // MAL requires form-encoded body for PATCH, not JSON.
@@ -198,6 +201,7 @@ impl AnimeService for MalClient {
     }
 
     async fn add_library_entry(&self, anime_id: u64, status: &str) -> Result<(), MalError> {
+        tracing::debug!(anime_id, status, "MAL: adding library entry");
         // MAL's PATCH my_list_status is an upsert — creates if absent.
         let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
         let mal_status = map_status_to_mal(status);
@@ -215,6 +219,7 @@ impl AnimeService for MalClient {
     }
 
     async fn delete_library_entry(&self, anime_id: u64) -> Result<(), MalError> {
+        tracing::debug!(anime_id, "MAL: deleting library entry");
         let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
 
         let resp = self
@@ -238,6 +243,7 @@ impl AnimeService for MalClient {
         year: u32,
         page: u32,
     ) -> Result<SeasonPage, MalError> {
+        tracing::debug!(%season, year, page, "MAL: browsing season");
         let offset = (page.saturating_sub(1)) * 100;
         let url = format!("{BASE_URL}/v2/anime/season/{year}/{}", season.to_mal_str());
 

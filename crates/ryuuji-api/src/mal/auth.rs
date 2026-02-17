@@ -46,6 +46,7 @@ pub async fn authorize(client_id: &str) -> Result<TokenResponse, MalError> {
 
 /// Refresh an expired access token.
 pub async fn refresh(client_id: &str, refresh_token: &str) -> Result<TokenResponse, MalError> {
+    tracing::debug!("MAL: refreshing access token");
     let http = reqwest::Client::new();
     let resp = http
         .post(TOKEN_URL)
