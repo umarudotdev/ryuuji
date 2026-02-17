@@ -96,18 +96,13 @@ jobs:
           cp crates/ryuuji-gui/assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/ryuuji.png
           ./linuxdeploy --appdir AppDir --output appimage --desktop-file AppDir/usr/share/applications/ryuuji.desktop
 
-      - name: Rename AppImage
-        run: |
-          mv Ryuuji-*.AppImage \
-            "Ryuuji-${{ steps.version.outputs.VERSION }}-x86_64.AppImage"
-
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
           name: packages-linux
           path: |
             target/debian/ryuuji_*.deb
-            Ryuuji-${{ steps.version.outputs.VERSION }}-x86_64.AppImage
+            Ryuuji-*.AppImage
 
   package-windows:
     name: Package Windows
