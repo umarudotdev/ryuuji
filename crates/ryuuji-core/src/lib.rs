@@ -1,4 +1,5 @@
 pub mod config;
+pub mod debug_log;
 pub mod error;
 pub mod matcher;
 pub mod models;
