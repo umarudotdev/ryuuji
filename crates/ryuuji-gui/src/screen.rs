@@ -13,6 +13,7 @@ use iced::Task;
 use ryuuji_core::models::WatchStatus;
 
 use crate::app;
+use crate::toast::ToastKind;
 
 /// Which page is currently displayed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -25,7 +26,6 @@ pub enum Page {
     Seasons,
     Torrents,
     Stats,
-    Debug,
     Settings,
 }
 
@@ -49,6 +49,8 @@ pub enum Action {
     DismissModal,
     /// Run an async Iced task that eventually produces an app::Message.
     RunTask(Task<app::Message>),
+    /// Show a toast notification.
+    ShowToast(String, ToastKind),
 }
 
 /// Actions available in context menus for library entries.

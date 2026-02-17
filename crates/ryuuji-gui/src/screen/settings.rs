@@ -4,11 +4,63 @@ use iced::{Alignment, Element, Length, Task};
 use ryuuji_core::config::{AppConfig, ThemeMode};
 use ryuuji_core::models::WatchStatus;
 
+use ryuuji_core::debug_log::SharedEventLog;
+
 use crate::app;
 use crate::db::DbHandle;
+use crate::screen::debug;
 use crate::screen::Action;
 use crate::style;
 use crate::theme::{self, available_themes, ColorScheme};
+use crate::toast::ToastKind;
+
+// ── Settings Sections ─────────────────────────────────────────────
+
+/// Settings sidebar sections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SettingsSection {
+    #[default]
+    Appearance,
+    General,
+    Library,
+    WatchFolders,
+    Services,
+    Torrents,
+    Integrations,
+    Data,
+    About,
+    Debug,
+}
+
+impl SettingsSection {
+    pub const ALL: &'static [SettingsSection] = &[
+        SettingsSection::Appearance,
+        SettingsSection::General,
+        SettingsSection::Library,
+        SettingsSection::WatchFolders,
+        SettingsSection::Services,
+        SettingsSection::Torrents,
+        SettingsSection::Integrations,
+        SettingsSection::Data,
+        SettingsSection::About,
+        SettingsSection::Debug,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::General => "General",
+            Self::Library => "Library",
+            Self::WatchFolders => "Watch Folders",
+            Self::Services => "Services",
+            Self::Torrents => "Torrents",
+            Self::Integrations => "Integrations",
+            Self::Data => "Data",
+            Self::About => "About",
+            Self::Debug => "Debug",
+        }
+    }
+}
 
 // ── Stats DTO ──────────────────────────────────────────────────────
 
@@ -26,6 +78,7 @@ pub struct LibraryStats {
 
 /// Settings screen state.
 pub struct Settings {
+    pub active_section: SettingsSection,
     // Appearance
     pub selected_theme: String,
     pub selected_mode: ThemeMode,
@@ -74,6 +127,8 @@ pub struct Settings {
     pub library_stats: Option<LibraryStats>,
     pub export_status: String,
     pub export_busy: bool,
+    // Debug
+    pub debug: debug::Debug,
 }
 
 // ── Messages ───────────────────────────────────────────────────────
@@ -81,6 +136,8 @@ pub struct Settings {
 /// Messages handled by the Settings screen.
 #[derive(Debug, Clone)]
 pub enum Message {
+    // Navigation
+    SectionChanged(SettingsSection),
     // Appearance
     ThemeChanged(String),
     ModeChanged(ThemeMode),
@@ -141,6 +198,8 @@ pub enum Message {
     ExportResult(Result<String, String>),
     // About
     OpenLogsFolder,
+    // Debug
+    DebugMsg(debug::Message),
 }
 
 // ── Implementation ─────────────────────────────────────────────────
@@ -151,6 +210,7 @@ impl Settings {
         let theme_names: Vec<String> = available_themes().iter().map(|t| t.name.clone()).collect();
 
         Self {
+            active_section: SettingsSection::default(),
             selected_theme: config.appearance.theme.clone(),
             selected_mode: config.appearance.mode,
             available_theme_names: theme_names,
@@ -201,12 +261,19 @@ impl Settings {
             library_stats: None,
             export_status: String::new(),
             export_busy: false,
+            debug: debug::Debug::new(),
         }
     }
 
     /// Handle a settings message, returning an Action for the app router.
     pub fn update(&mut self, msg: Message, config: &mut AppConfig) -> Action {
         match msg {
+            // ── Navigation ───────────────────────────────────────
+            Message::SectionChanged(section) => {
+                self.active_section = section;
+                Action::None
+            }
+
             // ── Appearance ──────────────────────────────────────
             Message::ThemeChanged(name) => {
                 self.selected_theme = name.clone();
@@ -334,7 +401,7 @@ impl Settings {
                     Err(e) => {
                         tracing::warn!(service = "anilist", error = %e, "Import failed");
                         self.anilist_status = format!("Import failed: {e}");
-                        Action::None
+                        Action::ShowToast(format!("AniList import failed: {e}"), ToastKind::Error)
                     }
                 }
             }
@@ -393,7 +460,7 @@ impl Settings {
                     Err(e) => {
                         tracing::warn!(service = "kitsu", error = %e, "Import failed");
                         self.kitsu_status = format!("Import failed: {e}");
-                        Action::None
+                        Action::ShowToast(format!("Kitsu import failed: {e}"), ToastKind::Error)
                     }
                 }
             }
@@ -458,7 +525,7 @@ impl Settings {
                     Err(e) => {
                         tracing::warn!(service = "mal", error = %e, "Import failed");
                         self.mal_status = format!("Import failed: {e}");
-                        Action::None
+                        Action::ShowToast(format!("MAL import failed: {e}"), ToastKind::Error)
                     }
                 }
             }
@@ -567,13 +634,14 @@ impl Settings {
                 match result {
                     Ok(path) => {
                         self.export_status = format!("Exported to {path}");
+                        Action::ShowToast(format!("Exported to {path}"), ToastKind::Success)
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "Library export failed");
                         self.export_status = format!("Export failed: {e}");
+                        Action::ShowToast(format!("Export failed: {e}"), ToastKind::Error)
                     }
                 }
-                Action::None
             }
 
             // ── About ────────────────────────────────────────────
@@ -584,7 +652,17 @@ impl Settings {
                 }
                 Action::None
             }
+
+            // ── Debug ────────────────────────────────────────────
+            Message::DebugMsg(msg) => self.debug.update(msg),
         }
+    }
+
+    /// Refresh the embedded debug panel from the shared event log.
+    pub fn refresh_debug(&mut self, event_log: &SharedEventLog, db: Option<&DbHandle>) -> Action {
+        self.debug.refresh(event_log, db, |msg| {
+            app::Message::Settings(Message::DebugMsg(msg))
+        })
     }
 
     /// Kick off an async task to load library statistics.
@@ -617,28 +695,63 @@ impl Settings {
     // ── View ────────────────────────────────────────────────────────
 
     pub fn view<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
+        // ── Sidebar navigation ───────────────────────────────
         let heading = text("Settings")
-            .size(style::TEXT_2XL)
+            .size(style::TEXT_LG)
             .font(style::FONT_HEADING)
             .line_height(style::LINE_HEIGHT_TIGHT);
 
-        let page = column![
-            heading,
-            self.appearance_card(cs),
-            self.general_card(cs),
-            self.library_card(cs),
-            self.watch_folders_card(cs),
-            self.services_card(cs),
-            self.torrent_card(cs),
-            self.integrations_card(cs),
-            self.data_card(cs),
-            self.about_card(cs),
-        ]
-        .spacing(style::SPACE_LG)
-        .padding(style::SPACE_XL)
-        .width(Length::Fill);
+        let mut sidebar = column![heading].spacing(style::SPACE_XS);
 
-        crate::widgets::styled_scrollable(page, cs)
+        for &section in SettingsSection::ALL {
+            let is_active = section == self.active_section;
+            let label_color = if is_active {
+                cs.primary
+            } else {
+                cs.on_surface_variant
+            };
+
+            let item = button(
+                text(section.label())
+                    .size(style::TEXT_SM)
+                    .color(label_color)
+                    .line_height(style::LINE_HEIGHT_NORMAL),
+            )
+            .on_press(Message::SectionChanged(section))
+            .padding([style::SPACE_SM, style::SPACE_MD])
+            .width(Length::Fill)
+            .style(theme::settings_nav_item(cs, is_active));
+
+            sidebar = sidebar.push(item);
+        }
+
+        let sidebar_container = container(sidebar)
+            .width(Length::Fixed(style::SETTINGS_SIDEBAR_WIDTH))
+            .padding([style::SPACE_XL, style::SPACE_MD]);
+
+        // ── Active section content ───────────────────────────
+        let section_content: Element<'_, Message> = match self.active_section {
+            SettingsSection::Appearance => self.appearance_card(cs),
+            SettingsSection::General => self.general_card(cs),
+            SettingsSection::Library => self.library_card(cs),
+            SettingsSection::WatchFolders => self.watch_folders_card(cs),
+            SettingsSection::Services => self.services_card(cs),
+            SettingsSection::Torrents => self.torrent_card(cs),
+            SettingsSection::Integrations => self.integrations_card(cs),
+            SettingsSection::Data => self.data_card(cs),
+            SettingsSection::About => self.about_card(cs),
+            SettingsSection::Debug => self.debug.view(cs).map(Message::DebugMsg),
+        };
+
+        let content_pane = column![section_content]
+            .spacing(style::SPACE_LG)
+            .padding(style::SPACE_XL)
+            .width(Length::Fill);
+
+        let content_scroll = crate::widgets::styled_scrollable(content_pane, cs)
+            .height(Length::Fill);
+
+        row![sidebar_container, content_scroll]
             .height(Length::Fill)
             .into()
     }
@@ -712,8 +825,8 @@ impl Settings {
                     text_input("5", &self.interval_input)
                         .on_input(Message::IntervalChanged)
                         .on_submit(Message::IntervalSubmitted)
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
                         .width(Length::Fixed(80.0))
                         .style(theme::text_input_style(cs)),
                 ]
@@ -822,8 +935,8 @@ impl Settings {
                     text_input("your-client-id", &self.anilist_client_id)
                         .on_input(Message::AniListClientIdChanged)
                         .on_submit(Message::AniListClientIdSubmitted)
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
                         .width(Length::Fixed(240.0))
                         .style(theme::text_input_style(cs)),
                 ]
@@ -839,8 +952,8 @@ impl Settings {
                     text_input("your-client-secret", &self.anilist_client_secret)
                         .on_input(Message::AniListClientSecretChanged)
                         .on_submit(Message::AniListClientSecretSubmitted)
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
                         .width(Length::Fixed(240.0))
                         .secure(true)
                         .style(theme::text_input_style(cs)),
@@ -921,8 +1034,8 @@ impl Settings {
                         .width(Length::Fill),
                     text_input("email or username", &self.kitsu_username)
                         .on_input(Message::KitsuUsernameChanged)
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
                         .width(Length::Fixed(240.0))
                         .style(theme::text_input_style(cs)),
                 ]
@@ -937,8 +1050,8 @@ impl Settings {
                         .width(Length::Fill),
                     text_input("password", &self.kitsu_password)
                         .on_input(Message::KitsuPasswordChanged)
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
                         .width(Length::Fixed(240.0))
                         .secure(true)
                         .style(theme::text_input_style(cs)),
@@ -1014,8 +1127,8 @@ impl Settings {
                     text_input("your-client-id", &self.mal_client_id)
                         .on_input(Message::MalClientIdChanged)
                         .on_submit(Message::MalClientIdSubmitted)
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
                         .width(Length::Fixed(240.0))
                         .style(theme::text_input_style(cs)),
                 ]
@@ -1097,8 +1210,8 @@ impl Settings {
                     text_input("0", &self.torrent_interval_input)
                         .on_input(Message::TorrentIntervalChanged)
                         .on_submit(Message::TorrentIntervalSubmitted)
-                        .size(style::TEXT_SM)
-                        .padding([style::SPACE_XS, style::SPACE_SM])
+                        .size(style::INPUT_FONT_SIZE)
+                        .padding(style::INPUT_PADDING)
                         .width(Length::Fixed(80.0))
                         .style(theme::text_input_style(cs)),
                 ]
@@ -1261,8 +1374,8 @@ impl Settings {
                 text_input("/path/to/anime", &self.new_folder_input)
                     .on_input(Message::NewFolderInputChanged)
                     .on_submit(Message::AddWatchFolder)
-                    .size(style::TEXT_SM)
-                    .padding([style::SPACE_XS, style::SPACE_SM])
+                    .size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
                     .width(Length::Fill)
                     .style(theme::text_input_style(cs)),
                 button(text("Add").size(style::TEXT_SM))

@@ -65,6 +65,22 @@ pub const PROGRESS_HEIGHT: f32 = 6.0;
 pub const BADGE_HEIGHT: f32 = 22.0;
 pub const BADGE_PADDING_H: f32 = 8.0;
 
+// ── Input components ────────────────────────────────────────────
+pub const INPUT_HEIGHT: f32 = 32.0;
+pub const INPUT_FONT_SIZE: f32 = TEXT_SM; // 12.0 — all inputs use TEXT_SM
+pub const INPUT_PADDING: [f32; 2] = [SPACE_SM, SPACE_MD]; // [8, 12]
+pub const INPUT_LABEL_WIDTH: f32 = 120.0; // consistent label column
+pub const INPUT_DATE_WIDTH: f32 = 140.0;
+pub const INPUT_STEPPER_WIDTH: f32 = 110.0;
+pub const TOGGLER_SIZE: f32 = TEXT_BASE; // 15.0
+
+// ── Hero cover (Now Playing) ────────────────────────────────────
+pub const HERO_COVER_WIDTH: f32 = 180.0;
+pub const HERO_COVER_HEIGHT: f32 = 256.0;
+
+// ── Settings sidebar ────────────────────────────────────────────
+pub const SETTINGS_SIDEBAR_WIDTH: f32 = 180.0;
+
 // ── Border radii ─────────────────────────────────────────────────
 
 pub const RADIUS_SM: f32 = 4.0;

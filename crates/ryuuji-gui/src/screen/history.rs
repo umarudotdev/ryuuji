@@ -1,4 +1,4 @@
-use iced::widget::{button, center, column, container, row, rule, text, Space};
+use iced::widget::{button, column, container, row, rule, text, Space};
 use iced::{Alignment, Element, Length, Task};
 
 use chrono::{Local, NaiveDate};
@@ -641,20 +641,14 @@ fn history_item<'a>(
 
 /// Empty state when no history exists.
 fn empty_state(cs: &ColorScheme) -> Element<'static, Message> {
-    center(
-        column![
-            text("No watch history yet")
-                .size(style::TEXT_LG)
-                .font(style::FONT_HEADING)
-                .color(cs.on_surface_variant)
-                .line_height(style::LINE_HEIGHT_TIGHT),
-            text("Start watching anime and your history will appear here.")
-                .size(style::TEXT_SM)
-                .color(cs.outline)
-                .line_height(style::LINE_HEIGHT_LOOSE),
-        ]
-        .spacing(style::SPACE_SM)
-        .align_x(iced::Alignment::Center),
+    let icon = lucide_icons::iced::icon_clock()
+        .size(48.0)
+        .color(cs.outline)
+        .into();
+    widgets::empty_state(
+        cs,
+        icon,
+        "No watch history yet",
+        "Start watching anime and your history will appear here.",
     )
-    .into()
 }

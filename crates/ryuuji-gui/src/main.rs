@@ -8,6 +8,7 @@ mod screen;
 mod style;
 mod subscription;
 mod theme;
+mod toast;
 mod widgets;
 mod window_state;
 

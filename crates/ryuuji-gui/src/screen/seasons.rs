@@ -8,7 +8,9 @@ use crate::format;
 use crate::screen::Action;
 use crate::style;
 use crate::theme::{self, ColorScheme};
-use crate::widgets;
+use crate::widgets::{self, anime_card};
+
+pub use crate::screen::library::ViewMode;
 
 // ── Sort ──────────────────────────────────────────────────────────
 
@@ -45,6 +47,7 @@ pub struct Seasons {
     pub selected: Option<usize>,
     genre_filter: Option<String>,
     sort: SeasonSort,
+    view_mode: ViewMode,
     /// Whether any service token is available for browsing.
     pub service_authenticated: bool,
 }
@@ -63,6 +66,7 @@ pub enum Message {
     AddedToLibrary(Result<(), String>),
     GenreFilterChanged(Option<String>),
     SortChanged(SeasonSort),
+    ViewModeChanged(ViewMode),
     Refresh,
 }
 
@@ -79,6 +83,7 @@ impl Seasons {
             selected: None,
             genre_filter: None,
             sort: SeasonSort::default(),
+            view_mode: ViewMode::default(),
             service_authenticated: false,
         }
     }
@@ -147,6 +152,10 @@ impl Seasons {
             }
             Message::SortChanged(sort) => {
                 self.sort = sort;
+                Action::None
+            }
+            Message::ViewModeChanged(mode) => {
+                self.view_mode = mode;
                 Action::None
             }
             Message::Refresh => {
@@ -330,6 +339,38 @@ impl Seasons {
             }
         }
 
+        // View mode toggle
+        let list_icon = lucide_icons::iced::icon_list()
+            .size(style::TEXT_SM)
+            .color(if self.view_mode == ViewMode::List {
+                cs.primary
+            } else {
+                cs.on_surface_variant
+            });
+        let grid_icon = lucide_icons::iced::icon_layout_grid()
+            .size(style::TEXT_SM)
+            .color(if self.view_mode == ViewMode::Grid {
+                cs.primary
+            } else {
+                cs.on_surface_variant
+            });
+
+        let view_toggle = row![
+            button(container(list_icon).center(Length::Fill))
+                .width(Length::Fixed(28.0))
+                .height(Length::Fixed(28.0))
+                .padding(0)
+                .on_press(Message::ViewModeChanged(ViewMode::List))
+                .style(theme::icon_button(cs)),
+            button(container(grid_icon).center(Length::Fill))
+                .width(Length::Fixed(28.0))
+                .height(Length::Fixed(28.0))
+                .padding(0)
+                .on_press(Message::ViewModeChanged(ViewMode::Grid))
+                .style(theme::icon_button(cs)),
+        ]
+        .spacing(style::SPACE_XXS);
+
         filter_bar = filter_bar
             .push(
                 text(result_count)
@@ -338,6 +379,7 @@ impl Seasons {
                     .line_height(style::LINE_HEIGHT_LOOSE)
                     .width(Length::Fill),
             )
+            .push(view_toggle)
             .push(
                 pick_list(SeasonSort::ALL, Some(self.sort), Message::SortChanged)
                     .text_size(style::TEXT_SM)
@@ -391,19 +433,52 @@ impl Seasons {
             .center_x(Length::Fill)
             .into()
         } else {
-            let items: Vec<Element<'a, Message>> = filtered
-                .iter()
-                .map(|&idx| season_list_item(cs, &self.entries[idx], idx, self.selected, covers))
-                .collect();
+            match self.view_mode {
+                ViewMode::List => {
+                    let items: Vec<Element<'a, Message>> = filtered
+                        .iter()
+                        .map(|&idx| {
+                            season_list_item(cs, &self.entries[idx], idx, self.selected, covers)
+                        })
+                        .collect();
 
-            crate::widgets::styled_scrollable(
-                column(items)
-                    .spacing(style::SPACE_XXS)
-                    .padding([style::SPACE_XS, style::SPACE_LG]),
-                cs,
-            )
-            .height(Length::Fill)
-            .into()
+                    crate::widgets::styled_scrollable(
+                        column(items)
+                            .spacing(style::SPACE_XXS)
+                            .padding([style::SPACE_XS, style::SPACE_LG]),
+                        cs,
+                    )
+                    .height(Length::Fill)
+                    .into()
+                }
+                ViewMode::Grid => {
+                    let cards: Vec<Element<'a, Message>> = filtered
+                        .iter()
+                        .map(|&idx| {
+                            let result = &self.entries[idx];
+                            let cover_key = season_cover_key(result.service_id);
+                            anime_card::online_card(
+                                cs,
+                                result,
+                                covers,
+                                cover_key,
+                                Message::AnimeSelected(idx),
+                            )
+                        })
+                        .collect();
+
+                    let wrap = iced_aw::Wrap::with_elements(cards)
+                        .spacing(style::SPACE_SM)
+                        .line_spacing(style::SPACE_SM);
+
+                    crate::widgets::styled_scrollable(
+                        container(wrap).padding([style::SPACE_SM, style::SPACE_LG]),
+                        cs,
+                    )
+                    .height(Length::Fill)
+                    .into()
+                }
+            }
         };
 
         let content = column![header, filter_bar, rule::horizontal(1), body]
