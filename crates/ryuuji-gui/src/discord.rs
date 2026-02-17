@@ -48,12 +48,7 @@ impl DiscordHandle {
     }
 
     /// Update the rich presence with the currently playing anime.
-    pub fn update_presence(
-        &self,
-        title: String,
-        episode: Option<u32>,
-        service: Option<String>,
-    ) {
+    pub fn update_presence(&self, title: String, episode: Option<u32>, service: Option<String>) {
         let _ = self.tx.send(DiscordCommand::Update {
             title,
             episode,

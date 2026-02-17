@@ -14,6 +14,9 @@ pub struct PlayerDef {
     /// MPRIS bus name substrings (Linux D-Bus detection).
     #[serde(default)]
     pub mpris_identities: Vec<String>,
+    /// SMTC app user model ID substrings (Windows SMTC detection).
+    #[serde(default)]
+    pub smtc_identities: Vec<String>,
     /// Window class names (Windows detection).
     #[serde(default)]
     pub window_classes: Vec<String>,
@@ -91,6 +94,17 @@ impl PlayerDatabase {
                 && p.mpris_identities
                     .iter()
                     .any(|id| identity_lower.contains(&id.to_lowercase()))
+        })
+    }
+
+    /// Find a player by SMTC app user model ID (case-insensitive substring match).
+    pub fn find_by_smtc(&self, app_user_model_id: &str) -> Option<&PlayerDef> {
+        let id_lower = app_user_model_id.to_lowercase();
+        self.players.iter().find(|p| {
+            p.enabled
+                && p.smtc_identities
+                    .iter()
+                    .any(|sid| id_lower.contains(&sid.to_lowercase()))
         })
     }
 
@@ -263,5 +277,25 @@ mod tests {
         "#;
         let db = PlayerDatabase::from_toml(toml).unwrap();
         assert!(db.find_by_mpris("disabled").is_none());
+    }
+
+    #[test]
+    fn test_find_by_smtc_mpv() {
+        let db = PlayerDatabase::embedded();
+        let player = db.find_by_smtc("mpv.exe").unwrap();
+        assert_eq!(player.name, "mpv");
+    }
+
+    #[test]
+    fn test_find_by_smtc_case_insensitive() {
+        let db = PlayerDatabase::embedded();
+        let player = db.find_by_smtc("MPV.EXE").unwrap();
+        assert_eq!(player.name, "mpv");
+    }
+
+    #[test]
+    fn test_find_by_smtc_unknown_returns_none() {
+        let db = PlayerDatabase::embedded();
+        assert!(db.find_by_smtc("unknown_app.exe").is_none());
     }
 }

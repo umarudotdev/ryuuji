@@ -4,7 +4,10 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::error::RyuujiError;
-use crate::models::{Anime, AnimeIds, AnimeTitle, AvailableEpisode, AvailableEpisodeSummary, LibraryEntry, WatchStatus};
+use crate::models::{
+    Anime, AnimeIds, AnimeTitle, AvailableEpisode, AvailableEpisodeSummary, LibraryEntry,
+    WatchStatus,
+};
 use crate::torrent::filter::{FilterAction, MatchMode, TorrentFilter};
 use crate::torrent::models::TorrentFeed;
 
@@ -990,7 +993,8 @@ impl Storage {
         }
 
         // Genre distribution from anime table's genres JSON column
-        let mut genre_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut genre_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
         {
             let mut stmt = self.conn.prepare(
                 "SELECT a.genres FROM library_entry le JOIN anime a ON le.anime_id = a.id",
@@ -1002,8 +1006,7 @@ impl Storage {
                 })?
                 .filter_map(|r| r.ok());
             for genres_json in rows {
-                let genres: Vec<String> =
-                    serde_json::from_str(&genres_json).unwrap_or_default();
+                let genres: Vec<String> = serde_json::from_str(&genres_json).unwrap_or_default();
                 for genre in genres {
                     *genre_counts.entry(genre).or_insert(0) += 1;
                 }

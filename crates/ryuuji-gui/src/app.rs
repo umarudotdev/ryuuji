@@ -338,7 +338,8 @@ impl Ryuuji {
                                 UpdateOutcome::AlreadyCurrent { .. } => {
                                     // Presence is already set — no change needed.
                                 }
-                                UpdateOutcome::NothingPlaying | UpdateOutcome::Unrecognized { .. } => {
+                                UpdateOutcome::NothingPlaying
+                                | UpdateOutcome::Unrecognized { .. } => {
                                     discord.clear_presence();
                                 }
                             }
@@ -1959,8 +1960,7 @@ impl Ryuuji {
             Shortcut::FocusSearch => {
                 if self.page != Page::Search {
                     self.page = Page::Search;
-                    self.search.service_authenticated =
-                        self.is_primary_service_authenticated();
+                    self.search.service_authenticated = self.is_primary_service_authenticated();
                     let action = self.search.load_entries(self.db.as_ref());
                     return self.handle_action(action);
                 }
