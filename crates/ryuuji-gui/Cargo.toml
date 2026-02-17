@@ -2,6 +2,13 @@
 name = "ryuuji-gui"
 version.workspace = true
 edition.workspace = true
+description = "Desktop anime tracker with automatic player detection and service sync"
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ryuuji"
+path = "src/main.rs"
 
 [dependencies]
 ryuuji-core = { workspace = true }
@@ -31,3 +38,19 @@ reqwest = { workspace = true }
 open = "5"
 arboard = { workspace = true }
 discord-rich-presence = { workspace = true }
+
+[package.metadata.deb]
+name = "ryuuji"
+depends = "$auto, libdbus-1-3"
+section = "video"
+priority = "optional"
+extended-description = """\
+Ryuuji is a desktop anime tracker that automatically detects \
+media players and streaming services, parses filenames, and \
+maintains a local watch library with service sync \
+(MyAnimeList, AniList, Kitsu)."""
+assets = [
+    ["target/release/ryuuji", "usr/bin/", "755"],
+    ["assets/ryuuji.desktop", "usr/share/applications/", "644"],
+    ["assets/icon.png", "usr/share/icons/hicolor/256x256/apps/ryuuji.png", "644"],
+]

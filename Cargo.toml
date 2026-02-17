@@ -19,8 +19,8 @@ default-members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "GPL-3.0"
-repository = "https://github.com/user/ryuuji"
+license = "MIT"
+repository = "https://github.com/umarudotdev/ryuuji"
 
 [workspace.dependencies]
 # Async runtime
@@ -81,3 +81,8 @@ ryuuji-core = { path = "crates/ryuuji-core" }
 ryuuji-detect = { path = "crates/ryuuji-detect" }
 ryuuji-parse = { path = "crates/ryuuji-parse" }
 ryuuji-api = { path = "crates/ryuuji-api" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
