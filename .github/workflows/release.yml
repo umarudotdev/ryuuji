@@ -1,0 +1,281 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            binary: ryuuji
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: ryuuji.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Build release binary
+        run: cargo build --release --package ryuuji-gui --target ${{ matrix.target }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
+
+  package-linux:
+    name: Package Linux
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-x86_64-unknown-linux-gnu
+          path: target/release/
+
+      - name: Make binary executable
+        run: chmod +x target/release/ryuuji
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # --- .deb package ---
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      - name: Build .deb package
+        run: cargo deb --package ryuuji-gui --no-build --no-strip
+
+      - name: Rename .deb
+        run: |
+          mv target/debian/ryuuji_*.deb \
+            "target/debian/ryuuji_${{ steps.version.outputs.VERSION }}-1_amd64.deb"
+
+      # --- AppImage ---
+      - name: Download linuxdeploy
+        run: |
+          curl -fsSL -o linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+
+      - name: Build AppImage
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp target/release/ryuuji AppDir/usr/bin/
+          cp crates/ryuuji-gui/assets/ryuuji.desktop AppDir/usr/share/applications/
+          cp crates/ryuuji-gui/assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/ryuuji.png
+          ./linuxdeploy --appdir AppDir --output appimage --desktop-file AppDir/usr/share/applications/ryuuji.desktop
+
+      - name: Rename AppImage
+        run: |
+          mv Ryuuji-*.AppImage \
+            "Ryuuji-${{ steps.version.outputs.VERSION }}-x86_64.AppImage"
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-linux
+          path: |
+            target/debian/ryuuji_${{ steps.version.outputs.VERSION }}-1_amd64.deb
+            Ryuuji-${{ steps.version.outputs.VERSION }}-x86_64.AppImage
+
+  package-windows:
+    name: Package Windows
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-x86_64-pc-windows-msvc
+          path: build/
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # --- Portable zip ---
+      - name: Create portable zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path portable
+          Copy-Item build/ryuuji.exe portable/
+          Copy-Item LICENSE portable/
+          Compress-Archive -Path portable/* `
+            -DestinationPath "ryuuji-${{ steps.version.outputs.VERSION }}-windows-x64-portable.zip"
+
+      # --- NSIS installer ---
+      - name: Build NSIS installer
+        uses: joncloud/makensis-action@v4
+        with:
+          script-file: packaging/windows/installer.nsi
+          arguments: >-
+            -DVERSION=${{ steps.version.outputs.VERSION }}
+            -DBINARY_PATH=${{ github.workspace }}\build\ryuuji.exe
+            -DLICENSE_PATH=${{ github.workspace }}\LICENSE
+
+      - name: Move installer
+        shell: bash
+        run: |
+          mv "packaging/windows/ryuuji-${{ steps.version.outputs.VERSION }}-windows-x64-setup.exe" .
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-windows
+          path: |
+            ryuuji-${{ steps.version.outputs.VERSION }}-windows-x64-portable.zip
+            ryuuji-${{ steps.version.outputs.VERSION }}-windows-x64-setup.exe
+
+  release:
+    name: Create GitHub Release
+    needs: [package-linux, package-windows]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: release-artifacts/
+
+      - name: List artifacts
+        run: ls -lh release-artifacts/
+
+      - name: Detect prerelease
+        id: prerelease
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *"-"* ]]; then
+            echo "IS_PRERELEASE=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "IS_PRERELEASE=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/*
+          generate_release_notes: true
+          prerelease: ${{ steps.prerelease.outputs.IS_PRERELEASE == 'true' }}
+
+  publish-scoop:
+    name: Update Scoop Manifest
+    needs: release
+    runs-on: ubuntu-22.04
+    # Skip for prereleases
+    if: ${{ !contains(github.ref_name, '-') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download portable zip for hash
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          curl -fsSL -o portable.zip \
+            "https://github.com/umarudotdev/ryuuji/releases/download/${GITHUB_REF_NAME}/ryuuji-${VERSION}-windows-x64-portable.zip"
+
+      - name: Compute SHA256
+        id: hash
+        run: echo "SHA256=$(sha256sum portable.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Update Scoop manifest
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          SHA256: ${{ steps.hash.outputs.SHA256 }}
+        run: |
+          cat > bucket/ryuuji.json << 'MANIFEST'
+          {
+              "version": "${VERSION}",
+              "description": "Desktop anime tracker with automatic player detection and service sync",
+              "homepage": "https://github.com/umarudotdev/ryuuji",
+              "license": "MIT",
+              "architecture": {
+                  "64bit": {
+                      "url": "https://github.com/umarudotdev/ryuuji/releases/download/v${VERSION}/ryuuji-${VERSION}-windows-x64-portable.zip",
+                      "hash": "${SHA256}"
+                  }
+              },
+              "bin": "ryuuji.exe",
+              "shortcuts": [
+                  [
+                      "ryuuji.exe",
+                      "Ryuuji"
+                  ]
+              ],
+              "checkver": "github",
+              "autoupdate": {
+                  "architecture": {
+                      "64bit": {
+                          "url": "https://github.com/umarudotdev/ryuuji/releases/download/v$version/ryuuji-$version-windows-x64-portable.zip"
+                      }
+                  }
+              }
+          }
+          MANIFEST
+          # Substitute env vars (heredoc preserved $version for autoupdate)
+          sed -i "s/\${VERSION}/${VERSION}/g" bucket/ryuuji.json
+          sed -i "s/\${SHA256}/${SHA256}/g" bucket/ryuuji.json
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/ryuuji.json
+          git commit -m "chore(scoop): update manifest to ${GITHUB_REF_NAME}"
+          git push origin master
+
+  publish-winget:
+    name: Publish to Winget
+    needs: release
+    runs-on: ubuntu-22.04
+    # Skip for prereleases
+    if: ${{ !contains(github.ref_name, '-') }}
+    steps:
+      - name: Submit to winget-pkgs
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: UmaruDev.Ryuuji
+          installers-regex: '-windows-x64-setup\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
