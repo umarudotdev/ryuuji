@@ -8,6 +8,8 @@ use std::path::Path;
 
 use tokio::sync::{mpsc, oneshot};
 
+use ryuuji_core::debug_log::{self, CacheStats, DebugEvent, SharedEventLog};
+
 use ryuuji_core::config::AppConfig;
 use ryuuji_core::error::RyuujiError;
 use ryuuji_core::models::{
@@ -158,6 +160,9 @@ enum DbCommand {
     GetLibraryStatistics {
         reply: oneshot::Sender<Result<LibraryStatistics, RyuujiError>>,
     },
+    GetCacheStats {
+        reply: oneshot::Sender<CacheStats>,
+    },
 }
 
 #[allow(dead_code)]
@@ -165,7 +170,7 @@ impl DbHandle {
     /// Spawn the DB actor on a dedicated thread and return a handle.
     ///
     /// Returns `None` if the database cannot be opened.
-    pub fn open(path: &Path) -> Option<Self> {
+    pub fn open(path: &Path, event_log: SharedEventLog) -> Option<Self> {
         tracing::info!(path = %path.display(), "Opening database");
         let storage = Storage::open(path)
             .map_err(|e| tracing::error!("Failed to open database: {e}"))
@@ -175,7 +180,7 @@ impl DbHandle {
 
         std::thread::Builder::new()
             .name("db-actor".into())
-            .spawn(move || actor_loop(storage, rx))
+            .spawn(move || actor_loop(storage, rx, event_log))
             .map_err(|e| tracing::error!("Failed to spawn DB thread: {e}"))
             .ok()?;
 
@@ -488,6 +493,12 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
     }
 
+    pub async fn get_cache_stats(&self) -> CacheStats {
+        let (reply, rx) = oneshot::channel();
+        let _ = self.tx.send(DbCommand::GetCacheStats { reply });
+        rx.await.unwrap_or_default()
+    }
+
     /// Import a batch of anime + optional library entries from a service.
     /// Returns the number of anime upserted.
     pub async fn service_import_batch(
@@ -507,7 +518,11 @@ impl DbHandle {
 }
 
 /// Run the actor loop on a dedicated thread.
-fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
+fn actor_loop(
+    storage: Storage,
+    mut rx: mpsc::UnboundedReceiver<DbCommand>,
+    event_log: SharedEventLog,
+) {
     let mut cache = RecognitionCache::new();
     let relations = RelationDatabase::embedded().unwrap_or_default();
 
@@ -557,6 +572,7 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                 config,
                 reply,
             } => {
+                let query = detected.anime_title.clone().unwrap_or_default();
                 let result = orchestrator::process_detection(
                     &detected,
                     &storage,
@@ -564,8 +580,80 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
                     &mut cache,
                     Some(&relations),
                 );
-                // Invalidate cache when new anime is added to the library,
-                // so the next detection tick picks up the new entry.
+
+                // Push debug events based on outcome.
+                {
+                    let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+                    match &result {
+                        Ok(UpdateOutcome::Updated {
+                            anime_title,
+                            episode,
+                            ..
+                        }) => {
+                            log.push(DebugEvent::RecognitionResult {
+                                query: query.clone(),
+                                match_level: debug_log::MatchLevel::Exact,
+                                anime_title: Some(anime_title.clone()),
+                            });
+                            log.push(DebugEvent::LibraryUpdate {
+                                anime_title: anime_title.clone(),
+                                episode: *episode,
+                                outcome: debug_log::UpdateKind::Updated,
+                            });
+                        }
+                        Ok(UpdateOutcome::AlreadyCurrent {
+                            anime_title,
+                            episode,
+                            ..
+                        }) => {
+                            log.push(DebugEvent::RecognitionResult {
+                                query: query.clone(),
+                                match_level: debug_log::MatchLevel::Exact,
+                                anime_title: Some(anime_title.clone()),
+                            });
+                            log.push(DebugEvent::LibraryUpdate {
+                                anime_title: anime_title.clone(),
+                                episode: *episode,
+                                outcome: debug_log::UpdateKind::AlreadyCurrent,
+                            });
+                        }
+                        Ok(UpdateOutcome::AddedToLibrary {
+                            anime_title,
+                            episode,
+                            ..
+                        }) => {
+                            log.push(DebugEvent::RecognitionResult {
+                                query: query.clone(),
+                                match_level: debug_log::MatchLevel::Exact,
+                                anime_title: Some(anime_title.clone()),
+                            });
+                            log.push(DebugEvent::LibraryUpdate {
+                                anime_title: anime_title.clone(),
+                                episode: *episode,
+                                outcome: debug_log::UpdateKind::Added,
+                            });
+                        }
+                        Ok(UpdateOutcome::Unrecognized { raw_title }) => {
+                            log.push(DebugEvent::RecognitionResult {
+                                query,
+                                match_level: debug_log::MatchLevel::NoMatch,
+                                anime_title: None,
+                            });
+                            log.push(DebugEvent::Unrecognized {
+                                raw_title: raw_title.clone(),
+                            });
+                        }
+                        Err(e) => {
+                            log.push(DebugEvent::Error {
+                                source: "orchestrator".into(),
+                                message: e.to_string(),
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Invalidate cache when new anime is added to the library.
                 if let Ok(UpdateOutcome::AddedToLibrary { .. }) = &result {
                     cache.invalidate();
                 }
@@ -681,6 +769,9 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
             // ── Statistics commands ──────────────────────────────────
             DbCommand::GetLibraryStatistics { reply } => {
                 let _ = reply.send(storage.get_library_statistics());
+            }
+            DbCommand::GetCacheStats { reply } => {
+                let _ = reply.send(cache.stats());
             }
             DbCommand::ServiceImportBatch {
                 service,
