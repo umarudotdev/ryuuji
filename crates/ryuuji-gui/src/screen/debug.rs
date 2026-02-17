@@ -205,12 +205,7 @@ impl Debug {
     }
 
     /// Render a label: value pair.
-    fn label_value<'a>(
-        &self,
-        cs: &ColorScheme,
-        label: &str,
-        value: &str,
-    ) -> Element<'a, Message> {
+    fn label_value<'a>(&self, cs: &ColorScheme, label: &str, value: &str) -> Element<'a, Message> {
         row![
             text(format!("{label}:"))
                 .size(style::TEXT_SM)
@@ -308,9 +303,7 @@ impl Debug {
                 format!("No stream match for {player_name}"),
                 cs.on_surface_variant,
             ),
-            DebugEvent::Parsed {
-                title, episode, ..
-            } => {
+            DebugEvent::Parsed { title, episode, .. } => {
                 let t = title.as_deref().unwrap_or("?");
                 let ep = episode.map(|e| format!(" ep {e}")).unwrap_or_default();
                 (format!("Parsed: {t}{ep}"), cs.on_surface)
@@ -322,9 +315,7 @@ impl Debug {
             } => {
                 let title = anime_title.as_deref().unwrap_or("\u{2014}");
                 match match_level {
-                    ryuuji_core::debug_log::MatchLevel::NoMatch => {
-                        ("No match".into(), cs.error)
-                    }
+                    ryuuji_core::debug_log::MatchLevel::NoMatch => ("No match".into(), cs.error),
                     ryuuji_core::debug_log::MatchLevel::Fuzzy(score) => (
                         format!("Fuzzy: {title} ({:.0}%)", score * 100.0),
                         cs.tertiary,
@@ -353,14 +344,12 @@ impl Debug {
                 };
                 (format!("{verb}: {anime_title} ep {episode}"), cs.primary)
             }
-            DebugEvent::Unrecognized { raw_title } => (
-                format!("Unrecognized: \"{raw_title}\""),
-                cs.tertiary,
-            ),
-            DebugEvent::Error { source, message } => (
-                format!("Error ({source}): {message}"),
-                cs.error,
-            ),
+            DebugEvent::Unrecognized { raw_title } => {
+                (format!("Unrecognized: \"{raw_title}\""), cs.tertiary)
+            }
+            DebugEvent::Error { source, message } => {
+                (format!("Error ({source}): {message}"), cs.error)
+            }
         }
     }
 }
