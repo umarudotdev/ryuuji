@@ -24,6 +24,16 @@ pub(crate) const MAL_THEME_TOML: &str = include_str!("../assets/themes/myanimeli
 /// Embedded MyAnimeList Blue theme (navy-tinted variant).
 pub(crate) const MAL_BLUE_THEME_TOML: &str = include_str!("../assets/themes/myanimelist-blue.toml");
 
+/// Embedded Rosé Pine theme.
+pub(crate) const ROSE_PINE_THEME_TOML: &str = include_str!("../assets/themes/rose-pine.toml");
+
+/// Embedded Osaka Jade theme.
+pub(crate) const OSAKA_JADE_THEME_TOML: &str = include_str!("../assets/themes/osaka-jade.toml");
+
+/// Embedded Monokai Ristretto theme.
+pub(crate) const MONOKAI_RISTRETTO_THEME_TOML: &str =
+    include_str!("../assets/themes/monokai-ristretto.toml");
+
 /// A fully loaded theme with both appearance variants.
 #[derive(Debug, Clone)]
 pub struct RyuujiTheme {
@@ -84,6 +94,12 @@ pub fn available_themes() -> Vec<RyuujiTheme> {
         RyuujiTheme::from_toml(MAL_THEME_TOML).expect("embedded MyAnimeList theme is valid TOML"),
         RyuujiTheme::from_toml(MAL_BLUE_THEME_TOML)
             .expect("embedded MyAnimeList Blue theme is valid TOML"),
+        RyuujiTheme::from_toml(ROSE_PINE_THEME_TOML)
+            .expect("embedded Rosé Pine theme is valid TOML"),
+        RyuujiTheme::from_toml(OSAKA_JADE_THEME_TOML)
+            .expect("embedded Osaka Jade theme is valid TOML"),
+        RyuujiTheme::from_toml(MONOKAI_RISTRETTO_THEME_TOML)
+            .expect("embedded Monokai Ristretto theme is valid TOML"),
     ];
 
     // Scan user themes directory.

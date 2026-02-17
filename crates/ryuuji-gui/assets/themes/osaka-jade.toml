@@ -1,0 +1,108 @@
+[meta]
+name = "Osaka Jade"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Based on the Omarchy Osaka Jade terminal theme.
+
+[dark.surface]
+container_lowest = "#0C1510"   # darker than bg
+base = "#111C18"               # background
+container_low = "#182620"      # between bg and card
+container = "#1E2E28"          # card surfaces
+container_high = "#23372B"     # ANSI black (bright enough for cards)
+container_highest = "#2D4238"  # elevated
+bright = "#3A5046"             # subtle highlight
+
+[dark.text]
+on_surface = "#C1C497"         # foreground (warm green-yellow)
+on_surface_variant = "#9EEBB3" # bright white (green-tinted)
+outline = "#53685B"            # bright black (muted green)
+outline_variant = "#2D4238"    # subtle border
+
+[dark.primary]
+base = "#549E6A"               # green (jade)
+hover = "#63B07A"              # bright green
+dim = "#459451"                # yellow (dark green in this palette)
+on_primary = "#111C18"         # dark bg on green
+container = "#1E3E2A"          # dark jade
+on_container = "#9EEBB3"       # bright white
+
+[dark.secondary]
+container = "#2D4238"
+on_container = "#ACD4CF"       # bright blue (teal-ish)
+
+[dark.tertiary]
+base = "#D2689C"               # magenta
+on_tertiary = "#111C18"
+
+[dark.error]
+base = "#FF5345"               # red
+hover = "#DB9F9C"              # bright red (muted)
+pressed = "#CC3830"
+on_error = "#111C18"
+
+[dark.status]
+watching = "#549E6A"           # jade green
+completed = "#2DD5B7"          # cyan (teal)
+on_hold = "#E5C736"            # bright yellow
+dropped = "#FF5345"            # red
+plan = "#53685B"               # muted
+
+[dark.inverse]
+surface = "#C1C497"
+on_surface = "#111C18"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+# Light interpretation of the Osaka Jade palette.
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#F4F6F0"               # warm green-white
+container_low = "#ECF0E8"
+container = "#E4E8E0"
+container_high = "#DAE0D6"
+container_highest = "#D0D8CC"
+bright = "#C4CEC0"
+
+[light.text]
+on_surface = "#1A2820"         # dark jade
+on_surface_variant = "#3A5046" # muted dark
+outline = "#6A7E72"            # mid-tone
+outline_variant = "#C4CEC0"    # border
+
+[light.primary]
+base = "#3A7A52"               # darker jade for light bg
+hover = "#2E6644"
+dim = "#4A8C62"
+on_primary = "#FFFFFF"
+container = "#C8E6D4"
+on_container = "#1A3E28"
+
+[light.secondary]
+container = "#D6E8E6"
+on_container = "#1A2820"
+
+[light.tertiary]
+base = "#A84878"               # darker magenta
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#CC3830"
+hover = "#AA2A22"
+pressed = "#8E1E18"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#3A7A52"
+completed = "#1A9E88"
+on_hold = "#B89E20"
+dropped = "#CC3830"
+plan = "#6A7E72"
+
+[light.inverse]
+surface = "#1A2820"
+on_surface = "#F4F6F0"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

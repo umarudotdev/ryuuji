@@ -1,0 +1,108 @@
+[meta]
+name = "Monokai Ristretto"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Based on Monokai Pro (Filter Ristretto) — warm coffee-toned palette.
+
+[dark.surface]
+container_lowest = "#191515"   # dark2
+base = "#211c1c"               # dark1
+container_low = "#2c2525"      # background
+container = "#342d2d"          # between bg and dimmed5
+container_high = "#403838"     # dimmed5 (bg+1)
+container_highest = "#4a4242"  # between dimmed5 and dimmed4
+bright = "#5b5353"             # dimmed4 (bg+2)
+
+[dark.text]
+on_surface = "#fff1f3"         # text
+on_surface_variant = "#c3b7b8" # dimmed1
+outline = "#948a8b"            # dimmed2
+outline_variant = "#5b5353"    # dimmed4
+
+[dark.primary]
+base = "#fd6883"               # accent1 (pink)
+hover = "#fe8da2"              # lighter pink
+dim = "#d9577a"                # darker pink
+on_primary = "#191515"         # dark bg on pink
+container = "#4a2232"          # dark pink
+on_container = "#fd6883"       # pink
+
+[dark.secondary]
+container = "#2d3a3a"          # teal-tinted dark
+on_container = "#85dacc"       # accent5 (teal)
+
+[dark.tertiary]
+base = "#f9cc6c"               # accent3 (yellow)
+on_tertiary = "#191515"
+
+[dark.error]
+base = "#f38d70"               # accent2 (orange — distinct from pink primary)
+hover = "#d97a5f"
+pressed = "#c06a52"
+on_error = "#191515"
+
+[dark.status]
+watching = "#fd6883"           # pink
+completed = "#adda78"          # accent4 (green)
+on_hold = "#f9cc6c"            # yellow
+dropped = "#f38d70"            # orange
+plan = "#948a8b"               # dimmed2
+
+[dark.inverse]
+surface = "#fff1f3"
+on_surface = "#211c1c"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+# Light interpretation of the Ristretto palette.
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#FDF6F6"               # warm cream-white
+container_low = "#F6EDED"
+container = "#EFE5E5"
+container_high = "#E6DCDC"
+container_highest = "#DDD2D2"
+bright = "#D2C6C6"
+
+[light.text]
+on_surface = "#211c1c"         # dark1
+on_surface_variant = "#5b5353" # dimmed4
+outline = "#948a8b"            # dimmed2
+outline_variant = "#D2C6C6"    # border
+
+[light.primary]
+base = "#C04868"               # darker pink for light bg
+hover = "#A83D5A"
+dim = "#D85878"
+on_primary = "#FFFFFF"
+container = "#FFD8E2"
+on_container = "#5E1228"
+
+[light.secondary]
+container = "#D4EFEB"
+on_container = "#1A3030"
+
+[light.tertiary]
+base = "#B08A20"               # darker yellow
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#C06040"               # darker orange
+hover = "#A85038"
+pressed = "#903E2C"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#C04868"
+completed = "#5A8A30"
+on_hold = "#B08A20"
+dropped = "#C06040"
+plan = "#72696A"
+
+[light.inverse]
+surface = "#2C2525"
+on_surface = "#FDF6F6"
+scrim = "#000000"
+modal_backdrop = "#0000008C"
