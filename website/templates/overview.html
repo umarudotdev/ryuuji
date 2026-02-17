@@ -505,6 +505,12 @@
         </div>
       </div>
 
+      <div class="download-scoop">
+        <p>{{ trans(key="download_windows_scoop", lang=lang) | safe }}</p>
+        <div class="code-block"><span class="prompt">$ </span><span class="cmd">scoop bucket add ryuuji {{ config.extra.github_url }}</span></div>
+        <div class="code-block"><span class="prompt">$ </span><span class="cmd">scoop install ryuuji</span></div>
+      </div>
+
       <div class="download-features">
         <p class="download-features-label">{{ trans(key="download_features_label", lang=lang) }}</p>
         <ul>
@@ -518,7 +524,7 @@
 
       <div class="download-source">
         <p>{{ trans(key="download_source", lang=lang) }}</p>
-        <div class="code-block"><span class="prompt">$ </span><span class="cmd">cargo install --git {{ config.extra.github_url }} ryuuji-gui</span></div>
+        <div class="code-block"><span class="prompt">$ </span><span class="cmd">git clone {{ config.extra.github_url }} && cd ryuuji && cargo build --release</span></div>
       </div>
     </div>
   </div>
