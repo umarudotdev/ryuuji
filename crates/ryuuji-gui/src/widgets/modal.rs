@@ -51,13 +51,19 @@ struct Modal<'a, Message> {
 
 impl<'a, Message: Clone + 'a> Widget<Message, Theme, iced::Renderer> for Modal<'a, Message> {
     fn children(&self) -> Vec<Tree> {
-        let content = self.modal_content.as_ref().unwrap();
-        vec![Tree::new(&self.base), Tree::new(content)]
+        if let Some(content) = self.modal_content.as_ref() {
+            vec![Tree::new(&self.base), Tree::new(content)]
+        } else {
+            vec![Tree::new(&self.base)]
+        }
     }
 
     fn diff(&self, tree: &mut Tree) {
-        let content = self.modal_content.as_ref().unwrap();
-        tree.diff_children(&[&self.base, content]);
+        if let Some(content) = self.modal_content.as_ref() {
+            tree.diff_children(&[&self.base, content]);
+        } else {
+            tree.diff_children(&[&self.base]);
+        }
     }
 
     fn size(&self) -> Size<Length> {

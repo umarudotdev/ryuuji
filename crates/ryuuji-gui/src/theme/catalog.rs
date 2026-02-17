@@ -271,6 +271,50 @@ pub fn icon_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> butto
     }
 }
 
+/// Settings sidebar navigation item — shows active state with primary-tinted bg.
+pub fn settings_nav_item(
+    cs: &ColorScheme,
+    is_active: bool,
+) -> impl Fn(&Theme, button::Status) -> button::Style {
+    let primary = cs.primary;
+    let surface_container_low = cs.surface_container_low;
+    let surface_bright = cs.surface_bright;
+
+    move |_theme, status| {
+        let bg = if is_active {
+            Some(Background::Color(Color {
+                a: 0.12,
+                ..primary
+            }))
+        } else {
+            match status {
+                button::Status::Hovered => Some(Background::Color(surface_bright)),
+                _ => Some(Background::Color(surface_container_low)),
+            }
+        };
+
+        let border = if is_active {
+            Border {
+                color: primary,
+                width: 0.0,
+                radius: style::RADIUS_MD.into(),
+            }
+        } else {
+            Border {
+                radius: style::RADIUS_MD.into(),
+                ..Border::default()
+            }
+        };
+
+        button::Style {
+            background: bg,
+            text_color: Color::TRANSPARENT, // Text color set via child widget
+            border,
+            ..Default::default()
+        }
+    }
+}
+
 /// Custom text input styling that adapts to theme.
 pub fn text_input_style(
     cs: &ColorScheme,
@@ -435,6 +479,55 @@ pub fn dialog_container(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style
     }
 }
 
+/// Anime card container: card background with a thin left accent border for status color.
+pub fn anime_card_style(
+    cs: &ColorScheme,
+    status_color: Color,
+) -> impl Fn(&Theme) -> container::Style {
+    let bg = cs.surface_container;
+    let border_color = cs.outline_variant;
+    move |_theme| container::Style {
+        background: Some(Background::Color(bg)),
+        border: Border {
+            color: border_color,
+            width: 1.0,
+            radius: style::RADIUS_MD.into(),
+        },
+        shadow: Shadow {
+            color: Color {
+                a: 0.08,
+                ..status_color
+            },
+            offset: Vector::new(0.0, 2.0),
+            blur_radius: 6.0,
+        },
+        ..Default::default()
+    }
+}
+
+/// Anime card button: transparent with hover elevation effect.
+pub fn anime_card_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> button::Style {
+    let surface_container_high = cs.surface_container_high;
+    move |_theme, status| {
+        let bg = match status {
+            button::Status::Hovered => Some(Background::Color(Color {
+                a: 0.08,
+                ..surface_container_high
+            })),
+            _ => None,
+        };
+        button::Style {
+            background: bg,
+            text_color: Color::TRANSPARENT,
+            border: Border {
+                radius: style::RADIUS_MD.into(),
+                ..Border::default()
+            },
+            ..Default::default()
+        }
+    }
+}
+
 /// Status color bar at top of grid cards.
 pub fn status_bar_accent(color: Color) -> impl Fn(&Theme) -> container::Style {
     move |_theme| container::Style {
@@ -582,53 +675,53 @@ pub fn pick_list_menu_style(cs: &ColorScheme) -> impl Fn(&Theme) -> menu::Style 
 }
 
 /// Stepper +/- button style with per-corner radius for pill-group layout.
-///
-/// `left` = true → rounds left corners only, `right` = true → rounds right only.
-pub fn stepper_button_style(
-    cs: &ColorScheme,
-    left: bool,
-    right: bool,
-) -> impl Fn(&Theme, button::Status) -> button::Style {
+/// Stepper +/- button — rounded, subtle background, clear hover/press states.
+pub fn stepper_button(cs: &ColorScheme) -> impl Fn(&Theme, button::Status) -> button::Style {
     let surface_container_high = cs.surface_container_high;
-    let on_surface_variant = cs.on_surface_variant;
     let primary_container = cs.primary_container;
-    let on_primary_container = cs.on_primary_container;
-    let primary = cs.primary;
-    let on_primary = cs.on_primary;
     let on_surface = cs.on_surface;
     let outline_variant = cs.outline_variant;
 
-    let r = style::RADIUS_MD;
-    let radius = iced::border::Radius {
-        top_left: if left { r } else { 0.0 },
-        top_right: if right { r } else { 0.0 },
-        bottom_right: if right { r } else { 0.0 },
-        bottom_left: if left { r } else { 0.0 },
-    };
-
     move |_theme, status| {
-        let (bg, icon) = match status {
-            button::Status::Pressed => (primary, on_primary),
-            button::Status::Hovered => (primary_container, on_primary_container),
-            button::Status::Disabled => (
-                surface_container_high,
-                Color {
-                    a: 0.38,
-                    ..on_surface
-                },
-            ),
-            _ => (surface_container_high, on_surface_variant),
+        let bg = match status {
+            button::Status::Pressed => primary_container,
+            button::Status::Hovered => surface_container_high,
+            _ => Color::TRANSPARENT,
+        };
+        let opacity = match status {
+            button::Status::Disabled => 0.38,
+            _ => 1.0,
         };
         button::Style {
             background: Some(Background::Color(bg)),
-            text_color: icon,
+            text_color: Color {
+                a: opacity,
+                ..on_surface
+            },
             border: Border {
                 color: outline_variant,
                 width: 1.0,
-                radius,
+                radius: style::RADIUS_MD.into(),
             },
             ..Default::default()
         }
+    }
+}
+
+/// Tooltip container — surface container with subtle border.
+pub fn tooltip_style(cs: &ColorScheme) -> impl Fn(&Theme) -> container::Style {
+    let surface_container = cs.surface_container;
+    let outline_variant = cs.outline_variant;
+
+    move |_theme| container::Style {
+        background: Some(Background::Color(surface_container)),
+        border: Border {
+            color: outline_variant,
+            width: 1.0,
+            radius: style::RADIUS_SM.into(),
+        },
+        text_color: None,
+        ..Default::default()
     }
 }
 

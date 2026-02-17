@@ -9,7 +9,6 @@ use iced::{Element, Length};
 
 use ryuuji_core::debug_log::{CacheStats, DebugEvent, EventEntry, SharedEventLog};
 
-use crate::app;
 use crate::db::DbHandle;
 use crate::screen::Action;
 use crate::style;
@@ -63,7 +62,18 @@ impl Debug {
     }
 
     /// Refresh the debug screen from the shared event log and request cache stats.
-    pub fn refresh(&mut self, event_log: &SharedEventLog, db: Option<&DbHandle>) -> Action {
+    ///
+    /// `wrap` maps a `debug::Message` into the top-level app message so
+    /// callers can embed this in whichever screen owns the debug panel.
+    pub fn refresh<F>(
+        &mut self,
+        event_log: &SharedEventLog,
+        db: Option<&DbHandle>,
+        wrap: F,
+    ) -> Action
+    where
+        F: Fn(Message) -> crate::app::Message + Send + 'static,
+    {
         // Snapshot the event log (brief lock).
         let snapshot = event_log
             .lock()
@@ -76,7 +86,7 @@ impl Debug {
             let db = db.clone();
             return Action::RunTask(iced::Task::perform(
                 async move { db.get_cache_stats().await },
-                |stats| app::Message::Debug(Message::CacheStatsLoaded(stats)),
+                move |stats| wrap(Message::CacheStatsLoaded(stats)),
             ));
         }
         Action::None
@@ -84,7 +94,6 @@ impl Debug {
 
     pub fn view<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
         let header_row = row![
-            text("Debug").size(style::TEXT_XL).font(style::FONT_HEADING),
             Space::new().width(Length::Fill),
             text("Verbose")
                 .size(style::TEXT_SM)

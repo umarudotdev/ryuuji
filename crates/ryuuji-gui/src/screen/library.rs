@@ -1,6 +1,8 @@
 use iced::widget::{button, column, container, pick_list, row, rule, text};
 use iced::{Alignment, Element, Length, Task};
 
+use crate::widgets::anime_card;
+
 use ryuuji_core::models::WatchStatus;
 use ryuuji_core::storage::LibraryRow;
 
@@ -33,12 +35,21 @@ impl std::fmt::Display for LibrarySort {
     }
 }
 
+/// Toggle between list and grid display modes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ViewMode {
+    #[default]
+    List,
+    Grid,
+}
+
 /// Library screen state.
 pub struct Library {
     pub tab: WatchStatus,
     pub entries: Vec<LibraryRow>,
     pub selected_anime: Option<i64>,
     pub sort: LibrarySort,
+    pub view_mode: ViewMode,
     pub score_input: String,
     pub episode_input: String,
     pub start_date_input: String,
@@ -70,6 +81,7 @@ pub enum Message {
     RewatchCountInputChanged(String),
     RewatchCountInputSubmitted,
     SortChanged(LibrarySort),
+    ViewModeChanged(ViewMode),
     CloseDetail,
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
@@ -86,6 +98,7 @@ impl Library {
             entries: Vec::new(),
             selected_anime: None,
             sort: LibrarySort::default(),
+            view_mode: ViewMode::default(),
             score_input: String::new(),
             episode_input: String::new(),
             start_date_input: String::new(),
@@ -332,6 +345,10 @@ impl Library {
                 self.sort = sort;
                 self.refresh_task(db)
             }
+            Message::ViewModeChanged(mode) => {
+                self.view_mode = mode;
+                Action::None
+            }
             Message::ContextAction(anime_id, action) => match action {
                 ContextAction::ChangeStatus(new_status) => {
                     if let Some(db) = db {
@@ -448,6 +465,38 @@ impl Library {
             }
         );
 
+        // View mode toggle buttons
+        let list_icon = lucide_icons::iced::icon_list()
+            .size(style::TEXT_SM)
+            .color(if self.view_mode == ViewMode::List {
+                cs.primary
+            } else {
+                cs.on_surface_variant
+            });
+        let grid_icon = lucide_icons::iced::icon_layout_grid()
+            .size(style::TEXT_SM)
+            .color(if self.view_mode == ViewMode::Grid {
+                cs.primary
+            } else {
+                cs.on_surface_variant
+            });
+
+        let view_toggle = row![
+            button(container(list_icon).center(Length::Fill))
+                .width(Length::Fixed(28.0))
+                .height(Length::Fixed(28.0))
+                .padding(0)
+                .on_press(Message::ViewModeChanged(ViewMode::List))
+                .style(theme::icon_button(cs)),
+            button(container(grid_icon).center(Length::Fill))
+                .width(Length::Fixed(28.0))
+                .height(Length::Fixed(28.0))
+                .padding(0)
+                .on_press(Message::ViewModeChanged(ViewMode::Grid))
+                .style(theme::icon_button(cs)),
+        ]
+        .spacing(style::SPACE_XXS);
+
         let header = row![
             chip_bar(cs, self.tab),
             text(count_text)
@@ -455,6 +504,7 @@ impl Library {
                 .color(cs.outline)
                 .line_height(style::LINE_HEIGHT_LOOSE)
                 .width(Length::Fill),
+            view_toggle,
             pick_list(LibrarySort::ALL, Some(self.sort), |s| {
                 Message::SortChanged(s)
             })
@@ -468,41 +518,64 @@ impl Library {
         .padding([style::SPACE_SM, style::SPACE_LG]);
 
         let list: Element<'_, Message> = if self.entries.is_empty() {
-            container(
-                column![text("No anime in this list.")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface_variant)
-                    .line_height(style::LINE_HEIGHT_LOOSE),]
-                .align_x(Alignment::Center),
-            )
-            .padding(style::SPACE_3XL)
-            .width(Length::Fill)
-            .center_x(Length::Fill)
-            .into()
+            let icon = lucide_icons::iced::icon_library()
+                .size(48.0)
+                .color(cs.outline)
+                .into();
+            widgets::empty_state(cs, icon, "No anime yet", "Import your library from a service or start watching something.")
         } else {
-            let items: Vec<Element<'a, Message>> = self
-                .entries
-                .iter()
-                .map(|r| {
-                    widgets::anime_list_item(
-                        cs,
-                        r,
-                        self.selected_anime,
-                        covers,
-                        Message::AnimeSelected,
-                        Message::ContextAction,
-                    )
-                })
-                .collect();
+            match self.view_mode {
+                ViewMode::List => {
+                    let items: Vec<Element<'a, Message>> = self
+                        .entries
+                        .iter()
+                        .map(|r| {
+                            widgets::anime_list_item(
+                                cs,
+                                r,
+                                self.selected_anime,
+                                covers,
+                                Message::AnimeSelected,
+                                Message::ContextAction,
+                            )
+                        })
+                        .collect();
 
-            crate::widgets::styled_scrollable(
-                column(items)
-                    .spacing(style::SPACE_XXS)
-                    .padding([style::SPACE_XS, style::SPACE_LG]),
-                cs,
-            )
-            .height(Length::Fill)
-            .into()
+                    crate::widgets::styled_scrollable(
+                        column(items)
+                            .spacing(style::SPACE_XXS)
+                            .padding([style::SPACE_XS, style::SPACE_LG]),
+                        cs,
+                    )
+                    .height(Length::Fill)
+                    .into()
+                }
+                ViewMode::Grid => {
+                    let cards: Vec<Element<'a, Message>> = self
+                        .entries
+                        .iter()
+                        .map(|r| {
+                            anime_card::library_card(
+                                cs,
+                                r,
+                                covers,
+                                Message::AnimeSelected(r.anime.id),
+                            )
+                        })
+                        .collect();
+
+                    let wrap = iced_aw::Wrap::with_elements(cards)
+                        .spacing(style::SPACE_SM)
+                        .line_spacing(style::SPACE_SM);
+
+                    crate::widgets::styled_scrollable(
+                        container(wrap).padding([style::SPACE_SM, style::SPACE_LG]),
+                        cs,
+                    )
+                    .height(Length::Fill)
+                    .into()
+                }
+            }
         };
 
         let content = column![header, rule::horizontal(1), list]

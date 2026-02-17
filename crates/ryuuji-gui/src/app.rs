@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, row, text};
+use iced::widget::{button, column, container, row, stack, text, tooltip};
 use iced::window;
 use iced::{Alignment, Element, Length, Subscription, Task, Theme};
 
@@ -14,7 +14,7 @@ use crate::db::DbHandle;
 use crate::discord::DiscordHandle;
 use crate::keyboard::Shortcut;
 use crate::screen::{
-    debug, history, library, now_playing, search, seasons, settings, stats, torrents, Action,
+    history, library, now_playing, search, seasons, settings, stats, torrents, Action,
     ContextAction, ModalKind, Page,
 };
 use crate::style;
@@ -23,6 +23,7 @@ use ryuuji_api::traits::LibraryEntryUpdate;
 use ryuuji_core::config::ThemeMode;
 
 use crate::theme::{self, ColorScheme, RyuujiTheme};
+use crate::toast::{self, Toast, ToastKind};
 use crate::window_state::WindowState;
 
 /// Application state — slim router that delegates to screens.
@@ -42,7 +43,6 @@ pub struct Ryuuji {
     seasons: seasons::Seasons,
     torrents: torrents::Torrents,
     stats: stats::Stats,
-    debug: debug::Debug,
     settings: settings::Settings,
     // Cover images
     cover_cache: CoverCache,
@@ -53,6 +53,9 @@ pub struct Ryuuji {
     window_state: WindowState,
     // Discord Rich Presence
     discord: Option<DiscordHandle>,
+    // Toast notifications
+    toasts: Vec<Toast>,
+    next_toast_id: u64,
 }
 
 impl Default for Ryuuji {
@@ -93,13 +96,14 @@ impl Default for Ryuuji {
             seasons: seasons::Seasons::new(),
             torrents: torrents::Torrents::new(),
             stats: stats::Stats::new(),
-            debug: debug::Debug::new(),
             settings: settings_screen,
             cover_cache: CoverCache::default(),
             modal_state: None,
             status_message: "Ready".into(),
             window_state: WindowState::load(),
             discord,
+            toasts: Vec::new(),
+            next_toast_id: 0,
         }
     }
 }
@@ -126,9 +130,10 @@ pub enum Message {
     Torrents(torrents::Message),
     TorrentTick,
     Stats(stats::Message),
-    Debug(debug::Message),
     Settings(settings::Message),
     Shortcut(Shortcut),
+    ShowToast(String, ToastKind),
+    DismissToast(u64),
 }
 
 impl Ryuuji {
@@ -219,13 +224,15 @@ impl Ryuuji {
                     let action = self.stats.load_stats(self.db.as_ref());
                     return self.handle_action(action);
                 }
-                if page == Page::Debug {
-                    let action = self.debug.refresh(&self.event_log, self.db.as_ref());
-                    return self.handle_action(action);
-                }
                 if page == Page::Settings {
-                    let action = self.settings.load_stats(self.db.as_ref());
-                    return self.handle_action(action);
+                    let a1 = self.settings.load_stats(self.db.as_ref());
+                    let t1 = self.handle_action(a1);
+                    // Also refresh debug panel data when navigating to Settings.
+                    let a2 = self
+                        .settings
+                        .refresh_debug(&self.event_log, self.db.as_ref());
+                    let t2 = self.handle_action(a2);
+                    return Task::batch([t1, t2]);
                 }
                 Task::none()
             }
@@ -417,8 +424,43 @@ impl Ryuuji {
                     } else {
                         Task::none()
                     };
+                    // Sync episode input with the matched row's current episode count.
+                    self.now_playing.episode_input = row
+                        .as_ref()
+                        .map(|r| r.entry.watched_episodes.to_string())
+                        .unwrap_or_default();
                     self.now_playing.matched_row = row;
                     cover_task
+                }
+                now_playing::Message::EpisodeChanged(id, ep) => {
+                    self.spawn_sync_update(
+                        id,
+                        LibraryEntryUpdate {
+                            episode: Some(ep),
+                            ..Default::default()
+                        },
+                    )
+                }
+                now_playing::Message::EpisodeInputChanged(val) => {
+                    self.now_playing.episode_input = val;
+                    Task::none()
+                }
+                now_playing::Message::EpisodeInputSubmitted => {
+                    if let Some(lib_row) = &self.now_playing.matched_row {
+                        let anime_id = lib_row.anime.id;
+                        let max_ep = lib_row.anime.episodes.unwrap_or(u32::MAX);
+                        let ep = self
+                            .now_playing
+                            .episode_input
+                            .parse::<u32>()
+                            .unwrap_or(0)
+                            .min(max_ep);
+                        self.now_playing.episode_input = ep.to_string();
+                        return self.update(Message::NowPlaying(
+                            now_playing::Message::EpisodeChanged(anime_id, ep),
+                        ));
+                    }
+                    Task::none()
                 }
             },
             Message::History(msg) => {
@@ -902,11 +944,30 @@ impl Ryuuji {
                 let action = self.stats.update(msg);
                 self.handle_action(action)
             }
-            Message::Debug(msg) => {
-                let action = self.debug.update(msg);
-                self.handle_action(action)
-            }
             Message::Shortcut(shortcut) => self.handle_shortcut(shortcut),
+            Message::ShowToast(message, kind) => {
+                let id = self.next_toast_id;
+                self.next_toast_id += 1;
+                self.toasts.push(Toast {
+                    id,
+                    message,
+                    kind,
+                });
+                // Auto-dismiss after delay.
+                Task::perform(
+                    async {
+                        tokio::time::sleep(std::time::Duration::from_secs(
+                            toast::AUTO_DISMISS_SECS,
+                        ))
+                        .await;
+                    },
+                    move |_| Message::DismissToast(id),
+                )
+            }
+            Message::DismissToast(id) => {
+                self.toasts.retain(|t| t.id != id);
+                Task::none()
+            }
             Message::Settings(ref msg) => {
                 // Intercept async actions before delegating to settings.
                 match msg {
@@ -949,6 +1010,14 @@ impl Ryuuji {
                         let msg = msg.clone();
                         self.settings.update(msg, &mut self.config);
                         self.spawn_watch_folder_scan()
+                    }
+                    settings::Message::SectionChanged(settings::SettingsSection::Debug) => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        let action = self
+                            .settings
+                            .refresh_debug(&self.event_log, self.db.as_ref());
+                        self.handle_action(action)
                     }
                     _ => {
                         let msg = msg.clone();
@@ -2017,6 +2086,9 @@ impl Ryuuji {
                 Task::none()
             }
             Action::RunTask(task) => task,
+            Action::ShowToast(message, kind) => {
+                self.update(Message::ShowToast(message, kind))
+            }
         }
     }
 
@@ -2098,7 +2170,6 @@ impl Ryuuji {
                 .view(cs, &self.cover_cache)
                 .map(Message::Torrents),
             Page::Stats => self.stats.view(cs).map(Message::Stats),
-            Page::Debug => self.debug.view(cs).map(Message::Debug),
             Page::Settings => self.settings.view(cs).map(Message::Settings),
         };
 
@@ -2112,8 +2183,14 @@ impl Ryuuji {
         .height(Length::Fixed(style::STATUS_BAR_HEIGHT))
         .padding([4.0, style::SPACE_MD]);
 
-        let main: Element<'_, Message> =
-            column![row![nav, page_content].height(Length::Fill), status_bar,].into();
+        // Toast overlay
+        let toasts = toast::toast_overlay(cs, &self.toasts, Message::DismissToast);
+
+        let main: Element<'_, Message> = stack![
+            column![row![nav, page_content].height(Length::Fill), status_bar,],
+            toasts,
+        ]
+        .into();
 
         // Wrap in modal if one is active.
         if let Some(modal_kind) = &self.modal_state {
@@ -2217,7 +2294,7 @@ impl Ryuuji {
     fn nav_rail<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
         let nav_item = |icon: iced::widget::Text<'static>, label: &'static str, page: Page| {
             let active = self.page == page;
-            button(
+            let btn = button(
                 column![
                     icon.size(style::NAV_ICON_SIZE).center(),
                     text(label)
@@ -2232,7 +2309,11 @@ impl Ryuuji {
             .width(Length::Fixed(64.0))
             .padding([style::SPACE_SM, style::SPACE_XS])
             .on_press(Message::NavigateTo(page))
-            .style(theme::nav_rail_item(active, cs))
+            .style(theme::nav_rail_item(active, cs));
+
+            tooltip(btn, label, tooltip::Position::Right)
+                .gap(style::SPACE_SM)
+                .style(theme::tooltip_style(cs))
         };
 
         use lucide_icons::iced as icons;
@@ -2251,7 +2332,6 @@ impl Ryuuji {
             iced::widget::Space::new().height(Length::Fill),
             column![
                 nav_item(icons::icon_chart_bar(), "Stats", Page::Stats),
-                nav_item(icons::icon_activity(), "Debug", Page::Debug),
                 nav_item(icons::icon_settings(), "Settings", Page::Settings),
             ]
             .spacing(style::SPACE_XS)

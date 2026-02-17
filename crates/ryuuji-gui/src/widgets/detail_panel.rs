@@ -209,32 +209,25 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     let status_card = container(
         column![
             text("Status & Score")
-                .size(style::TEXT_SM)
+                .size(style::TEXT_XS)
                 .font(style::FONT_HEADING)
                 .color(cs.on_surface_variant)
                 .line_height(style::LINE_HEIGHT_LOOSE),
-            row![
-                text("Watch Status")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface)
-                    .line_height(style::LINE_HEIGHT_NORMAL)
-                    .width(Length::Fill),
+            super::form_row(
+                cs,
+                "Watch Status",
                 pick_list(WatchStatus::ALL, Some(entry.status), move |s| {
                     on_status_changed(s)
                 })
-                .text_size(style::TEXT_SM)
-                .padding([style::SPACE_SM, style::SPACE_MD])
+                .text_size(style::INPUT_FONT_SIZE)
+                .padding(style::INPUT_PADDING)
                 .style(theme::pick_list_style(cs))
-                .menu_style(theme::pick_list_menu_style(cs)),
-            ]
-            .align_y(Alignment::Center)
-            .spacing(style::SPACE_SM),
-            row![
-                text("Your Score")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface)
-                    .line_height(style::LINE_HEIGHT_NORMAL)
-                    .width(Length::Fill),
+                .menu_style(theme::pick_list_menu_style(cs))
+                .into(),
+            ),
+            super::form_row(
+                cs,
+                "Your Score",
                 widgets::stepper(
                     cs,
                     score_text,
@@ -243,9 +236,7 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
                     score_dec,
                     score_inc,
                 ),
-            ]
-            .align_y(Alignment::Center)
-            .spacing(style::SPACE_SM),
+            ),
         ]
         .spacing(style::SPACE_MD),
     )
@@ -284,16 +275,16 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     let progress_card = container(
         column![
             text("Episode Progress")
-                .size(style::TEXT_SM)
+                .size(style::TEXT_XS)
                 .font(style::FONT_HEADING)
                 .color(cs.on_surface_variant)
                 .line_height(style::LINE_HEIGHT_LOOSE),
             row![
                 text(ep_text)
-                    .size(style::TEXT_SM)
+                    .size(style::INPUT_FONT_SIZE)
                     .line_height(style::LINE_HEIGHT_NORMAL),
                 text(pct_text)
-                    .size(style::TEXT_SM)
+                    .size(style::INPUT_FONT_SIZE)
                     .color(cs.primary)
                     .line_height(style::LINE_HEIGHT_NORMAL),
             ]
@@ -302,12 +293,9 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
             progress_bar(0.0..=1.0, pct)
                 .girth(Length::Fixed(style::PROGRESS_HEIGHT))
                 .style(theme::episode_progress(cs)),
-            row![
-                text("Set Episode")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface)
-                    .line_height(style::LINE_HEIGHT_NORMAL)
-                    .width(Length::Fill),
+            super::form_row(
+                cs,
+                "Set Episode",
                 widgets::stepper(
                     cs,
                     episode_text,
@@ -316,9 +304,7 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
                     ep_dec,
                     ep_inc,
                 ),
-            ]
-            .align_y(Alignment::Center)
-            .spacing(style::SPACE_SM),
+            ),
         ]
         .spacing(style::SPACE_SM),
     )
@@ -340,61 +326,46 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     let dates_card = container(
         column![
             text("Dates & Rewatch")
-                .size(style::TEXT_SM)
+                .size(style::TEXT_XS)
                 .font(style::FONT_HEADING)
                 .color(cs.on_surface_variant)
                 .line_height(style::LINE_HEIGHT_LOOSE),
-            row![
-                text("Start Date")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface)
-                    .line_height(style::LINE_HEIGHT_NORMAL)
-                    .width(Length::Fill),
+            super::form_row(
+                cs,
+                "Start Date",
                 text_input("YYYY-MM-DD", start_date_text)
                     .on_input(on_start_date_input)
                     .on_submit(on_start_date_submit)
-                    .size(style::TEXT_SM)
-                    .padding([style::SPACE_SM, style::SPACE_MD])
-                    .width(Length::Fixed(140.0))
-                    .style(theme::text_input_style(cs)),
-            ]
-            .align_y(Alignment::Center)
-            .spacing(style::SPACE_SM),
-            row![
-                text("Finish Date")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface)
-                    .line_height(style::LINE_HEIGHT_NORMAL)
-                    .width(Length::Fill),
+                    .size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
+                    .width(Length::Fixed(style::INPUT_DATE_WIDTH))
+                    .style(theme::text_input_style(cs))
+                    .into(),
+            ),
+            super::form_row(
+                cs,
+                "Finish Date",
                 text_input("YYYY-MM-DD", finish_date_text)
                     .on_input(on_finish_date_input)
                     .on_submit(on_finish_date_submit)
-                    .size(style::TEXT_SM)
-                    .padding([style::SPACE_SM, style::SPACE_MD])
-                    .width(Length::Fixed(140.0))
-                    .style(theme::text_input_style(cs)),
-            ]
-            .align_y(Alignment::Center)
-            .spacing(style::SPACE_SM),
-            row![
-                text("Rewatching")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface)
-                    .line_height(style::LINE_HEIGHT_NORMAL)
-                    .width(Length::Fill),
+                    .size(style::INPUT_FONT_SIZE)
+                    .padding(style::INPUT_PADDING)
+                    .width(Length::Fixed(style::INPUT_DATE_WIDTH))
+                    .style(theme::text_input_style(cs))
+                    .into(),
+            ),
+            super::form_row(
+                cs,
+                "Rewatching",
                 toggler(entry.rewatching)
                     .on_toggle(on_rewatch_toggled)
-                    .size(style::TEXT_BASE)
-                    .style(theme::toggler_style(cs)),
-            ]
-            .align_y(Alignment::Center)
-            .spacing(style::SPACE_SM),
-            row![
-                text("Rewatch Count")
-                    .size(style::TEXT_SM)
-                    .color(cs.on_surface)
-                    .line_height(style::LINE_HEIGHT_NORMAL)
-                    .width(Length::Fill),
+                    .size(style::TOGGLER_SIZE)
+                    .style(theme::toggler_style(cs))
+                    .into(),
+            ),
+            super::form_row(
+                cs,
+                "Rewatch Count",
                 widgets::stepper(
                     cs,
                     rewatch_count_text,
@@ -403,9 +374,7 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
                     rc_dec,
                     rc_inc,
                 ),
-            ]
-            .align_y(Alignment::Center)
-            .spacing(style::SPACE_SM),
+            ),
         ]
         .spacing(style::SPACE_MD),
     )
@@ -419,15 +388,15 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     let notes_card = container(
         column![
             text("Notes")
-                .size(style::TEXT_SM)
+                .size(style::TEXT_XS)
                 .font(style::FONT_HEADING)
                 .color(cs.on_surface_variant)
                 .line_height(style::LINE_HEIGHT_LOOSE),
             text_input("Add notes\u{2026}", notes_text)
                 .on_input(on_notes_input)
                 .on_submit(on_notes_submit)
-                .size(style::TEXT_SM)
-                .padding([style::SPACE_SM, style::SPACE_MD])
+                .size(style::INPUT_FONT_SIZE)
+                .padding(style::INPUT_PADDING)
                 .width(Length::Fill)
                 .style(theme::text_input_style(cs)),
         ]
