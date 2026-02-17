@@ -10,7 +10,9 @@ use tokio::sync::{mpsc, oneshot};
 
 use ryuuji_core::config::AppConfig;
 use ryuuji_core::error::RyuujiError;
-use ryuuji_core::models::{Anime, AvailableEpisodeSummary, DetectedMedia, LibraryEntry, WatchStatus};
+use ryuuji_core::models::{
+    Anime, AvailableEpisodeSummary, DetectedMedia, LibraryEntry, WatchStatus,
+};
 use ryuuji_core::orchestrator::{self, UpdateOutcome};
 use ryuuji_core::recognition::RecognitionCache;
 use ryuuji_core::relations::RelationDatabase;
@@ -670,8 +672,7 @@ fn actor_loop(storage: Storage, mut rx: mpsc::UnboundedReceiver<DbCommand>) {
             }
             // ── Scanner commands ───────────────────────────────────
             DbCommand::ScanWatchFolders { config, reply } => {
-                let result =
-                    scanner::scan_watch_folders(&storage, &mut cache, &config.library);
+                let result = scanner::scan_watch_folders(&storage, &mut cache, &config.library);
                 let _ = reply.send(result);
             }
             DbCommand::GetAvailableEpisodeSummaries { reply } => {

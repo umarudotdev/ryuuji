@@ -30,11 +30,9 @@ pub enum Shortcut {
 /// Subscription that converts keyboard events to `Message::Shortcut`.
 pub fn keyboard_subscription() -> Subscription<Message> {
     iced::event::listen_with(|event, _status, _id| match event {
-        iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key,
-            modifiers,
-            ..
-        }) => map_shortcut(key, modifiers),
+        iced::Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+            map_shortcut(key, modifiers)
+        }
         _ => None,
     })
 }

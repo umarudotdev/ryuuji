@@ -58,12 +58,10 @@ impl Stats {
         };
         self.loading = true;
         let db = db.clone();
-        Action::RunTask(
-            iced::Task::perform(
-                async move { db.get_library_statistics().await.map_err(|e| e.to_string()) },
-                |result| app::Message::Stats(Message::StatsLoaded(result)),
-            ),
-        )
+        Action::RunTask(iced::Task::perform(
+            async move { db.get_library_statistics().await.map_err(|e| e.to_string()) },
+            |result| app::Message::Stats(Message::StatsLoaded(result)),
+        ))
     }
 
     pub fn view<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
@@ -161,11 +159,7 @@ impl Stats {
     }
 
     /// Status breakdown card.
-    fn status_card<'a>(
-        &self,
-        cs: &ColorScheme,
-        stats: &LibraryStatistics,
-    ) -> Element<'a, Message> {
+    fn status_card<'a>(&self, cs: &ColorScheme, stats: &LibraryStatistics) -> Element<'a, Message> {
         let statuses = [
             (WatchStatus::Watching, "Watching", cs.status_watching),
             (WatchStatus::Completed, "Completed", cs.status_completed),
@@ -202,11 +196,7 @@ impl Stats {
     }
 
     /// Score distribution card with horizontal bar chart.
-    fn score_card<'a>(
-        &self,
-        cs: &ColorScheme,
-        stats: &LibraryStatistics,
-    ) -> Element<'a, Message> {
+    fn score_card<'a>(&self, cs: &ColorScheme, stats: &LibraryStatistics) -> Element<'a, Message> {
         let max_count = stats
             .score_distribution
             .iter()
@@ -215,9 +205,7 @@ impl Stats {
             .unwrap_or(1)
             .max(1);
 
-        let mut bars = column![]
-            .spacing(style::SPACE_XS)
-            .width(Length::Fill);
+        let mut bars = column![].spacing(style::SPACE_XS).width(Length::Fill);
 
         // Show 1-10, always in order
         for bucket in 1..=10u8 {
@@ -251,11 +239,7 @@ impl Stats {
     }
 
     /// Top genres card.
-    fn genres_card<'a>(
-        &self,
-        cs: &ColorScheme,
-        stats: &LibraryStatistics,
-    ) -> Element<'a, Message> {
+    fn genres_card<'a>(&self, cs: &ColorScheme, stats: &LibraryStatistics) -> Element<'a, Message> {
         let mut items = column![
             text("Top Genres")
                 .size(style::TEXT_LG)
@@ -351,22 +335,25 @@ fn score_bar<'a>(
     let bar_color = cs.primary;
     let bar_width = (fraction * 120.0).max(if count > 0 { 4.0 } else { 0.0 });
 
-    let bar = container(Space::new().width(bar_width).height(style::PROGRESS_HEIGHT))
-        .style(move |_theme: &iced::Theme| container::Style {
+    let bar = container(Space::new().width(bar_width).height(style::PROGRESS_HEIGHT)).style(
+        move |_theme: &iced::Theme| container::Style {
             background: Some(iced::Background::Color(bar_color)),
             border: iced::Border {
                 radius: (style::PROGRESS_HEIGHT / 2.0).into(),
                 ..Default::default()
             },
             ..Default::default()
-        });
+        },
+    );
 
     row![
         text(format!("{bucket:>2}"))
             .size(style::TEXT_XS)
             .color(cs.on_surface_variant)
             .width(Length::Fixed(20.0)),
-        container(bar).width(Length::Fixed(124.0)).center_y(Length::Shrink),
+        container(bar)
+            .width(Length::Fixed(124.0))
+            .center_y(Length::Shrink),
         text(count.to_string())
             .size(style::TEXT_XS)
             .color(cs.outline),

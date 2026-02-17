@@ -50,14 +50,14 @@ fn transliterate(s: &str) -> String {
             '0' if looks_like_letter_o(&chars, i) => result.push('o'),
             '\u{00D7}' | '\u{2715}' | '\u{2716}' => result.push('x'), // ×, ✕, ✖
             '\u{2019}' | '\u{2018}' | '\u{02BC}' => result.push('\''), // curly quotes → straight
-            '\u{201C}' | '\u{201D}' => result.push('"'),               // curly double quotes
-            '\u{2013}' | '\u{2014}' => result.push('-'),               // en/em dash → hyphen
-            '\u{2026}' => result.push_str("..."),                       // ellipsis
-            '\u{00E6}' => result.push_str("ae"),                        // æ
-            '\u{0153}' => result.push_str("oe"),                        // œ
-            '\u{00F0}' => result.push_str("d"),                         // ð
-            '\u{00FE}' => result.push_str("th"),                        // þ
-            '\u{00DF}' => result.push_str("ss"),                        // ß
+            '\u{201C}' | '\u{201D}' => result.push('"'),              // curly double quotes
+            '\u{2013}' | '\u{2014}' => result.push('-'),              // en/em dash → hyphen
+            '\u{2026}' => result.push_str("..."),                     // ellipsis
+            '\u{00E6}' => result.push_str("ae"),                      // æ
+            '\u{0153}' => result.push_str("oe"),                      // œ
+            '\u{00F0}' => result.push_str("d"),                       // ð
+            '\u{00FE}' => result.push_str("th"),                      // þ
+            '\u{00DF}' => result.push_str("ss"),                      // ß
             c => result.push(c),
         }
         i += 1;
@@ -199,7 +199,10 @@ fn normalize_season_keywords(s: &str) -> String {
         }
 
         // Standalone "S2", "s2" etc.
-        if lower.starts_with('s') && lower.len() > 1 && lower[1..].chars().all(|c| c.is_ascii_digit()) {
+        if lower.starts_with('s')
+            && lower.len() > 1
+            && lower[1..].chars().all(|c| c.is_ascii_digit())
+        {
             result.push(lower[1..].to_string());
             i += 1;
             continue;
@@ -216,8 +219,7 @@ fn normalize_season_keywords(s: &str) -> String {
 
 /// Words to remove entirely from titles during normalization.
 const STOP_WORDS: &[&str] = &[
-    "the", "a", "an", "episode", "ep", "ep.", "tv", "ova", "ona",
-    "season", "cour", "part",
+    "the", "a", "an", "episode", "ep", "ep.", "tv", "ova", "ona", "season", "cour", "part",
 ];
 
 /// Apply stop word removal and synonym normalization.
@@ -399,7 +401,10 @@ mod tests {
 
     #[test]
     fn season_n() {
-        assert_eq!(normalize_season_keywords("attack on titan season 2"), "attack on titan 2");
+        assert_eq!(
+            normalize_season_keywords("attack on titan season 2"),
+            "attack on titan 2"
+        );
     }
 
     #[test]
@@ -482,28 +487,19 @@ mod tests {
 
     #[test]
     fn full_pipeline_season_keyword() {
-        assert_eq!(
-            normalize("Attack on Titan Season 2"),
-            "attack on titan 2"
-        );
+        assert_eq!(normalize("Attack on Titan Season 2"), "attack on titan 2");
     }
 
     #[test]
     fn full_pipeline_stop_words() {
-        assert_eq!(
-            normalize("The Seven Deadly Sins"),
-            "seven deadly sins"
-        );
+        assert_eq!(normalize("The Seven Deadly Sins"), "seven deadly sins");
     }
 
     #[test]
     fn full_pipeline_complex() {
         // Multiple levels interact: NFKC + ordinal + stop words + punctuation
         // "The" removed, "2nd" → "2", "Season" removed as stop word, "(TV)" stripped
-        assert_eq!(
-            normalize("The Title: 2nd Season (TV)"),
-            "title 2"
-        );
+        assert_eq!(normalize("The Title: 2nd Season (TV)"), "title 2");
     }
 
     #[test]
@@ -513,10 +509,7 @@ mod tests {
 
     #[test]
     fn full_pipeline_ampersand() {
-        assert_eq!(
-            normalize("Romeo & Juliet"),
-            "romeo and juliet"
-        );
+        assert_eq!(normalize("Romeo & Juliet"), "romeo and juliet");
     }
 
     #[test]
