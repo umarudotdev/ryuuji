@@ -6,6 +6,7 @@
 
 use std::path::Path;
 
+use tracing::warn;
 use walkdir::WalkDir;
 
 use crate::config::LibraryConfig;
@@ -80,7 +81,11 @@ pub fn scan_watch_folders(
             // Check file size
             let metadata = match entry.metadata() {
                 Ok(m) => m,
-                Err(_) => continue,
+                Err(e) => {
+                    warn!(path = %entry.path().display(), error = %e, "Failed to read file metadata");
+                    result.files_skipped += 1;
+                    continue;
+                }
             };
             let file_size = metadata.len();
             if file_size < min_bytes {

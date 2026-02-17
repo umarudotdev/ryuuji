@@ -2,6 +2,7 @@ use std::path::Path;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
+use tracing::debug;
 
 use crate::error::RyuujiError;
 use crate::models::{
@@ -82,6 +83,7 @@ impl Storage {
 
     /// Insert a new anime, returning its auto-generated ID.
     pub fn insert_anime(&self, anime: &Anime) -> Result<i64, RyuujiError> {
+        debug!(title = anime.title.preferred(), "Inserting anime");
         let synonyms_json = serde_json::to_string(&anime.synonyms).unwrap_or_default();
         let genres_json = serde_json::to_string(&anime.genres).unwrap_or_default();
         let studios_json = serde_json::to_string(&anime.studios).unwrap_or_default();
@@ -370,6 +372,7 @@ impl Storage {
 
     /// Insert or update a library entry.
     pub fn upsert_library_entry(&self, entry: &LibraryEntry) -> Result<i64, RyuujiError> {
+        debug!(anime_id = entry.anime_id, status = %entry.status, episodes = entry.watched_episodes, "Upserting library entry");
         self.conn.execute(
             "INSERT INTO library_entry (anime_id, status, watched_episodes, score, updated_at,
              start_date, finish_date, notes, rewatching, rewatch_count)
@@ -473,6 +476,7 @@ impl Storage {
 
     /// Update just the episode count for a library entry.
     pub fn update_episode_count(&self, anime_id: i64, episodes: u32) -> Result<(), RyuujiError> {
+        debug!(anime_id, episodes, "Updating episode count");
         self.conn.execute(
             "UPDATE library_entry SET watched_episodes = ?1, updated_at = ?2
              WHERE anime_id = ?3",
@@ -487,6 +491,7 @@ impl Storage {
         anime_id: i64,
         status: WatchStatus,
     ) -> Result<(), RyuujiError> {
+        debug!(anime_id, status = %status, "Updating library status");
         self.conn.execute(
             "UPDATE library_entry SET status = ?1, updated_at = ?2
              WHERE anime_id = ?3",
@@ -556,6 +561,7 @@ impl Storage {
 
     /// Delete a library entry by anime ID.
     pub fn delete_library_entry(&self, anime_id: i64) -> Result<(), RyuujiError> {
+        debug!(anime_id, "Deleting library entry");
         self.conn.execute(
             "DELETE FROM library_entry WHERE anime_id = ?1",
             params![anime_id],
@@ -567,6 +573,7 @@ impl Storage {
 
     /// Record an episode watch.
     pub fn record_watch(&self, anime_id: i64, episode: u32) -> Result<(), RyuujiError> {
+        debug!(anime_id, episode, "Recording watch");
         self.conn.execute(
             "INSERT INTO watch_history (anime_id, episode) VALUES (?1, ?2)",
             params![anime_id, episode],
@@ -632,6 +639,7 @@ impl Storage {
         refresh: Option<&str>,
         expires_at: Option<&str>,
     ) -> Result<(), RyuujiError> {
+        debug!(service, "Saving auth token");
         self.conn.execute(
             "INSERT OR REPLACE INTO auth_tokens (service, token, refresh, expires_at)
              VALUES (?1, ?2, ?3, ?4)",

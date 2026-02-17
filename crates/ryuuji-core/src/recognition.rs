@@ -96,7 +96,7 @@ impl RecognitionCache {
 
         if !self.populated {
             if let Err(e) = self.populate(storage) {
-                tracing::error!("Failed to populate recognition cache: {e}");
+                tracing::error!(error = %e, "Failed to populate recognition cache");
                 return MatchResult::NoMatch;
             }
             tracing::debug!(

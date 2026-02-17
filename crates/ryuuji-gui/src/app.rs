@@ -56,9 +56,13 @@ impl Default for Ryuuji {
     fn default() -> Self {
         let config = AppConfig::load().unwrap_or_default();
         let settings_screen = settings::Settings::from_config(&config);
-        let db = AppConfig::ensure_db_path()
-            .ok()
-            .and_then(|path| DbHandle::open(&path));
+        let db = match AppConfig::ensure_db_path() {
+            Ok(path) => DbHandle::open(&path),
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to create database directory");
+                None
+            }
+        };
 
         // Resolve initial theme from config.
         let current_theme =
@@ -366,7 +370,7 @@ impl Ryuuji {
             }
             Message::SyncPushResult(result) => {
                 if let Err(e) = result {
-                    tracing::warn!("Sync push failed: {e}");
+                    tracing::warn!(error = %e, "Sync push failed");
                 }
                 Task::none()
             }
@@ -1630,7 +1634,7 @@ impl Ryuuji {
                     if let Err(e) =
                         sync_add_to_remote(&db, &primary, result.service_id, "plan_to_watch").await
                     {
-                        tracing::warn!("Remote add (seasons) failed: {e}");
+                        tracing::warn!(error = %e, "Remote add (seasons) failed");
                     }
                 }
 
@@ -1717,7 +1721,7 @@ impl Ryuuji {
                     if let Err(e) =
                         sync_add_to_remote(&db, &primary, result.service_id, "plan_to_watch").await
                     {
-                        tracing::warn!("Remote add (search) failed: {e}");
+                        tracing::warn!(error = %e, "Remote add (search) failed");
                     }
                 }
 
@@ -1835,7 +1839,7 @@ impl Ryuuji {
                 if let Some(service_id) = service_id {
                     sync_delete_from_remote(&db, &primary, service_id).await
                 } else {
-                    tracing::warn!("No {primary} ID for anime {anime_id}, skipping remote delete");
+                    tracing::warn!(service = %primary, anime_id, "No service ID for anime, skipping remote delete");
                     Ok(())
                 }
             },
