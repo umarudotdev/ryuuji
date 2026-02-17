@@ -13,6 +13,7 @@ pub const CARD_WIDTH: f32 = style::COVER_WIDTH + 2.0 * style::SPACE_SM;
 ///
 /// Shows cover image, truncated title, episode progress text, and a thin
 /// progress bar. Generic over message type via `on_select` closure.
+#[allow(clippy::too_many_arguments)]
 pub fn anime_card<'a, Message: Clone + 'static>(
     cs: &ColorScheme,
     covers: &'a CoverCache,
