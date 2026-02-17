@@ -1,3 +1,4 @@
+pub mod debug;
 pub mod history;
 pub mod library;
 pub mod now_playing;
@@ -24,6 +25,7 @@ pub enum Page {
     Seasons,
     Torrents,
     Stats,
+    Debug,
     Settings,
 }
 
