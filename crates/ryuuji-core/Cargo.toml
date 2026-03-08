@@ -16,6 +16,7 @@ directories = { workspace = true }
 rusqlite = { workspace = true }
 tokio = { workspace = true }
 fuzzy-matcher = "0.3"
+semver = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { workspace = true }
 rss = { workspace = true }

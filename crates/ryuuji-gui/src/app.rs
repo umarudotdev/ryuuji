@@ -8,6 +8,7 @@ use ryuuji_core::debug_log::{self, DebugEvent, SharedEventLog};
 use ryuuji_core::models::{Anime, AnimeIds, AnimeTitle, DetectedMedia, LibraryEntry, WatchStatus};
 use ryuuji_core::orchestrator::UpdateOutcome;
 use ryuuji_core::storage::LibraryRow;
+use ryuuji_core::updater;
 
 use crate::cover_cache::{self, CoverCache, CoverState};
 use crate::db::DbHandle;
@@ -138,9 +139,13 @@ pub enum Message {
 
 impl Ryuuji {
     pub fn new() -> (Self, Task<Message>) {
-        let app = Self::default();
+        let mut app = Self::default();
+
+        // Clean up leftover binaries from a previous update (Windows).
+        updater::cleanup_old_binary();
+
         // Check if service tokens exist on startup.
-        let task = if let Some(db) = &app.db {
+        let token_task = if let Some(db) = &app.db {
             let db_mal = db.clone();
             let db_al = db.clone();
             let db_kt = db.clone();
@@ -181,7 +186,24 @@ impl Ryuuji {
         } else {
             Task::none()
         };
-        (app, task)
+
+        // Check for app updates on startup (if enabled).
+        let update_task = if app.config.update.check_on_startup {
+            app.settings.update_state = updater::UpdateState::Checking;
+            let include_pre = app.config.update.include_prerelease;
+            Task::perform(
+                async move {
+                    updater::check_for_update(include_pre)
+                        .await
+                        .map_err(|e| e.to_string())
+                },
+                |result| Message::Settings(settings::Message::UpdateCheckResult(result)),
+            )
+        } else {
+            Task::none()
+        };
+
+        (app, Task::batch([token_task, update_task]))
     }
 
     pub fn title(&self) -> String {
@@ -1010,6 +1032,50 @@ impl Ryuuji {
                         self.settings.update(msg, &mut self.config);
                         self.spawn_watch_folder_scan()
                     }
+                    settings::Message::CheckForUpdates => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_update_check()
+                    }
+                    settings::Message::DownloadUpdate => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_update_download()
+                    }
+                    settings::Message::ApplyAndRestart => {
+                        let msg = msg.clone();
+                        self.settings.update(msg, &mut self.config);
+                        self.spawn_update_apply()
+                    }
+                    settings::Message::UpdateCheckResult(Ok(Some(_))) => {
+                        let msg = msg.clone();
+                        let action = self.settings.update(msg, &mut self.config);
+                        let action_task = self.handle_action(action);
+                        // Show a toast when an update is found.
+                        let toast_msg = match &self.settings.update_state {
+                            updater::UpdateState::Available(info)
+                            | updater::UpdateState::NotifyOnly(info) => {
+                                Some(format!("Update available: v{}", info.version))
+                            }
+                            _ => None,
+                        };
+                        if let Some(msg) = toast_msg {
+                            let toast_task = self.update(Message::ShowToast(msg, ToastKind::Info));
+                            Task::batch([action_task, toast_task])
+                        } else {
+                            action_task
+                        }
+                    }
+                    settings::Message::UpdateCheckResult(Err(_)) => {
+                        // Startup check failures: just log, no toast for non-intrusive UX.
+                        // Manual check failures get the error shown in the settings UI.
+                        let msg = msg.clone();
+                        if let settings::Message::UpdateCheckResult(Err(ref e)) = msg {
+                            tracing::warn!(error = %e, "Update check failed");
+                        }
+                        let action = self.settings.update(msg, &mut self.config);
+                        self.handle_action(action)
+                    }
                     settings::Message::SectionChanged(settings::SettingsSection::Debug) => {
                         let msg = msg.clone();
                         self.settings.update(msg, &mut self.config);
@@ -1503,6 +1569,57 @@ impl Ryuuji {
             },
             |result| Message::Settings(settings::Message::ScanResult(result)),
         )
+    }
+
+    /// Spawn a GitHub Releases check for a newer version.
+    fn spawn_update_check(&self) -> Task<Message> {
+        let include_pre = self.config.update.include_prerelease;
+        Task::perform(
+            async move {
+                updater::check_for_update(include_pre)
+                    .await
+                    .map_err(|e| e.to_string())
+            },
+            |result| Message::Settings(settings::Message::UpdateCheckResult(result)),
+        )
+    }
+
+    /// Spawn a download of the update artifact.
+    fn spawn_update_download(&self) -> Task<Message> {
+        let info = match &self.settings.update_state {
+            updater::UpdateState::Downloading(info) => info.clone(),
+            _ => return Task::none(),
+        };
+        Task::perform(
+            async move {
+                updater::download_update(&info)
+                    .await
+                    .map_err(|e| e.to_string())
+            },
+            |result| Message::Settings(settings::Message::UpdateDownloadResult(result)),
+        )
+    }
+
+    /// Apply the downloaded update and restart.
+    fn spawn_update_apply(&self) -> Task<Message> {
+        match &self.settings.update_state {
+            updater::UpdateState::ReadyToApply { path, .. } => {
+                let path = path.clone();
+                Task::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || updater::apply_update(&path))
+                            .await
+                            .map_err(|e| e.to_string())?
+                            .map_err(|e| e.to_string())
+                    },
+                    |result| Message::Settings(settings::Message::UpdateApplyResult(result)),
+                )
+            }
+            updater::UpdateState::ReadyToRestart => {
+                updater::restart();
+            }
+            _ => Task::none(),
+        }
     }
 
     /// Spawn an online search as an async task using the primary service.

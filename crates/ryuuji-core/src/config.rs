@@ -20,6 +20,8 @@ pub struct AppConfig {
     pub torrent: TorrentConfig,
     #[serde(default)]
     pub logging: LoggingConfig,
+    #[serde(default)]
+    pub update: UpdateConfig,
 }
 
 /// Appearance / theme settings.
@@ -142,6 +144,24 @@ pub struct LoggingConfig {
     pub file_logging: bool,
 }
 
+/// App update checker configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateConfig {
+    /// Check for updates on startup.
+    pub check_on_startup: bool,
+    /// Include pre-release versions.
+    pub include_prerelease: bool,
+}
+
+impl Default for UpdateConfig {
+    fn default() -> Self {
+        Self {
+            check_on_startup: true,
+            include_prerelease: false,
+        }
+    }
+}
+
 impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
@@ -211,7 +231,7 @@ impl AppConfig {
             .unwrap_or_else(|| PathBuf::from("logs"))
     }
 
-    fn project_dirs() -> Option<ProjectDirs> {
+    pub(crate) fn project_dirs() -> Option<ProjectDirs> {
         ProjectDirs::from("", "", "ryuuji")
     }
 }
@@ -244,5 +264,60 @@ mod tests {
             deserialized.general.detection_interval,
             config.general.detection_interval
         );
+    }
+
+    #[test]
+    fn test_default_config_has_update_section() {
+        let config = AppConfig::default();
+        assert!(config.update.check_on_startup);
+        assert!(!config.update.include_prerelease);
+    }
+
+    #[test]
+    fn test_roundtrip_preserves_update_config() {
+        let mut config = AppConfig::default();
+        config.update.check_on_startup = false;
+        config.update.include_prerelease = true;
+        let serialized = toml::to_string_pretty(&config).unwrap();
+        let deserialized: AppConfig = toml::from_str(&serialized).unwrap();
+        assert!(!deserialized.update.check_on_startup);
+        assert!(deserialized.update.include_prerelease);
+    }
+
+    #[test]
+    fn test_backward_compat_without_update_section() {
+        // TOML without [update] should still deserialize with defaults.
+        let toml_str = r#"
+[general]
+detection_interval = 5
+close_to_tray = false
+
+[library]
+auto_update = true
+confirm_update = false
+
+[services]
+primary = "anilist"
+
+[services.anilist]
+enabled = true
+
+[services.kitsu]
+enabled = false
+
+[services.mal]
+enabled = false
+
+[appearance]
+theme = "Ryuuji"
+mode = "dark"
+
+[discord]
+enabled = false
+"#;
+        let config: AppConfig = toml::from_str(toml_str).unwrap();
+        // Defaults from UpdateConfig::default()
+        assert!(config.update.check_on_startup);
+        assert!(!config.update.include_prerelease);
     }
 }

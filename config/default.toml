@@ -48,6 +48,12 @@ level = "info"
 # Write logs to ~/.local/share/ryuuji/logs/.
 file_logging = true
 
+[update]
+# Check for updates on startup.
+check_on_startup = true
+# Include pre-release versions.
+include_prerelease = false
+
 [torrent]
 # Enable torrent RSS feature.
 enabled = false

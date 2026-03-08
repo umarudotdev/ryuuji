@@ -10,3 +10,4 @@ pub mod relations;
 pub mod scanner;
 pub mod storage;
 pub mod torrent;
+pub mod updater;

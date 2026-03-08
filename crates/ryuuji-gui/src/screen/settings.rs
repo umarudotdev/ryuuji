@@ -3,6 +3,7 @@ use iced::{Alignment, Element, Length, Task};
 
 use ryuuji_core::config::{AppConfig, ThemeMode};
 use ryuuji_core::models::WatchStatus;
+use ryuuji_core::updater::{UpdateInfo, UpdateState};
 
 use ryuuji_core::debug_log::SharedEventLog;
 
@@ -132,6 +133,10 @@ pub struct Settings {
     pub export_busy: bool,
     // Debug
     pub debug: debug::Debug,
+    // Update
+    pub update_state: UpdateState,
+    pub check_updates: bool,
+    pub include_prerelease: bool,
 }
 
 // ── Messages ───────────────────────────────────────────────────────
@@ -206,6 +211,16 @@ pub enum Message {
     ExportResult(Result<String, String>),
     // About
     OpenLogsFolder,
+    // Update
+    CheckUpdatesToggled(bool),
+    IncludePrereleaseToggled(bool),
+    CheckForUpdates,
+    UpdateCheckResult(Result<Option<UpdateInfo>, String>),
+    DownloadUpdate,
+    UpdateDownloadResult(Result<std::path::PathBuf, String>),
+    ApplyAndRestart,
+    UpdateApplyResult(Result<(), String>),
+    OpenReleasePage,
     // Debug
     DebugMsg(debug::Message),
 }
@@ -273,6 +288,9 @@ impl Settings {
             export_status: String::new(),
             export_busy: false,
             debug: debug::Debug::new(),
+            update_state: UpdateState::default(),
+            check_updates: config.update.check_on_startup,
+            include_prerelease: config.update.include_prerelease,
         }
     }
 
@@ -692,6 +710,90 @@ impl Settings {
                 let log_dir = AppConfig::log_dir();
                 if let Err(e) = open::that(&log_dir) {
                     tracing::warn!(path = %log_dir.display(), error = %e, "Failed to open logs folder");
+                }
+                Action::None
+            }
+
+            // ── Update ──────────────────────────────────────────
+            Message::CheckUpdatesToggled(val) => {
+                self.check_updates = val;
+                config.update.check_on_startup = val;
+                let _ = config.save();
+                Action::None
+            }
+            Message::IncludePrereleaseToggled(val) => {
+                self.include_prerelease = val;
+                config.update.include_prerelease = val;
+                let _ = config.save();
+                Action::None
+            }
+            Message::CheckForUpdates => {
+                self.update_state = UpdateState::Checking;
+                Action::None // app.rs intercepts and spawns the async task
+            }
+            Message::UpdateCheckResult(result) => match result {
+                Ok(Some(info)) => {
+                    let info = Box::new(info);
+                    if info.download_url.is_some() {
+                        self.update_state = UpdateState::Available(info);
+                    } else {
+                        self.update_state = UpdateState::NotifyOnly(info);
+                    }
+                    Action::None
+                }
+                Ok(None) => {
+                    self.update_state = UpdateState::Idle;
+                    Action::ShowToast("You're on the latest version.".into(), ToastKind::Success)
+                }
+                Err(e) => {
+                    self.update_state = UpdateState::Failed(e.clone());
+                    Action::None
+                }
+            },
+            Message::DownloadUpdate => {
+                if let UpdateState::Available(ref info) = self.update_state {
+                    self.update_state = UpdateState::Downloading(info.clone());
+                }
+                Action::None // app.rs intercepts
+            }
+            Message::UpdateDownloadResult(result) => match result {
+                Ok(path) => {
+                    if let UpdateState::Downloading(info) = std::mem::take(&mut self.update_state) {
+                        self.update_state = UpdateState::ReadyToApply { info, path };
+                    }
+                    Action::None
+                }
+                Err(e) => {
+                    self.update_state = UpdateState::Failed(e);
+                    Action::None
+                }
+            },
+            Message::ApplyAndRestart => {
+                // State transition handled by app.rs
+                Action::None
+            }
+            Message::UpdateApplyResult(result) => match result {
+                Ok(()) => {
+                    self.update_state = UpdateState::ReadyToRestart;
+                    Action::None
+                }
+                Err(e) => {
+                    self.update_state = UpdateState::Failed(e);
+                    Action::None
+                }
+            },
+            Message::OpenReleasePage => {
+                let url = match &self.update_state {
+                    UpdateState::Available(info)
+                    | UpdateState::NotifyOnly(info)
+                    | UpdateState::Downloading(info) => Some(info.release_url.clone()),
+                    UpdateState::ReadyToApply { info, .. } => Some(info.release_url.clone()),
+                    _ => None,
+                };
+                if let Some(url) = url {
+                    if let Err(e) = open::that(&url) {
+                        tracing::warn!(error = %e, "Failed to open release page");
+                    }
                 }
                 Action::None
             }
@@ -1511,60 +1613,184 @@ impl Settings {
         let db_path = AppConfig::db_path().display().to_string();
         let log_dir = AppConfig::log_dir().display().to_string();
 
-        container(
-            column![
-                text("About")
-                    .size(style::TEXT_XS)
-                    .font(style::FONT_HEADING)
+        let mut content = column![
+            text("About")
+                .size(style::TEXT_XS)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+            text(format!("ryuuji v{version}"))
+                .size(style::TEXT_BASE)
+                .line_height(style::LINE_HEIGHT_NORMAL),
+            row![
+                text("Config:")
+                    .size(style::TEXT_SM)
                     .color(cs.on_surface_variant)
                     .line_height(style::LINE_HEIGHT_LOOSE),
-                text(format!("ryuuji v{version}"))
-                    .size(style::TEXT_BASE)
-                    .line_height(style::LINE_HEIGHT_NORMAL),
-                row![
-                    text("Config:")
-                        .size(style::TEXT_SM)
-                        .color(cs.on_surface_variant)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                    text(config_path)
-                        .size(style::TEXT_SM)
-                        .color(cs.outline)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                ]
-                .spacing(style::SPACE_SM),
-                row![
-                    text("Database:")
-                        .size(style::TEXT_SM)
-                        .color(cs.on_surface_variant)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                    text(db_path)
-                        .size(style::TEXT_SM)
-                        .color(cs.outline)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                ]
-                .spacing(style::SPACE_SM),
-                row![
-                    text("Logs:")
-                        .size(style::TEXT_SM)
-                        .color(cs.on_surface_variant)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                    text(log_dir)
-                        .size(style::TEXT_SM)
-                        .color(cs.outline)
-                        .line_height(style::LINE_HEIGHT_LOOSE),
-                    button(text("Open").size(style::TEXT_SM))
-                        .on_press(Message::OpenLogsFolder)
-                        .padding([style::SPACE_XXS, style::SPACE_SM])
-                        .style(theme::ghost_button(cs)),
-                ]
-                .spacing(style::SPACE_SM)
-                .align_y(Alignment::Center),
+                text(config_path)
+                    .size(style::TEXT_SM)
+                    .color(cs.outline)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
             ]
             .spacing(style::SPACE_SM),
-        )
-        .style(theme::card(cs))
-        .padding(style::SPACE_LG)
-        .width(Length::Fill)
-        .into()
+            row![
+                text("Database:")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+                text(db_path)
+                    .size(style::TEXT_SM)
+                    .color(cs.outline)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+            ]
+            .spacing(style::SPACE_SM),
+            row![
+                text("Logs:")
+                    .size(style::TEXT_SM)
+                    .color(cs.on_surface_variant)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+                text(log_dir)
+                    .size(style::TEXT_SM)
+                    .color(cs.outline)
+                    .line_height(style::LINE_HEIGHT_LOOSE),
+                button(text("Open").size(style::TEXT_SM))
+                    .on_press(Message::OpenLogsFolder)
+                    .padding([style::SPACE_XXS, style::SPACE_SM])
+                    .style(theme::ghost_button(cs)),
+            ]
+            .spacing(style::SPACE_SM)
+            .align_y(Alignment::Center),
+        ]
+        .spacing(style::SPACE_SM);
+
+        // ── Updates subsection ──────────────────────────────────
+        content = content.push(rule::horizontal(1));
+        content = content.push(
+            text("Updates")
+                .size(style::TEXT_XS)
+                .font(style::FONT_HEADING)
+                .color(cs.on_surface_variant)
+                .line_height(style::LINE_HEIGHT_LOOSE),
+        );
+
+        content = content.push(
+            toggler(self.check_updates)
+                .label("Check for updates on startup")
+                .text_size(style::INPUT_FONT_SIZE)
+                .on_toggle(Message::CheckUpdatesToggled)
+                .spacing(style::SPACE_SM)
+                .size(style::TOGGLER_SIZE)
+                .style(theme::toggler_style(cs)),
+        );
+
+        content = content.push(
+            toggler(self.include_prerelease)
+                .label("Include pre-release versions")
+                .text_size(style::INPUT_FONT_SIZE)
+                .on_toggle(Message::IncludePrereleaseToggled)
+                .spacing(style::SPACE_SM)
+                .size(style::TOGGLER_SIZE)
+                .style(theme::toggler_style(cs)),
+        );
+
+        // Status-dependent update UI
+        match &self.update_state {
+            UpdateState::Idle => {
+                content = content.push(
+                    button(text("Check for updates").size(style::INPUT_FONT_SIZE))
+                        .on_press(Message::CheckForUpdates)
+                        .padding([style::SPACE_XS, style::SPACE_MD])
+                        .style(theme::ghost_button(cs)),
+                );
+            }
+            UpdateState::Checking => {
+                content = content.push(
+                    button(text("Checking...").size(style::INPUT_FONT_SIZE))
+                        .padding([style::SPACE_XS, style::SPACE_MD])
+                        .style(theme::ghost_button(cs)),
+                );
+            }
+            UpdateState::Available(info) => {
+                content = content.push(
+                    row![
+                        text(format!("v{} available", info.version))
+                            .size(style::INPUT_FONT_SIZE)
+                            .color(cs.primary)
+                            .line_height(style::LINE_HEIGHT_NORMAL),
+                        button(text("Download & Install").size(style::INPUT_FONT_SIZE))
+                            .on_press(Message::DownloadUpdate)
+                            .padding([style::SPACE_XS, style::SPACE_MD])
+                            .style(theme::ghost_button(cs)),
+                        button(text("View release").size(style::TEXT_SM))
+                            .on_press(Message::OpenReleasePage)
+                            .padding([style::SPACE_XXS, style::SPACE_SM])
+                            .style(theme::ghost_button(cs)),
+                    ]
+                    .spacing(style::SPACE_SM)
+                    .align_y(Alignment::Center),
+                );
+            }
+            UpdateState::NotifyOnly(info) => {
+                content = content.push(
+                    row![
+                        text(format!("v{} available", info.version))
+                            .size(style::INPUT_FONT_SIZE)
+                            .color(cs.primary)
+                            .line_height(style::LINE_HEIGHT_NORMAL),
+                        button(text("View release page").size(style::INPUT_FONT_SIZE))
+                            .on_press(Message::OpenReleasePage)
+                            .padding([style::SPACE_XS, style::SPACE_MD])
+                            .style(theme::ghost_button(cs)),
+                    ]
+                    .spacing(style::SPACE_SM)
+                    .align_y(Alignment::Center),
+                );
+            }
+            UpdateState::Downloading(_) => {
+                content = content.push(
+                    text("Downloading update...")
+                        .size(style::INPUT_FONT_SIZE)
+                        .color(cs.on_surface_variant)
+                        .line_height(style::LINE_HEIGHT_NORMAL),
+                );
+            }
+            UpdateState::ReadyToApply { .. } => {
+                content = content.push(
+                    button(text("Restart to update").size(style::INPUT_FONT_SIZE))
+                        .on_press(Message::ApplyAndRestart)
+                        .padding([style::SPACE_XS, style::SPACE_MD])
+                        .style(theme::ghost_button(cs)),
+                );
+            }
+            UpdateState::ReadyToRestart => {
+                content = content.push(
+                    button(text("Restart now").size(style::INPUT_FONT_SIZE))
+                        .on_press(Message::ApplyAndRestart)
+                        .padding([style::SPACE_XS, style::SPACE_MD])
+                        .style(theme::ghost_button(cs)),
+                );
+            }
+            UpdateState::Failed(err) => {
+                content = content.push(
+                    column![
+                        text(format!("Update failed: {err}"))
+                            .size(style::TEXT_SM)
+                            .color(cs.error)
+                            .line_height(style::LINE_HEIGHT_NORMAL),
+                        button(text("Retry").size(style::INPUT_FONT_SIZE))
+                            .on_press(Message::CheckForUpdates)
+                            .padding([style::SPACE_XS, style::SPACE_MD])
+                            .style(theme::ghost_button(cs)),
+                    ]
+                    .spacing(style::SPACE_XS),
+                );
+            }
+        }
+
+        container(content)
+            .style(theme::card(cs))
+            .padding(style::SPACE_LG)
+            .width(Length::Fill)
+            .into()
     }
 }

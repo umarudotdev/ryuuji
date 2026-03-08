@@ -25,4 +25,7 @@ pub enum RyuujiError {
 
     #[error("torrent error: {0}")]
     Torrent(String),
+
+    #[error("update error: {0}")]
+    Update(String),
 }
