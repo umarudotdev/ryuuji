@@ -4647,7 +4647,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "ryuuji-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "graphql_client",
@@ -4664,7 +4664,7 @@ dependencies = [
 
 [[package]]
 name = "ryuuji-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "directories",
@@ -4690,7 +4690,7 @@ dependencies = [
 
 [[package]]
 name = "ryuuji-detect"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "mpris",
  "regex",
@@ -4703,7 +4703,7 @@ dependencies = [
 
 [[package]]
 name = "ryuuji-gui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arboard",
  "chrono",
@@ -4732,7 +4732,7 @@ dependencies = [
 
 [[package]]
 name = "ryuuji-parse"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bitflags 2.10.0",
  "phf",
@@ -4744,7 +4744,7 @@ dependencies = [
 
 [[package]]
 name = "ryuuji-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ryuuji-parse",
  "serde_json",
