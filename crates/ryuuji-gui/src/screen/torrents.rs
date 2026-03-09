@@ -1310,14 +1310,23 @@ impl Torrents {
                         .padding(style::INPUT_PADDING)
                         .style(theme::text_input_style(cs))
                         .width(Length::Fill),
-                    button(
-                        lucide_icons::iced::icon_x()
-                            .size(style::TEXT_SM)
-                            .color(cs.on_surface_variant),
-                    )
-                    .padding([style::SPACE_XS, style::SPACE_SM])
-                    .on_press(Message::RemoveCondition(idx))
-                    .style(theme::icon_button(cs)),
+                    {
+                        let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
+                        button(
+                            container(
+                                lucide_icons::iced::icon_x()
+                                    .size(style::TEXT_SM)
+                                    .color(cs.on_surface_variant),
+                            )
+                            .center_x(Length::Fill)
+                            .center_y(Length::Fill),
+                        )
+                        .on_press(Message::RemoveCondition(idx))
+                        .padding(0)
+                        .width(Length::Fixed(close_size))
+                        .height(Length::Fixed(close_size))
+                        .style(theme::icon_button(cs))
+                    },
                 ]
                 .spacing(style::SPACE_SM)
                 .align_y(Alignment::Center);

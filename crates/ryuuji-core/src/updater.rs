@@ -23,7 +23,10 @@ pub enum InstallKind {
 impl InstallKind {
     /// Whether this install kind supports in-place self-update.
     pub fn supports_self_update(self) -> bool {
-        matches!(self, Self::AppImage | Self::WindowsPortable)
+        matches!(
+            self,
+            Self::AppImage | Self::WindowsPortable | Self::WindowsInstaller
+        )
     }
 }
 
@@ -33,7 +36,7 @@ pub struct UpdateInfo {
     pub version: semver::Version,
     pub tag_name: String,
     pub release_url: String,
-    /// `None` for notify-only install kinds (deb, NSIS installer).
+    /// `None` for notify-only install kinds (deb).
     pub download_url: Option<String>,
     pub asset_name: Option<String>,
     pub is_prerelease: bool,
@@ -124,8 +127,11 @@ fn asset_name_for(kind: InstallKind, version: &semver::Version) -> Option<String
     match kind {
         InstallKind::AppImage => Some(format!("Ryuuji-{version}-x86_64.AppImage")),
         InstallKind::WindowsPortable => Some(format!("ryuuji-{version}-windows-x64-portable.zip")),
-        // Package-managed installs don't self-update.
-        InstallKind::DebPackage | InstallKind::WindowsInstaller | InstallKind::Unknown => None,
+        InstallKind::WindowsInstaller => {
+            Some(format!("ryuuji-{version}-windows-x64-setup.exe"))
+        }
+        // Package-managed installs (deb) don't self-update.
+        InstallKind::DebPackage | InstallKind::Unknown => None,
     }
 }
 
@@ -275,6 +281,7 @@ pub fn apply_update(artifact_path: &std::path::Path) -> Result<(), RyuujiError> 
     match install_kind {
         InstallKind::AppImage => apply_appimage(artifact_path),
         InstallKind::WindowsPortable => apply_windows_portable(artifact_path),
+        InstallKind::WindowsInstaller => apply_windows_installer(artifact_path),
         _ => Err(RyuujiError::Update(
             "self-update not supported for this install type".into(),
         )),
@@ -329,22 +336,32 @@ fn apply_windows_portable(artifact_path: &std::path::Path) -> Result<(), RyuujiE
         .parent()
         .ok_or_else(|| RyuujiError::Update("cannot determine exe directory".into()))?;
 
-    // Extract zip via PowerShell
+    // Pre-cleanup: remove leftover .old files from previous updates
+    cleanup_old_executables(exe_dir);
+
+    // Clean leftover staging dir from a previous failed attempt
     let extract_dir = exe_dir.join("_update_staging");
+    let _ = std::fs::remove_dir_all(&extract_dir);
+
+    // Extract zip via PowerShell (use -LiteralPath for paths with special chars)
     let status = std::process::Command::new("powershell")
         .args([
             "-NoProfile",
             "-Command",
             &format!(
-                "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
+                "Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
                 artifact_path.display(),
                 extract_dir.display()
             ),
         ])
         .status()
-        .map_err(|e| RyuujiError::Update(format!("failed to run PowerShell: {e}")))?;
+        .map_err(|e| {
+            let _ = std::fs::remove_dir_all(&extract_dir);
+            RyuujiError::Update(format!("failed to run PowerShell: {e}"))
+        })?;
 
     if !status.success() {
+        let _ = std::fs::remove_dir_all(&extract_dir);
         return Err(RyuujiError::Update("Expand-Archive failed".into()));
     }
 
@@ -353,19 +370,50 @@ fn apply_windows_portable(artifact_path: &std::path::Path) -> Result<(), RyuujiE
 
     // Rename current exe → .old.exe
     let old_exe = current_exe.with_extension("old.exe");
-    std::fs::rename(&current_exe, &old_exe)
-        .map_err(|e| RyuujiError::Update(format!("failed to rename current exe: {e}")))?;
+    // On Windows, rename doesn't overwrite — ensure target is removed first
+    if old_exe.exists() {
+        if let Err(e) = std::fs::remove_file(&old_exe) {
+            // If we can't remove .old.exe (e.g. locked by AV), use a timestamped name
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let fallback = exe_dir.join(format!("ryuuji.old.{ts}.exe"));
+            std::fs::rename(&current_exe, &fallback).map_err(|e2| {
+                let _ = std::fs::remove_dir_all(&extract_dir);
+                RyuujiError::Update(format!(
+                    "failed to rename current exe (old.exe locked: {e}): {e2}"
+                ))
+            })?;
+            return finish_portable_apply(&new_exe, &current_exe, &extract_dir, artifact_path);
+        }
+    }
+    std::fs::rename(&current_exe, &old_exe).map_err(|e| {
+        let _ = std::fs::remove_dir_all(&extract_dir);
+        RyuujiError::Update(format!("failed to rename current exe: {e}"))
+    })?;
 
-    // Copy new exe in place
-    if let Err(e) = std::fs::copy(&new_exe, &current_exe) {
-        let _ = std::fs::rename(&old_exe, &current_exe);
+    finish_portable_apply(&new_exe, &current_exe, &extract_dir, artifact_path)
+}
+
+/// Copy new exe into place and clean up staging artifacts.
+#[cfg(target_os = "windows")]
+fn finish_portable_apply(
+    new_exe: &std::path::Path,
+    target: &std::path::Path,
+    extract_dir: &std::path::Path,
+    artifact_path: &std::path::Path,
+) -> Result<(), RyuujiError> {
+    if let Err(e) = std::fs::copy(new_exe, target) {
+        // Rollback: try to restore from .old.exe
+        let old_exe = target.with_extension("old.exe");
+        let _ = std::fs::rename(&old_exe, target);
+        let _ = std::fs::remove_dir_all(extract_dir);
         return Err(RyuujiError::Update(format!("failed to copy new exe: {e}")));
     }
 
-    // Cleanup
-    let _ = std::fs::remove_dir_all(&extract_dir);
+    let _ = std::fs::remove_dir_all(extract_dir);
     let _ = std::fs::remove_file(artifact_path);
-
     Ok(())
 }
 
@@ -395,6 +443,36 @@ fn apply_windows_portable(_artifact_path: &std::path::Path) -> Result<(), Ryuuji
     ))
 }
 
+/// Apply update via NSIS installer — run the downloaded setup.exe silently.
+/// The installer handles uninstalling the old version and installing the new one.
+/// After this returns, the caller should exit (the installer replaces files in place).
+#[cfg(target_os = "windows")]
+fn apply_windows_installer(artifact_path: &std::path::Path) -> Result<(), RyuujiError> {
+    let status = std::process::Command::new(artifact_path)
+        .arg("/S") // NSIS silent install
+        .status()
+        .map_err(|e| RyuujiError::Update(format!("failed to run installer: {e}")))?;
+
+    if !status.success() {
+        return Err(RyuujiError::Update(format!(
+            "installer exited with code {}",
+            status.code().unwrap_or(-1)
+        )));
+    }
+
+    // Clean up the downloaded installer
+    let _ = std::fs::remove_file(artifact_path);
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn apply_windows_installer(_artifact_path: &std::path::Path) -> Result<(), RyuujiError> {
+    Err(RyuujiError::Update(
+        "Windows installer updates only supported on Windows".into(),
+    ))
+}
+
 /// Spawn a new process from the current exe and exit.
 pub fn restart() -> ! {
     #[cfg(target_os = "linux")]
@@ -403,9 +481,20 @@ pub fn restart() -> ! {
         .unwrap_or_else(|_| std::env::current_exe().expect("cannot determine current exe"));
 
     #[cfg(not(target_os = "linux"))]
-    let exe = std::env::current_exe().expect("cannot determine current exe");
+    let exe = {
+        // After a portable update, current_exe() may resolve to the renamed .old.exe.
+        // Use the exe directory + known binary name instead.
+        let raw = std::env::current_exe().expect("cannot determine current exe");
+        let dir = raw.parent().expect("exe has no parent dir");
+        let canonical = dir.join("ryuuji.exe");
+        if canonical.exists() {
+            canonical
+        } else {
+            raw
+        }
+    };
 
-    let _ = std::process::Command::new(exe).spawn();
+    let _ = std::process::Command::new(&exe).spawn();
     std::process::exit(0);
 }
 
@@ -414,11 +503,38 @@ pub fn cleanup_old_binary() {
     #[cfg(target_os = "windows")]
     {
         if let Ok(exe) = std::env::current_exe() {
-            let old = exe.with_extension("old.exe");
-            if old.exists() {
-                let _ = std::fs::remove_file(&old);
+            if let Some(dir) = exe.parent() {
+                cleanup_old_executables(dir);
             }
         }
+    }
+}
+
+/// Remove old executables and staging artifacts left behind by previous updates.
+#[cfg(target_os = "windows")]
+fn cleanup_old_executables(dir: &std::path::Path) {
+    let old = dir.join("ryuuji.old.exe");
+    if old.exists() {
+        if let Err(e) = std::fs::remove_file(&old) {
+            tracing::warn!("failed to clean up {}: {e}", old.display());
+        }
+    }
+    // Clean any timestamped ryuuji.old.*.exe files
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with("ryuuji.old.") && name.ends_with(".exe") {
+                if let Err(e) = std::fs::remove_file(entry.path()) {
+                    tracing::warn!("failed to clean up {}: {e}", entry.path().display());
+                }
+            }
+        }
+    }
+    // Clean leftover staging directory
+    let staging = dir.join("_update_staging");
+    if staging.exists() {
+        let _ = std::fs::remove_dir_all(&staging);
     }
 }
 
@@ -468,9 +584,12 @@ mod tests {
     }
 
     #[test]
-    fn test_asset_name_for_windows_installer_is_none() {
+    fn test_asset_name_for_windows_installer() {
         let v = semver::Version::new(1, 0, 0);
-        assert_eq!(asset_name_for(InstallKind::WindowsInstaller, &v), None);
+        assert_eq!(
+            asset_name_for(InstallKind::WindowsInstaller, &v),
+            Some("ryuuji-1.0.0-windows-x64-setup.exe".into())
+        );
     }
 
     #[test]

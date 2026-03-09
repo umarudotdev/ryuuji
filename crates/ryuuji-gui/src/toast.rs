@@ -53,14 +53,23 @@ pub fn toast_overlay<'a, Message: Clone + 'a>(
                     .size(style::TEXT_SM)
                     .line_height(style::LINE_HEIGHT_NORMAL)
                     .width(Length::Fill),
-                button(
-                    lucide_icons::iced::icon_x()
-                        .size(style::TEXT_SM)
-                        .color(cs.on_surface_variant),
-                )
-                .on_press(dismiss_msg)
-                .padding(style::SPACE_XXS)
-                .style(theme::icon_button(cs)),
+                {
+                    let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
+                    button(
+                        container(
+                            lucide_icons::iced::icon_x()
+                                .size(style::TEXT_SM)
+                                .color(cs.on_surface_variant),
+                        )
+                        .center_x(Length::Fill)
+                        .center_y(Length::Fill),
+                    )
+                    .on_press(dismiss_msg)
+                    .padding(0)
+                    .width(Length::Fixed(close_size))
+                    .height(Length::Fixed(close_size))
+                    .style(theme::icon_button(cs))
+                },
             ]
             .spacing(style::SPACE_SM)
             .align_y(Alignment::Center),
