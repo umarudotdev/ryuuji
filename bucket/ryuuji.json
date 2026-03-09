@@ -6,7 +6,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/umarudotdev/ryuuji/releases/download/v0.3.0/ryuuji-0.3.0-windows-x64-portable.zip",
-            "hash": "ef60bf765266f4cf489cdb73ffd6565c382c152738f3bde23ac5bde3d676b12c"
+            "hash": "c38df42974f6c58b253a765f5be08c54a4ce43289d697191e539f9e7de17267d"
         }
     },
     "bin": "ryuuji.exe",
