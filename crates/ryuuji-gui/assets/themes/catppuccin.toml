@@ -1,0 +1,108 @@
+[meta]
+name = "Catppuccin"
+
+# ── Dark variant (Mocha) ──────────────────────────────────────────
+# Official Catppuccin Mocha palette. Mauve as primary accent.
+
+[dark.surface]
+container_lowest = "#11111b"   # crust
+base = "#181825"               # mantle
+container_low = "#1e1e2e"      # base
+container = "#313244"          # surface0
+container_high = "#45475a"     # surface1
+container_highest = "#585b70"  # surface2
+bright = "#6c7086"             # overlay0
+
+[dark.text]
+on_surface = "#cdd6f4"        # text
+on_surface_variant = "#a6adc8" # subtext0
+outline = "#7f849c"            # overlay1
+outline_variant = "#45475a"    # surface1
+
+[dark.primary]
+base = "#cba6f7"               # mauve
+hover = "#d4b6ff"
+dim = "#b48ede"
+on_primary = "#1e1e2e"
+container = "#5c3d8f"
+on_container = "#e8d0ff"
+
+[dark.secondary]
+container = "#45475a"          # surface1
+on_container = "#b4befe"       # lavender
+
+[dark.tertiary]
+base = "#f9e2af"               # yellow
+on_tertiary = "#1e1e2e"
+
+[dark.error]
+base = "#f38ba8"               # red
+hover = "#e06c8e"
+pressed = "#d05878"
+on_error = "#1e1e2e"
+
+[dark.status]
+watching = "#cba6f7"           # mauve
+completed = "#a6e3a1"          # green
+on_hold = "#f9e2af"            # yellow
+dropped = "#f38ba8"            # red
+plan = "#7f849c"               # overlay1
+
+[dark.inverse]
+surface = "#cdd6f4"
+on_surface = "#1e1e2e"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant (Latte) ─────────────────────────────────────────
+# Official Catppuccin Latte palette.
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#eff1f5"               # base
+container_low = "#e6e9ef"      # mantle
+container = "#dce0e8"          # crust
+container_high = "#ccd0da"     # surface0
+container_highest = "#bcc0cc"  # surface1
+bright = "#acb0be"             # surface2
+
+[light.text]
+on_surface = "#4c4f69"        # text
+on_surface_variant = "#6c6f85" # subtext0
+outline = "#8c8fa1"            # overlay1
+outline_variant = "#bcc0cc"    # surface1
+
+[light.primary]
+base = "#8839ef"               # mauve
+hover = "#7028d4"
+dim = "#9d52ff"
+on_primary = "#FFFFFF"
+container = "#e4d0ff"
+on_container = "#4a1e8a"
+
+[light.secondary]
+container = "#ccd0da"
+on_container = "#5c5f77"
+
+[light.tertiary]
+base = "#df8e1d"               # yellow
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#d20f39"               # red
+hover = "#b50c30"
+pressed = "#960828"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#8839ef"
+completed = "#40a02b"
+on_hold = "#df8e1d"
+dropped = "#d20f39"
+plan = "#8c8fa1"
+
+[light.inverse]
+surface = "#4c4f69"
+on_surface = "#eff1f5"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

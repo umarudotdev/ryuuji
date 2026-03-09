@@ -1,0 +1,108 @@
+[meta]
+name = "Gruvbox"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Retro groove palette. Orange primary accent on warm dark surfaces.
+
+[dark.surface]
+container_lowest = "#1d2021"   # bg0_h
+base = "#282828"               # bg
+container_low = "#32302f"      # bg0_s
+container = "#3c3836"          # bg1
+container_high = "#504945"     # bg2
+container_highest = "#665c54"  # bg3
+bright = "#7c6f64"             # bg4
+
+[dark.text]
+on_surface = "#ebdbb2"        # fg1
+on_surface_variant = "#d5c4a1" # fg2
+outline = "#a89984"            # fg4
+outline_variant = "#504945"    # bg2
+
+[dark.primary]
+base = "#fe8019"               # orange (bright)
+hover = "#ffa04d"
+dim = "#d65d0e"                # orange (dark)
+on_primary = "#1d2021"
+container = "#6e3508"
+on_container = "#ffb870"
+
+[dark.secondary]
+container = "#504945"
+on_container = "#d5c4a1"
+
+[dark.tertiary]
+base = "#fabd2f"               # yellow (bright)
+on_tertiary = "#282828"
+
+[dark.error]
+base = "#fb4934"               # red (bright)
+hover = "#cc241d"              # red (dark)
+pressed = "#b01a12"
+on_error = "#1d2021"
+
+[dark.status]
+watching = "#fe8019"           # orange
+completed = "#b8bb26"          # green
+on_hold = "#fabd2f"            # yellow
+dropped = "#fb4934"            # red
+plan = "#a89984"               # fg4
+
+[dark.inverse]
+surface = "#ebdbb2"
+on_surface = "#282828"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+# Warm cream surfaces with earthy dark accents.
+
+[light.surface]
+container_lowest = "#f9f5d7"   # bg0_h
+base = "#fbf1c7"               # bg0
+container_low = "#f2e5bc"      # bg0_s
+container = "#ebdbb2"          # bg1
+container_high = "#d5c4a1"     # bg2
+container_highest = "#bdae93"  # bg3
+bright = "#a89984"             # bg4
+
+[light.text]
+on_surface = "#3c3836"         # fg1
+on_surface_variant = "#504945" # fg2
+outline = "#7c6f64"            # fg4
+outline_variant = "#d5c4a1"    # bg2
+
+[light.primary]
+base = "#af3a03"               # orange (dark)
+hover = "#8a2e02"
+dim = "#c85210"
+on_primary = "#fbf1c7"
+container = "#fdd8b8"
+on_container = "#5e1f02"
+
+[light.secondary]
+container = "#ebdbb2"
+on_container = "#3c3836"
+
+[light.tertiary]
+base = "#b57614"               # yellow (dark)
+on_tertiary = "#fbf1c7"
+
+[light.error]
+base = "#9d0006"               # red (dark)
+hover = "#800005"
+pressed = "#660004"
+on_error = "#fbf1c7"
+
+[light.status]
+watching = "#af3a03"
+completed = "#79740e"
+on_hold = "#b57614"
+dropped = "#9d0006"
+plan = "#7c6f64"
+
+[light.inverse]
+surface = "#504945"
+on_surface = "#fbf1c7"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

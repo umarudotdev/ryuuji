@@ -1,0 +1,107 @@
+[meta]
+name = "Kitsu"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Warm dark surfaces with Kitsu's orange-red brand accent (#F75239).
+
+[dark.surface]
+container_lowest = "#1A1215"
+base = "#211820"
+container_low = "#2A2028"
+container = "#322830"
+container_high = "#3C3038"
+container_highest = "#463A42"
+bright = "#524650"
+
+[dark.text]
+on_surface = "#F0E4E8"
+on_surface_variant = "#C8B8BE"
+outline = "#968488"
+outline_variant = "#504448"
+
+[dark.primary]
+base = "#F75239"               # Kitsu orange-red
+hover = "#FF6E58"
+dim = "#D44530"
+on_primary = "#FFFFFF"
+container = "#6E2418"
+on_container = "#FFB4A8"
+
+[dark.secondary]
+container = "#463A42"
+on_container = "#C8B8BE"
+
+[dark.tertiary]
+base = "#FFC85C"               # warm gold
+on_tertiary = "#1A1215"
+
+[dark.error]
+base = "#FF5252"
+hover = "#D94444"
+pressed = "#C03838"
+on_error = "#FFFFFF"
+
+[dark.status]
+watching = "#F75239"
+completed = "#4AD295"
+on_hold = "#FFC85C"
+dropped = "#FF5252"
+plan = "#968488"
+
+[dark.inverse]
+surface = "#F0E4E8"
+on_surface = "#211820"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#FFF8F6"
+container_low = "#FFF0EC"
+container = "#FBE6E2"
+container_high = "#F5DCD6"
+container_highest = "#EFD2CC"
+bright = "#E5C6C0"
+
+[light.text]
+on_surface = "#2A1A1E"
+on_surface_variant = "#584448"
+outline = "#887076"
+outline_variant = "#D8C4C8"
+
+[light.primary]
+base = "#C03820"
+hover = "#A62E18"
+dim = "#D84830"
+on_primary = "#FFFFFF"
+container = "#FFD9D2"
+on_container = "#5E1A0E"
+
+[light.secondary]
+container = "#F8E0DC"
+on_container = "#2A1A1E"
+
+[light.tertiary]
+base = "#9A7600"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#BA1A1A"
+hover = "#9C1414"
+pressed = "#7E0E0E"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#C03820"
+completed = "#1B7550"
+on_hold = "#9A7600"
+dropped = "#BA1A1A"
+plan = "#584448"
+
+[light.inverse]
+surface = "#3C2830"
+on_surface = "#FFF8F6"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

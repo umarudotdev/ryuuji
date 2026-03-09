@@ -1,0 +1,108 @@
+[meta]
+name = "Nord"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Arctic, north-bluish palette based on the Nord color scheme.
+
+[dark.surface]
+container_lowest = "#222730"
+base = "#2e3440"               # polar night 0
+container_low = "#333a47"
+container = "#3b4252"          # polar night 1
+container_high = "#434c5e"     # polar night 2
+container_highest = "#4c566a"  # polar night 3
+bright = "#5a6580"
+
+[dark.text]
+on_surface = "#eceff4"        # snow storm 2
+on_surface_variant = "#d8dee9" # snow storm 0
+outline = "#7b88a1"
+outline_variant = "#4c566a"
+
+[dark.primary]
+base = "#88c0d0"               # frost 1 (signature Nord blue)
+hover = "#9dd0de"
+dim = "#6faab8"
+on_primary = "#2e3440"
+container = "#3d6878"
+on_container = "#b0dce8"
+
+[dark.secondary]
+container = "#434c5e"
+on_container = "#d8dee9"
+
+[dark.tertiary]
+base = "#ebcb8b"               # aurora yellow
+on_tertiary = "#2e3440"
+
+[dark.error]
+base = "#bf616a"               # aurora red
+hover = "#a8525a"
+pressed = "#944850"
+on_error = "#eceff4"
+
+[dark.status]
+watching = "#88c0d0"           # frost
+completed = "#a3be8c"          # aurora green
+on_hold = "#ebcb8b"            # aurora yellow
+dropped = "#bf616a"            # aurora red
+plan = "#7b88a1"
+
+[dark.inverse]
+surface = "#eceff4"
+on_surface = "#2e3440"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+# Snow Storm surfaces with Frost accents.
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#eceff4"               # snow storm 2
+container_low = "#e5e9f0"      # snow storm 1
+container = "#d8dee9"          # snow storm 0
+container_high = "#cdd4e0"
+container_highest = "#c2cad8"
+bright = "#b5bfcf"
+
+[light.text]
+on_surface = "#2e3440"
+on_surface_variant = "#434c5e"
+outline = "#7b88a1"
+outline_variant = "#c2cad8"
+
+[light.primary]
+base = "#5e81ac"               # frost 3 (deeper blue for light bg)
+hover = "#4c6d96"
+dim = "#7294ba"
+on_primary = "#FFFFFF"
+container = "#c8daf0"
+on_container = "#2e4460"
+
+[light.secondary]
+container = "#cdd4e0"
+on_container = "#3b4252"
+
+[light.tertiary]
+base = "#b48e30"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#bf616a"
+hover = "#a05058"
+pressed = "#884048"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#5e81ac"
+completed = "#5a8a48"
+on_hold = "#b48e30"
+dropped = "#bf616a"
+plan = "#7b88a1"
+
+[light.inverse]
+surface = "#3b4252"
+on_surface = "#eceff4"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

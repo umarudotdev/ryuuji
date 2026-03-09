@@ -21,8 +21,8 @@ pub(crate) const TOKYO_NIGHT_THEME_TOML: &str = include_str!("../assets/themes/t
 /// Embedded MyAnimeList theme (accurate dark mode colors).
 pub(crate) const MAL_THEME_TOML: &str = include_str!("../assets/themes/myanimelist.toml");
 
-/// Embedded MyAnimeList Blue theme (navy-tinted variant).
-pub(crate) const MAL_BLUE_THEME_TOML: &str = include_str!("../assets/themes/myanimelist-blue.toml");
+/// Embedded AniList theme (deep navy, signature #02A9FF blue).
+pub(crate) const ANILIST_THEME_TOML: &str = include_str!("../assets/themes/anilist.toml");
 
 /// Embedded Rosé Pine theme.
 pub(crate) const ROSE_PINE_THEME_TOML: &str = include_str!("../assets/themes/rose-pine.toml");
@@ -33,6 +33,21 @@ pub(crate) const OSAKA_JADE_THEME_TOML: &str = include_str!("../assets/themes/os
 /// Embedded Monokai Ristretto theme.
 pub(crate) const MONOKAI_RISTRETTO_THEME_TOML: &str =
     include_str!("../assets/themes/monokai-ristretto.toml");
+
+/// Embedded Kitsu theme (warm dark, orange-red accent).
+pub(crate) const KITSU_THEME_TOML: &str = include_str!("../assets/themes/kitsu.toml");
+
+/// Embedded Catppuccin theme (Mocha dark / Latte light).
+pub(crate) const CATPPUCCIN_THEME_TOML: &str = include_str!("../assets/themes/catppuccin.toml");
+
+/// Embedded Nord theme (arctic, north-bluish palette).
+pub(crate) const NORD_THEME_TOML: &str = include_str!("../assets/themes/nord.toml");
+
+/// Embedded Gruvbox theme (retro groove, orange on warm dark).
+pub(crate) const GRUVBOX_THEME_TOML: &str = include_str!("../assets/themes/gruvbox.toml");
+
+/// Embedded Onyx theme (true black AMOLED).
+pub(crate) const ONYX_THEME_TOML: &str = include_str!("../assets/themes/onyx.toml");
 
 /// A fully loaded theme with both appearance variants.
 #[derive(Debug, Clone)]
@@ -92,14 +107,24 @@ pub fn available_themes() -> Vec<RyuujiTheme> {
         RyuujiTheme::from_toml(TOKYO_NIGHT_THEME_TOML)
             .expect("embedded Tokyo Night theme is valid TOML"),
         RyuujiTheme::from_toml(MAL_THEME_TOML).expect("embedded MyAnimeList theme is valid TOML"),
-        RyuujiTheme::from_toml(MAL_BLUE_THEME_TOML)
-            .expect("embedded MyAnimeList Blue theme is valid TOML"),
+        RyuujiTheme::from_toml(ANILIST_THEME_TOML)
+            .expect("embedded AniList theme is valid TOML"),
         RyuujiTheme::from_toml(ROSE_PINE_THEME_TOML)
             .expect("embedded Rosé Pine theme is valid TOML"),
         RyuujiTheme::from_toml(OSAKA_JADE_THEME_TOML)
             .expect("embedded Osaka Jade theme is valid TOML"),
         RyuujiTheme::from_toml(MONOKAI_RISTRETTO_THEME_TOML)
             .expect("embedded Monokai Ristretto theme is valid TOML"),
+        RyuujiTheme::from_toml(KITSU_THEME_TOML)
+            .expect("embedded Kitsu theme is valid TOML"),
+        RyuujiTheme::from_toml(CATPPUCCIN_THEME_TOML)
+            .expect("embedded Catppuccin theme is valid TOML"),
+        RyuujiTheme::from_toml(NORD_THEME_TOML)
+            .expect("embedded Nord theme is valid TOML"),
+        RyuujiTheme::from_toml(GRUVBOX_THEME_TOML)
+            .expect("embedded Gruvbox theme is valid TOML"),
+        RyuujiTheme::from_toml(ONYX_THEME_TOML)
+            .expect("embedded Onyx theme is valid TOML"),
     ];
 
     // Scan user themes directory.

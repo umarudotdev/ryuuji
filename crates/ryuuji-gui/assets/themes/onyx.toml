@@ -1,0 +1,108 @@
+[meta]
+name = "Onyx"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# True black AMOLED theme. Minimal surface steps, ice-blue accent.
+
+[dark.surface]
+container_lowest = "#000000"
+base = "#000000"
+container_low = "#0A0A0A"
+container = "#141414"
+container_high = "#1C1C1C"
+container_highest = "#262626"
+bright = "#333333"
+
+[dark.text]
+on_surface = "#E8E8E8"
+on_surface_variant = "#B0B0B0"
+outline = "#787878"
+outline_variant = "#333333"
+
+[dark.primary]
+base = "#A0C4FF"               # ice blue
+hover = "#B8D4FF"
+dim = "#88AADD"
+on_primary = "#000000"
+container = "#1A3050"
+on_container = "#C8DEFF"
+
+[dark.secondary]
+container = "#1C1C1C"
+on_container = "#B0B0B0"
+
+[dark.tertiary]
+base = "#FFD580"               # warm gold contrast
+on_tertiary = "#000000"
+
+[dark.error]
+base = "#FF6B6B"
+hover = "#DD5555"
+pressed = "#CC4444"
+on_error = "#000000"
+
+[dark.status]
+watching = "#A0C4FF"
+completed = "#6BE88B"
+on_hold = "#FFD580"
+dropped = "#FF6B6B"
+plan = "#787878"
+
+[dark.inverse]
+surface = "#E8E8E8"
+on_surface = "#000000"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+# Clean minimal white counterpart.
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#FAFAFA"
+container_low = "#F5F5F5"
+container = "#EEEEEE"
+container_high = "#E0E0E0"
+container_highest = "#D4D4D4"
+bright = "#C4C4C4"
+
+[light.text]
+on_surface = "#0A0A0A"
+on_surface_variant = "#404040"
+outline = "#787878"
+outline_variant = "#D4D4D4"
+
+[light.primary]
+base = "#2C5F9E"
+hover = "#1E4D8A"
+dim = "#4478B8"
+on_primary = "#FFFFFF"
+container = "#D0E0F8"
+on_container = "#0E2F5C"
+
+[light.secondary]
+container = "#E4E4E4"
+on_container = "#2A2A2A"
+
+[light.tertiary]
+base = "#9E7A1A"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#C03030"
+hover = "#A22828"
+pressed = "#882020"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#2C5F9E"
+completed = "#2A8A4A"
+on_hold = "#9E7A1A"
+dropped = "#C03030"
+plan = "#787878"
+
+[light.inverse]
+surface = "#1A1A1A"
+on_surface = "#FAFAFA"
+scrim = "#000000"
+modal_backdrop = "#0000008C"

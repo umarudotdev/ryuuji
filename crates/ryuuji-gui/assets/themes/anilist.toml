@@ -1,0 +1,107 @@
+[meta]
+name = "AniList"
+
+# ── Dark variant ───────────────────────────────────────────────────
+# Based on AniList's dark theme — deep navy surfaces, signature #02A9FF blue.
+
+[dark.surface]
+container_lowest = "#0B1622"
+base = "#0D1B2A"
+container_low = "#121F31"
+container = "#152232"
+container_high = "#1A2940"
+container_highest = "#203250"
+bright = "#2B3D5B"
+
+[dark.text]
+on_surface = "#D7DEEA"
+on_surface_variant = "#9FADBD"
+outline = "#6B7B8D"
+outline_variant = "#3B4A5E"
+
+[dark.primary]
+base = "#02A9FF"               # AniList signature blue
+hover = "#33BBFF"
+dim = "#0290D9"
+on_primary = "#FFFFFF"
+container = "#0D4D7A"
+on_container = "#7ED0FF"
+
+[dark.secondary]
+container = "#203250"
+on_container = "#9FADBD"
+
+[dark.tertiary]
+base = "#F7C948"               # gold accent
+on_tertiary = "#0D1B2A"
+
+[dark.error]
+base = "#E85D75"
+hover = "#CC4A62"
+pressed = "#B33A52"
+on_error = "#FFFFFF"
+
+[dark.status]
+watching = "#02A9FF"
+completed = "#68D639"
+on_hold = "#F7C948"
+dropped = "#E85D75"
+plan = "#9FADBD"
+
+[dark.inverse]
+surface = "#D7DEEA"
+on_surface = "#0D1B2A"
+scrim = "#000000"
+modal_backdrop = "#000000BF"
+
+# ── Light variant ──────────────────────────────────────────────────
+
+[light.surface]
+container_lowest = "#FFFFFF"
+base = "#EDF1F5"
+container_low = "#E5EAF0"
+container = "#DCE2EA"
+container_high = "#D3DAE4"
+container_highest = "#CAD2DD"
+bright = "#BFC8D4"
+
+[light.text]
+on_surface = "#0D1B2A"
+on_surface_variant = "#3B4A5E"
+outline = "#6B7B8D"
+outline_variant = "#CAD2DD"
+
+[light.primary]
+base = "#0277B5"
+hover = "#01618F"
+dim = "#0490D5"
+on_primary = "#FFFFFF"
+container = "#C5E8FF"
+on_container = "#023E63"
+
+[light.secondary]
+container = "#D5E3F0"
+on_container = "#0D1B2A"
+
+[light.tertiary]
+base = "#B08E00"
+on_tertiary = "#FFFFFF"
+
+[light.error]
+base = "#BA1A3E"
+hover = "#9C1434"
+pressed = "#7E0E2A"
+on_error = "#FFFFFF"
+
+[light.status]
+watching = "#0277B5"
+completed = "#3A8A1C"
+on_hold = "#B08E00"
+dropped = "#BA1A3E"
+plan = "#6B7B8D"
+
+[light.inverse]
+surface = "#1A2940"
+on_surface = "#EDF1F5"
+scrim = "#000000"
+modal_backdrop = "#0000008C"
