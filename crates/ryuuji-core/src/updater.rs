@@ -127,9 +127,7 @@ fn asset_name_for(kind: InstallKind, version: &semver::Version) -> Option<String
     match kind {
         InstallKind::AppImage => Some(format!("Ryuuji-{version}-x86_64.AppImage")),
         InstallKind::WindowsPortable => Some(format!("ryuuji-{version}-windows-x64-portable.zip")),
-        InstallKind::WindowsInstaller => {
-            Some(format!("ryuuji-{version}-windows-x64-setup.exe"))
-        }
+        InstallKind::WindowsInstaller => Some(format!("ryuuji-{version}-windows-x64-setup.exe")),
         // Package-managed installs (deb) don't self-update.
         InstallKind::DebPackage | InstallKind::Unknown => None,
     }
