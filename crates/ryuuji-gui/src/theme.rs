@@ -107,24 +107,19 @@ pub fn available_themes() -> Vec<RyuujiTheme> {
         RyuujiTheme::from_toml(TOKYO_NIGHT_THEME_TOML)
             .expect("embedded Tokyo Night theme is valid TOML"),
         RyuujiTheme::from_toml(MAL_THEME_TOML).expect("embedded MyAnimeList theme is valid TOML"),
-        RyuujiTheme::from_toml(ANILIST_THEME_TOML)
-            .expect("embedded AniList theme is valid TOML"),
+        RyuujiTheme::from_toml(ANILIST_THEME_TOML).expect("embedded AniList theme is valid TOML"),
         RyuujiTheme::from_toml(ROSE_PINE_THEME_TOML)
             .expect("embedded Rosé Pine theme is valid TOML"),
         RyuujiTheme::from_toml(OSAKA_JADE_THEME_TOML)
             .expect("embedded Osaka Jade theme is valid TOML"),
         RyuujiTheme::from_toml(MONOKAI_RISTRETTO_THEME_TOML)
             .expect("embedded Monokai Ristretto theme is valid TOML"),
-        RyuujiTheme::from_toml(KITSU_THEME_TOML)
-            .expect("embedded Kitsu theme is valid TOML"),
+        RyuujiTheme::from_toml(KITSU_THEME_TOML).expect("embedded Kitsu theme is valid TOML"),
         RyuujiTheme::from_toml(CATPPUCCIN_THEME_TOML)
             .expect("embedded Catppuccin theme is valid TOML"),
-        RyuujiTheme::from_toml(NORD_THEME_TOML)
-            .expect("embedded Nord theme is valid TOML"),
-        RyuujiTheme::from_toml(GRUVBOX_THEME_TOML)
-            .expect("embedded Gruvbox theme is valid TOML"),
-        RyuujiTheme::from_toml(ONYX_THEME_TOML)
-            .expect("embedded Onyx theme is valid TOML"),
+        RyuujiTheme::from_toml(NORD_THEME_TOML).expect("embedded Nord theme is valid TOML"),
+        RyuujiTheme::from_toml(GRUVBOX_THEME_TOML).expect("embedded Gruvbox theme is valid TOML"),
+        RyuujiTheme::from_toml(ONYX_THEME_TOML).expect("embedded Onyx theme is valid TOML"),
     ];
 
     // Scan user themes directory.
