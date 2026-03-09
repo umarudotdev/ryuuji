@@ -441,20 +441,63 @@ fn apply_windows_portable(_artifact_path: &std::path::Path) -> Result<(), Ryuuji
     ))
 }
 
-/// Apply update via NSIS installer — run the downloaded setup.exe silently.
+/// Apply update via NSIS installer — run the downloaded setup.exe with elevation.
 /// The installer handles uninstalling the old version and installing the new one.
+/// Uses `ShellExecuteW` with the `runas` verb to request UAC elevation, since
+/// the installer needs admin rights to write to Program Files.
 /// After this returns, the caller should exit (the installer replaces files in place).
 #[cfg(target_os = "windows")]
 fn apply_windows_installer(artifact_path: &std::path::Path) -> Result<(), RyuujiError> {
-    let status = std::process::Command::new(artifact_path)
-        .arg("/S") // NSIS silent install
-        .status()
-        .map_err(|e| RyuujiError::Update(format!("failed to run installer: {e}")))?;
+    use std::os::windows::ffi::OsStrExt;
 
-    if !status.success() {
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: *mut std::ffi::c_void,
+            operation: *const u16,
+            file: *const u16,
+            parameters: *const u16,
+            directory: *const u16,
+            show_cmd: i32,
+        ) -> *mut std::ffi::c_void;
+    }
+
+    fn to_wide(s: &str) -> Vec<u16> {
+        std::ffi::OsStr::new(s)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
+    }
+
+    fn path_to_wide(p: &std::path::Path) -> Vec<u16> {
+        p.as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect()
+    }
+
+    let verb = to_wide("runas");
+    let file = path_to_wide(artifact_path);
+    let params = to_wide("/S"); // NSIS silent install
+
+    // SAFETY: ShellExecuteW is a well-defined Windows API. All string pointers are
+    // valid null-terminated wide strings. NULL pointers are permitted for hwnd and directory.
+    let result = unsafe {
+        ShellExecuteW(
+            std::ptr::null_mut(),
+            verb.as_ptr(),
+            file.as_ptr(),
+            params.as_ptr(),
+            std::ptr::null(),
+            1, // SW_SHOWNORMAL
+        )
+    };
+
+    // ShellExecuteW returns a value > 32 on success.
+    if (result as usize) <= 32 {
         return Err(RyuujiError::Update(format!(
-            "installer exited with code {}",
-            status.code().unwrap_or(-1)
+            "failed to launch installer with elevation (ShellExecute returned {})",
+            result as usize
         )));
     }
 
