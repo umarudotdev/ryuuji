@@ -1,12 +1,12 @@
 {
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Desktop anime tracker with automatic player detection and service sync",
     "homepage": "https://github.com/umarudotdev/ryuuji",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/umarudotdev/ryuuji/releases/download/v0.2.0/ryuuji-0.2.0-windows-x64-portable.zip",
-            "hash": "efd716166ffe2f7ff9341038ab235ea4d4266e200fc721aa004ca90246a7bb95"
+            "url": "https://github.com/umarudotdev/ryuuji/releases/download/v0.2.1/ryuuji-0.2.1-windows-x64-portable.zip",
+            "hash": "94fb10b94e8ae321b39bf346a93cd2baf5c068d7fe11261a41e3353d4fbe5ad8"
         }
     },
     "bin": "ryuuji.exe",
