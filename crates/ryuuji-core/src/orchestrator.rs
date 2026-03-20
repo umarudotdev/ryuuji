@@ -5,11 +5,11 @@ use crate::config::AppConfig;
 use crate::error::RyuujiError;
 use crate::events::{ChangeSource, DomainEvent};
 use crate::matcher::MatchResult;
-use crate::models::DetectedMedia;
+use crate::models::{DetectedMedia, LibraryEntry};
 use crate::policy::{self, ProgressDecision};
 use crate::recognition::RecognitionCache;
 use crate::relations::RelationDatabase;
-use crate::repository::{AnimeRepository, LibraryRepository, WatchHistoryRepository};
+use crate::repository::{AnimeRepository, LibraryRepository};
 
 /// Outcome of processing a detection event.
 #[derive(Debug, Clone)]
@@ -38,6 +38,31 @@ pub enum UpdateOutcome {
     NothingPlaying,
 }
 
+/// A persistence side-effect to be executed by the shell (db actor).
+///
+/// Inspired by TEA (The Elm Architecture): the orchestrator *describes*
+/// what should be persisted; the caller *executes* it. This keeps the
+/// decision logic pure and testable without writes.
+#[derive(Debug, Clone)]
+pub enum PersistCommand {
+    UpdateEpisodeCount { anime_id: i64, episode: u32 },
+    RecordWatch { anime_id: i64, episode: u32 },
+    UpsertLibraryEntry(LibraryEntry),
+}
+
+/// Full result of processing a detection event.
+#[derive(Debug, Clone)]
+pub struct DetectionResult {
+    /// What happened (for GUI display).
+    pub outcome: UpdateOutcome,
+    /// Typed domain events (for debug log, future sync).
+    pub events: Vec<DomainEvent>,
+    /// Persistence commands to execute (for the db actor).
+    pub commands: Vec<PersistCommand>,
+    /// Whether the recognition cache should be invalidated.
+    pub invalidate_cache: bool,
+}
+
 /// Process a detection result: match against library, update progress.
 ///
 /// If a `relations` database is provided, episode numbers may be remapped
@@ -52,11 +77,11 @@ pub enum UpdateOutcome {
 )]
 pub fn process_detection(
     detected: &DetectedMedia,
-    repo: &(impl AnimeRepository + LibraryRepository + WatchHistoryRepository),
+    repo: &(impl AnimeRepository + LibraryRepository),
     config: &AppConfig,
     cache: &mut RecognitionCache,
     relations: Option<&RelationDatabase>,
-) -> Result<(UpdateOutcome, Vec<DomainEvent>), RyuujiError> {
+) -> Result<DetectionResult, RyuujiError> {
     let now = Utc::now();
 
     // 1. Extract title + episode from detection result.
@@ -64,16 +89,17 @@ pub fn process_detection(
         Some(m) => m,
         None => {
             debug!(raw = %detected.raw_title, "Missing title or episode");
-            let event = DomainEvent::Unrecognized {
-                raw_title: detected.raw_title.clone(),
-                timestamp: now,
-            };
-            return Ok((
-                UpdateOutcome::Unrecognized {
+            return Ok(DetectionResult {
+                outcome: UpdateOutcome::Unrecognized {
                     raw_title: detected.raw_title.clone(),
                 },
-                vec![event],
-            ));
+                events: vec![DomainEvent::Unrecognized {
+                    raw_title: detected.raw_title.clone(),
+                    timestamp: now,
+                }],
+                commands: vec![],
+                invalidate_cache: false,
+            });
         }
     };
 
@@ -83,16 +109,17 @@ pub fn process_detection(
         MatchResult::Matched(anime) | MatchResult::Fuzzy(anime, _) => anime,
         MatchResult::NoMatch => {
             warn!(title = %media.title, "No match found in local library");
-            let event = DomainEvent::Unrecognized {
-                raw_title: detected.raw_title.clone(),
-                timestamp: now,
-            };
-            return Ok((
-                UpdateOutcome::Unrecognized {
+            return Ok(DetectionResult {
+                outcome: UpdateOutcome::Unrecognized {
                     raw_title: detected.raw_title.clone(),
                 },
-                vec![event],
-            ));
+                events: vec![DomainEvent::Unrecognized {
+                    raw_title: detected.raw_title.clone(),
+                    timestamp: now,
+                }],
+                commands: vec![],
+                invalidate_cache: false,
+            });
         }
     };
 
@@ -122,7 +149,7 @@ pub fn process_detection(
         }
     }
 
-    // 4. Decide on progress update and execute.
+    // 4. Decide on progress — return commands, don't execute writes.
     match repo.get_library_entry_for_anime(target_anime_id)? {
         Some(entry) => {
             let decision = policy::evaluate_progress(
@@ -140,25 +167,33 @@ pub fn process_detection(
                     new_episode,
                     old_episode,
                 } => {
-                    repo.update_episode_count(anime_id, new_episode)?;
-                    repo.record_watch(anime_id, new_episode)?;
                     info!(title = %anime_title, episode = new_episode, "Updated progress");
-                    let event = DomainEvent::EpisodeUpdated {
-                        anime_id,
-                        anime_title: anime_title.clone(),
-                        old_episode,
-                        new_episode,
-                        source: ChangeSource::Detection,
-                        timestamp: now,
-                    };
-                    Ok((
-                        UpdateOutcome::Updated {
+                    Ok(DetectionResult {
+                        outcome: UpdateOutcome::Updated {
                             anime_id,
-                            anime_title,
+                            anime_title: anime_title.clone(),
                             episode: new_episode,
                         },
-                        vec![event],
-                    ))
+                        events: vec![DomainEvent::EpisodeUpdated {
+                            anime_id,
+                            anime_title,
+                            old_episode,
+                            new_episode,
+                            source: ChangeSource::Detection,
+                            timestamp: now,
+                        }],
+                        commands: vec![
+                            PersistCommand::UpdateEpisodeCount {
+                                anime_id,
+                                episode: new_episode,
+                            },
+                            PersistCommand::RecordWatch {
+                                anime_id,
+                                episode: new_episode,
+                            },
+                        ],
+                        invalidate_cache: false,
+                    })
                 }
                 ProgressDecision::AlreadyCurrent {
                     anime_id,
@@ -171,20 +206,21 @@ pub fn process_detection(
                     episode,
                 } => {
                     debug!(title = %anime_title, episode, "No update");
-                    let event = DomainEvent::AlreadyCurrent {
-                        anime_id,
-                        anime_title: anime_title.clone(),
-                        episode,
-                        timestamp: now,
-                    };
-                    Ok((
-                        UpdateOutcome::AlreadyCurrent {
+                    Ok(DetectionResult {
+                        outcome: UpdateOutcome::AlreadyCurrent {
+                            anime_id,
+                            anime_title: anime_title.clone(),
+                            episode,
+                        },
+                        events: vec![DomainEvent::AlreadyCurrent {
                             anime_id,
                             anime_title,
                             episode,
-                        },
-                        vec![event],
-                    ))
+                            timestamp: now,
+                        }],
+                        commands: vec![],
+                        invalidate_cache: false,
+                    })
                 }
             }
         }
@@ -192,17 +228,23 @@ pub fn process_detection(
             // No library entry — auto-add as Watching.
             let (entry, event) =
                 policy::create_initial_entry(target_anime_id, &anime_title, target_episode, now);
-            repo.upsert_library_entry(&entry)?;
-            repo.record_watch(target_anime_id, target_episode)?;
             info!(title = %anime_title, episode = target_episode, "Added to library");
-            Ok((
-                UpdateOutcome::AddedToLibrary {
+            Ok(DetectionResult {
+                outcome: UpdateOutcome::AddedToLibrary {
                     anime_id: target_anime_id,
                     anime_title,
                     episode: target_episode,
                 },
-                vec![event],
-            ))
+                events: vec![event],
+                commands: vec![
+                    PersistCommand::UpsertLibraryEntry(entry),
+                    PersistCommand::RecordWatch {
+                        anime_id: target_anime_id,
+                        episode: target_episode,
+                    },
+                ],
+                invalidate_cache: true,
+            })
         }
     }
 }
@@ -218,6 +260,23 @@ mod tests {
         let config = AppConfig::default();
         let cache = RecognitionCache::new();
         (storage, config, cache)
+    }
+
+    /// Execute persistence commands against storage (test helper).
+    fn execute_commands(storage: &Storage, result: &DetectionResult) {
+        for cmd in &result.commands {
+            match cmd {
+                PersistCommand::UpdateEpisodeCount { anime_id, episode } => {
+                    storage.update_episode_count(*anime_id, *episode).unwrap();
+                }
+                PersistCommand::RecordWatch { anime_id, episode } => {
+                    storage.record_watch(*anime_id, *episode).unwrap();
+                }
+                PersistCommand::UpsertLibraryEntry(entry) => {
+                    storage.upsert_library_entry(entry).unwrap();
+                }
+            }
+        }
     }
 
     fn insert_frieren(storage: &Storage) -> i64 {
@@ -266,7 +325,7 @@ mod tests {
         let (storage, config, mut cache) = setup();
         insert_frieren(&storage);
 
-        let (outcome, events) = process_detection(
+        let result = process_detection(
             &detected("Sousou no Frieren", 1),
             &storage,
             &config,
@@ -274,12 +333,18 @@ mod tests {
             None,
         )
         .unwrap();
-        match outcome {
-            UpdateOutcome::AddedToLibrary { episode, .. } => assert_eq!(episode, 1),
+        match &result.outcome {
+            UpdateOutcome::AddedToLibrary { episode, .. } => assert_eq!(*episode, 1),
             other => panic!("Expected AddedToLibrary, got {other:?}"),
         }
-        assert!(matches!(events[0], DomainEvent::AddedToLibrary { .. }));
+        assert!(matches!(
+            result.events[0],
+            DomainEvent::AddedToLibrary { .. }
+        ));
+        assert!(result.invalidate_cache);
+        assert_eq!(result.commands.len(), 2); // UpsertLibraryEntry + RecordWatch
 
+        execute_commands(&storage, &result);
         let entry = storage.get_library_entry_for_anime(1).unwrap().unwrap();
         assert_eq!(entry.watched_episodes, 1);
         assert_eq!(entry.status, WatchStatus::Watching);
@@ -291,7 +356,7 @@ mod tests {
         let anime_id = insert_frieren(&storage);
 
         // First detection creates entry.
-        process_detection(
+        let r = process_detection(
             &detected("Sousou no Frieren", 3),
             &storage,
             &config,
@@ -299,9 +364,10 @@ mod tests {
             None,
         )
         .unwrap();
+        execute_commands(&storage, &r);
 
         // Second detection with higher episode updates.
-        let (outcome, events) = process_detection(
+        let result = process_detection(
             &detected("Sousou no Frieren", 5),
             &storage,
             &config,
@@ -309,19 +375,21 @@ mod tests {
             None,
         )
         .unwrap();
-        match outcome {
-            UpdateOutcome::Updated { episode, .. } => assert_eq!(episode, 5),
+        match &result.outcome {
+            UpdateOutcome::Updated { episode, .. } => assert_eq!(*episode, 5),
             other => panic!("Expected Updated, got {other:?}"),
         }
         assert!(matches!(
-            events[0],
+            result.events[0],
             DomainEvent::EpisodeUpdated {
                 old_episode: 3,
                 new_episode: 5,
                 ..
             }
         ));
+        assert_eq!(result.commands.len(), 2); // UpdateEpisodeCount + RecordWatch
 
+        execute_commands(&storage, &result);
         let entry = storage
             .get_library_entry_for_anime(anime_id)
             .unwrap()
@@ -334,7 +402,7 @@ mod tests {
         let (storage, config, mut cache) = setup();
         insert_frieren(&storage);
 
-        process_detection(
+        let r = process_detection(
             &detected("Sousou no Frieren", 5),
             &storage,
             &config,
@@ -342,9 +410,10 @@ mod tests {
             None,
         )
         .unwrap();
+        execute_commands(&storage, &r);
 
-        // Same episode again.
-        let (outcome, _events) = process_detection(
+        // Same episode again — no commands should be produced.
+        let result = process_detection(
             &detected("Sousou no Frieren", 5),
             &storage,
             &config,
@@ -352,14 +421,18 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(matches!(outcome, UpdateOutcome::AlreadyCurrent { .. }));
+        assert!(matches!(
+            result.outcome,
+            UpdateOutcome::AlreadyCurrent { .. }
+        ));
+        assert!(result.commands.is_empty());
     }
 
     #[test]
     fn test_unrecognized() {
         let (storage, config, mut cache) = setup();
         // DB is empty, so nothing matches.
-        let (outcome, events) = process_detection(
+        let result = process_detection(
             &detected("Unknown Anime", 1),
             &storage,
             &config,
@@ -367,8 +440,9 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(matches!(outcome, UpdateOutcome::Unrecognized { .. }));
-        assert!(matches!(events[0], DomainEvent::Unrecognized { .. }));
+        assert!(matches!(result.outcome, UpdateOutcome::Unrecognized { .. }));
+        assert!(matches!(result.events[0], DomainEvent::Unrecognized { .. }));
+        assert!(result.commands.is_empty());
     }
 
     #[test]
@@ -381,7 +455,7 @@ mod tests {
         insert_frieren(&storage);
 
         // First detection adds to library (auto-add always works).
-        process_detection(
+        let r = process_detection(
             &detected("Sousou no Frieren", 1),
             &storage,
             &config,
@@ -389,9 +463,10 @@ mod tests {
             None,
         )
         .unwrap();
+        execute_commands(&storage, &r);
 
         // Higher episode — but auto_update is disabled, so suppressed.
-        let (outcome, _events) = process_detection(
+        let result = process_detection(
             &detected("Sousou no Frieren", 5),
             &storage,
             &config,
@@ -399,11 +474,11 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(matches!(outcome, UpdateOutcome::AlreadyCurrent { .. }));
-
-        // Episode count should NOT have been updated.
-        let entry = storage.get_library_entry_for_anime(1).unwrap().unwrap();
-        assert_eq!(entry.watched_episodes, 1);
+        assert!(matches!(
+            result.outcome,
+            UpdateOutcome::AlreadyCurrent { .. }
+        ));
+        assert!(result.commands.is_empty()); // no writes!
     }
 
     #[test]
@@ -492,7 +567,7 @@ mod tests {
         );
 
         // Detect "episode 26" of source → should redirect to dest episode 1.
-        let (outcome, _events) = process_detection(
+        let result = process_detection(
             &detected("Shingeki no Kyojin", 26),
             &storage,
             &config,
@@ -501,15 +576,17 @@ mod tests {
         )
         .unwrap();
 
-        match outcome {
+        match &result.outcome {
             UpdateOutcome::AddedToLibrary {
                 anime_id, episode, ..
             } => {
-                assert_eq!(anime_id, dest_id);
-                assert_eq!(episode, 1);
+                assert_eq!(*anime_id, dest_id);
+                assert_eq!(*episode, 1);
             }
             other => panic!("Expected AddedToLibrary for dest anime, got {other:?}"),
         }
+
+        execute_commands(&storage, &result);
 
         // Source anime should NOT have a library entry.
         assert!(storage
@@ -538,7 +615,7 @@ mod tests {
             raw_title: "Sousou no Frieren.mkv".into(),
             service_name: None,
         };
-        let (outcome, _) = process_detection(&d, &storage, &config, &mut cache, None).unwrap();
-        assert!(matches!(outcome, UpdateOutcome::Unrecognized { .. }));
+        let result = process_detection(&d, &storage, &config, &mut cache, None).unwrap();
+        assert!(matches!(result.outcome, UpdateOutcome::Unrecognized { .. }));
     }
 }

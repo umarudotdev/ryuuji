@@ -581,12 +581,33 @@ fn actor_loop(
                     Some(&relations),
                 );
 
-                // Derive debug events from domain events.
-                {
-                    let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
-                    match &result {
-                        Ok((_outcome, events)) => {
-                            for event in events {
+                match result {
+                    Ok(det) => {
+                        // Execute persistence commands.
+                        let mut cmd_err = None;
+                        for cmd in &det.commands {
+                            let r = match cmd {
+                                orchestrator::PersistCommand::UpdateEpisodeCount {
+                                    anime_id,
+                                    episode,
+                                } => storage.update_episode_count(*anime_id, *episode),
+                                orchestrator::PersistCommand::RecordWatch { anime_id, episode } => {
+                                    storage.record_watch(*anime_id, *episode)
+                                }
+                                orchestrator::PersistCommand::UpsertLibraryEntry(entry) => {
+                                    storage.upsert_library_entry(entry).map(|_| ())
+                                }
+                            };
+                            if let Err(e) = r {
+                                cmd_err = Some(e);
+                                break;
+                            }
+                        }
+
+                        // Derive debug events from domain events.
+                        {
+                            let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+                            for event in &det.events {
                                 for debug_event in
                                     debug_log::debug_events_from_domain(event, &query)
                                 {
@@ -594,21 +615,25 @@ fn actor_loop(
                                 }
                             }
                         }
-                        Err(e) => {
-                            log.push(DebugEvent::Error {
-                                source: "orchestrator".into(),
-                                message: e.to_string(),
-                            });
+
+                        if det.invalidate_cache {
+                            cache.invalidate();
                         }
+
+                        let _ = reply.send(match cmd_err {
+                            Some(e) => Err(e),
+                            None => Ok(det.outcome),
+                        });
+                    }
+                    Err(e) => {
+                        let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
+                        log.push(DebugEvent::Error {
+                            source: "orchestrator".into(),
+                            message: e.to_string(),
+                        });
+                        let _ = reply.send(Err(e));
                     }
                 }
-
-                // Invalidate cache when new anime is added to the library.
-                if let Ok((UpdateOutcome::AddedToLibrary { .. }, _)) = &result {
-                    cache.invalidate();
-                }
-                // Send only the outcome to the reply channel (GUI doesn't need events yet).
-                let _ = reply.send(result.map(|(outcome, _events)| outcome));
             }
             DbCommand::SaveServiceToken {
                 service,
