@@ -1,12 +1,15 @@
 pub mod config;
 pub mod debug_log;
 pub mod error;
+pub mod events;
 pub mod matcher;
 pub mod models;
 pub mod normalize;
 pub mod orchestrator;
+pub mod policy;
 pub mod recognition;
 pub mod relations;
+pub mod repository;
 pub mod scanner;
 pub mod storage;
 pub mod torrent;

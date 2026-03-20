@@ -216,9 +216,15 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
             super::form_row(
                 cs,
                 "Watch Status",
-                pick_list(WatchStatus::ALL, Some(entry.status), move |s| {
-                    on_status_changed(s)
-                })
+                pick_list(
+                    {
+                        let mut options = vec![entry.status];
+                        options.extend_from_slice(entry.status.valid_transitions());
+                        options
+                    },
+                    Some(entry.status),
+                    on_status_changed,
+                )
                 .text_size(style::INPUT_FONT_SIZE)
                 .padding(style::INPUT_PADDING)
                 .style(theme::pick_list_style(cs))

@@ -28,4 +28,7 @@ pub enum RyuujiError {
 
     #[error("update error: {0}")]
     Update(String),
+
+    #[error("invalid transition: {0}")]
+    InvalidTransition(#[from] crate::models::library::InvalidTransition),
 }

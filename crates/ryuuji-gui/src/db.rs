@@ -581,67 +581,18 @@ fn actor_loop(
                     Some(&relations),
                 );
 
-                // Push debug events based on outcome.
+                // Derive debug events from domain events.
                 {
                     let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
                     match &result {
-                        Ok(UpdateOutcome::Updated {
-                            anime_title,
-                            episode,
-                            ..
-                        }) => {
-                            log.push(DebugEvent::RecognitionResult {
-                                query: query.clone(),
-                                match_level: debug_log::MatchLevel::Exact,
-                                anime_title: Some(anime_title.clone()),
-                            });
-                            log.push(DebugEvent::LibraryUpdate {
-                                anime_title: anime_title.clone(),
-                                episode: *episode,
-                                outcome: debug_log::UpdateKind::Updated,
-                            });
-                        }
-                        Ok(UpdateOutcome::AlreadyCurrent {
-                            anime_title,
-                            episode,
-                            ..
-                        }) => {
-                            log.push(DebugEvent::RecognitionResult {
-                                query: query.clone(),
-                                match_level: debug_log::MatchLevel::Exact,
-                                anime_title: Some(anime_title.clone()),
-                            });
-                            log.push(DebugEvent::LibraryUpdate {
-                                anime_title: anime_title.clone(),
-                                episode: *episode,
-                                outcome: debug_log::UpdateKind::AlreadyCurrent,
-                            });
-                        }
-                        Ok(UpdateOutcome::AddedToLibrary {
-                            anime_title,
-                            episode,
-                            ..
-                        }) => {
-                            log.push(DebugEvent::RecognitionResult {
-                                query: query.clone(),
-                                match_level: debug_log::MatchLevel::Exact,
-                                anime_title: Some(anime_title.clone()),
-                            });
-                            log.push(DebugEvent::LibraryUpdate {
-                                anime_title: anime_title.clone(),
-                                episode: *episode,
-                                outcome: debug_log::UpdateKind::Added,
-                            });
-                        }
-                        Ok(UpdateOutcome::Unrecognized { raw_title }) => {
-                            log.push(DebugEvent::RecognitionResult {
-                                query,
-                                match_level: debug_log::MatchLevel::NoMatch,
-                                anime_title: None,
-                            });
-                            log.push(DebugEvent::Unrecognized {
-                                raw_title: raw_title.clone(),
-                            });
+                        Ok((_outcome, events)) => {
+                            for event in events {
+                                for debug_event in
+                                    debug_log::debug_events_from_domain(event, &query)
+                                {
+                                    log.push(debug_event);
+                                }
+                            }
                         }
                         Err(e) => {
                             log.push(DebugEvent::Error {
@@ -649,15 +600,15 @@ fn actor_loop(
                                 message: e.to_string(),
                             });
                         }
-                        _ => {}
                     }
                 }
 
                 // Invalidate cache when new anime is added to the library.
-                if let Ok(UpdateOutcome::AddedToLibrary { .. }) = &result {
+                if let Ok((UpdateOutcome::AddedToLibrary { .. }, _)) = &result {
                     cache.invalidate();
                 }
-                let _ = reply.send(result);
+                // Send only the outcome to the reply channel (GUI doesn't need events yet).
+                let _ = reply.send(result.map(|(outcome, _events)| outcome));
             }
             DbCommand::SaveServiceToken {
                 service,

@@ -130,3 +130,200 @@ pub struct CacheStats {
     pub hits_lru: u64,
     pub misses: u64,
 }
+
+/// Build a recognition + library-update debug event pair.
+fn recognition_and_update(
+    query: &str,
+    anime_title: &str,
+    episode: u32,
+    outcome: UpdateKind,
+) -> Vec<DebugEvent> {
+    vec![
+        DebugEvent::RecognitionResult {
+            query: query.to_string(),
+            match_level: MatchLevel::Exact,
+            anime_title: Some(anime_title.to_string()),
+        },
+        DebugEvent::LibraryUpdate {
+            anime_title: anime_title.to_string(),
+            episode,
+            outcome,
+        },
+    ]
+}
+
+/// Convert a `DomainEvent` into debug events for the event log.
+///
+/// Returns a list because some domain events produce multiple debug entries
+/// (e.g., a recognition result + a library update).
+pub fn debug_events_from_domain(
+    event: &crate::events::DomainEvent,
+    query: &str,
+) -> Vec<DebugEvent> {
+    use crate::events::DomainEvent;
+
+    match event {
+        DomainEvent::EpisodeUpdated {
+            anime_title,
+            new_episode,
+            ..
+        } => recognition_and_update(query, anime_title, *new_episode, UpdateKind::Updated),
+        DomainEvent::AddedToLibrary {
+            anime_title,
+            initial_episode,
+            ..
+        } => recognition_and_update(query, anime_title, *initial_episode, UpdateKind::Added),
+        DomainEvent::AlreadyCurrent {
+            anime_title,
+            episode,
+            ..
+        } => recognition_and_update(query, anime_title, *episode, UpdateKind::AlreadyCurrent),
+        DomainEvent::Unrecognized { raw_title, .. } => vec![
+            DebugEvent::RecognitionResult {
+                query: query.to_string(),
+                match_level: MatchLevel::NoMatch,
+                anime_title: None,
+            },
+            DebugEvent::Unrecognized {
+                raw_title: raw_title.clone(),
+            },
+        ],
+        // StatusChanged, ScoreUpdated, EntryDeleted, NothingPlaying don't
+        // originate from the detection pipeline — no debug entry needed.
+        _ => vec![],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::events::{ChangeSource, DomainEvent};
+    use crate::models::WatchStatus;
+    use chrono::Utc;
+
+    #[test]
+    fn episode_updated_produces_recognition_and_update() {
+        let event = DomainEvent::EpisodeUpdated {
+            anime_id: 1,
+            anime_title: "Frieren".into(),
+            old_episode: 3,
+            new_episode: 5,
+            source: ChangeSource::Detection,
+            timestamp: Utc::now(),
+        };
+        let debug = debug_events_from_domain(&event, "Frieren");
+        assert_eq!(debug.len(), 2);
+        assert!(matches!(
+            &debug[0],
+            DebugEvent::RecognitionResult {
+                match_level: MatchLevel::Exact,
+                ..
+            }
+        ));
+        assert!(matches!(
+            &debug[1],
+            DebugEvent::LibraryUpdate {
+                outcome: UpdateKind::Updated,
+                episode: 5,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn added_to_library_produces_recognition_and_added() {
+        let event = DomainEvent::AddedToLibrary {
+            anime_id: 1,
+            anime_title: "Frieren".into(),
+            initial_status: WatchStatus::Watching,
+            initial_episode: 1,
+            source: ChangeSource::Detection,
+            timestamp: Utc::now(),
+        };
+        let debug = debug_events_from_domain(&event, "Frieren");
+        assert_eq!(debug.len(), 2);
+        assert!(matches!(
+            &debug[1],
+            DebugEvent::LibraryUpdate {
+                outcome: UpdateKind::Added,
+                episode: 1,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn already_current_produces_recognition_and_already_current() {
+        let event = DomainEvent::AlreadyCurrent {
+            anime_id: 1,
+            anime_title: "Frieren".into(),
+            episode: 5,
+            timestamp: Utc::now(),
+        };
+        let debug = debug_events_from_domain(&event, "Frieren");
+        assert_eq!(debug.len(), 2);
+        assert!(matches!(
+            &debug[1],
+            DebugEvent::LibraryUpdate {
+                outcome: UpdateKind::AlreadyCurrent,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn unrecognized_produces_no_match_and_unrecognized() {
+        let event = DomainEvent::Unrecognized {
+            raw_title: "Unknown.mkv".into(),
+            timestamp: Utc::now(),
+        };
+        let debug = debug_events_from_domain(&event, "Unknown");
+        assert_eq!(debug.len(), 2);
+        assert!(matches!(
+            &debug[0],
+            DebugEvent::RecognitionResult {
+                match_level: MatchLevel::NoMatch,
+                anime_title: None,
+                ..
+            }
+        ));
+        assert!(matches!(&debug[1], DebugEvent::Unrecognized { .. }));
+    }
+
+    #[test]
+    fn non_detection_events_produce_empty() {
+        let cases = vec![
+            DomainEvent::StatusChanged {
+                anime_id: 1,
+                anime_title: "Frieren".into(),
+                old_status: WatchStatus::Watching,
+                new_status: WatchStatus::Completed,
+                source: ChangeSource::Manual,
+                timestamp: Utc::now(),
+            },
+            DomainEvent::ScoreUpdated {
+                anime_id: 1,
+                anime_title: "Frieren".into(),
+                old_score: None,
+                new_score: Some(9.0),
+                source: ChangeSource::Manual,
+                timestamp: Utc::now(),
+            },
+            DomainEvent::NothingPlaying {
+                timestamp: Utc::now(),
+            },
+            DomainEvent::EntryDeleted {
+                anime_id: 1,
+                anime_title: "Frieren".into(),
+                source: ChangeSource::Manual,
+                timestamp: Utc::now(),
+            },
+        ];
+        for event in &cases {
+            assert!(
+                debug_events_from_domain(event, "q").is_empty(),
+                "Expected empty for {event:?}"
+            );
+        }
+    }
+}

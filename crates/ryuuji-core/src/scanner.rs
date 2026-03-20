@@ -14,7 +14,7 @@ use crate::error::RyuujiError;
 use crate::matcher::MatchResult;
 use crate::models::AvailableEpisode;
 use crate::recognition::RecognitionCache;
-use crate::storage::Storage;
+use crate::repository::{AnimeRepository, EpisodeFileRepository};
 
 /// Video file extensions to consider.
 const VIDEO_EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "ogm", "wmv", "webm", "flv", "m4v"];
@@ -36,7 +36,7 @@ pub struct ScanResult {
 /// 4. Match title via `RecognitionCache::recognize()`
 /// 5. Upsert `available_episode` record
 pub fn scan_watch_folders(
-    storage: &Storage,
+    repo: &(impl AnimeRepository + EpisodeFileRepository),
     cache: &mut RecognitionCache,
     config: &LibraryConfig,
 ) -> Result<ScanResult, RyuujiError> {
@@ -105,7 +105,7 @@ pub fn scan_watch_folders(
             let file_path_str = path.to_string_lossy().to_string();
 
             // Incremental: skip if already indexed with same size + mtime
-            if storage.is_file_indexed(&file_path_str, file_size, &file_modified)? {
+            if repo.is_file_indexed(&file_path_str, file_size, &file_modified)? {
                 result.files_skipped += 1;
                 continue;
             }
@@ -124,7 +124,7 @@ pub fn scan_watch_folders(
             }
 
             // Match against library
-            let match_result = cache.recognize(title, storage);
+            let match_result = cache.recognize(title, repo);
             let anime_id = match &match_result {
                 MatchResult::Matched(anime) | MatchResult::Fuzzy(anime, _) => anime.id,
                 MatchResult::NoMatch => {
@@ -146,7 +146,7 @@ pub fn scan_watch_folders(
                 resolution: parsed.resolution.clone(),
             };
 
-            if let Err(e) = storage.upsert_available_episode(&ep) {
+            if let Err(e) = repo.upsert_available_episode(&ep) {
                 tracing::warn!(error = %e, "Failed to upsert available episode");
                 continue;
             }
@@ -169,6 +169,7 @@ pub fn scan_watch_folders(
 mod tests {
     use super::*;
     use crate::models::{Anime, AnimeIds, AnimeTitle};
+    use crate::storage::Storage;
     use std::io::Write;
     use tempfile::TempDir;
 

@@ -1,6 +1,6 @@
 use crate::matcher::MatchResult;
 use crate::recognition::RecognitionCache;
-use crate::storage::Storage;
+use crate::repository::AnimeRepository;
 use crate::torrent::models::TorrentItem;
 
 /// Parse torrent titles and match them against the library.
@@ -10,7 +10,7 @@ use crate::torrent::models::TorrentItem;
 /// known anime in the database.
 pub fn match_torrent_items(
     items: &mut [TorrentItem],
-    storage: &Storage,
+    repo: &impl AnimeRepository,
     cache: &mut RecognitionCache,
 ) {
     for item in items.iter_mut() {
@@ -21,7 +21,7 @@ pub fn match_torrent_items(
         item.resolution = parsed.resolution;
 
         if let Some(ref anime_title) = parsed.title {
-            match cache.recognize(anime_title, storage) {
+            match cache.recognize(anime_title, repo) {
                 MatchResult::Matched(anime) | MatchResult::Fuzzy(anime, _) => {
                     item.anime_id = Some(anime.id);
                     item.anime_title = Some(anime.title.preferred().to_string());

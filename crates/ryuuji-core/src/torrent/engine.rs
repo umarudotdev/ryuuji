@@ -1,4 +1,4 @@
-use crate::storage::Storage;
+use crate::repository::TorrentRepository;
 use crate::torrent::filter::TorrentFilter;
 use crate::torrent::models::{FilterState, TorrentItem};
 
@@ -99,6 +99,6 @@ fn evaluate_condition(item: &TorrentItem, cond: &crate::torrent::filter::FilterC
 }
 
 /// Remove items whose GUID is already in the archive.
-pub fn filter_archived(items: &mut Vec<TorrentItem>, storage: &Storage) {
-    items.retain(|item| !storage.is_torrent_archived(&item.guid).unwrap_or(false));
+pub fn filter_archived(items: &mut Vec<TorrentItem>, repo: &impl TorrentRepository) {
+    items.retain(|item| !repo.is_torrent_archived(&item.guid).unwrap_or(false));
 }

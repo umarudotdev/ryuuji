@@ -9,8 +9,17 @@ use crate::models::{
     Anime, AnimeIds, AnimeTitle, AvailableEpisode, AvailableEpisodeSummary, LibraryEntry,
     WatchStatus,
 };
+use crate::repository::{
+    AnimeRepository, EpisodeFileRepository, LibraryRepository, TokenRepository, TorrentRepository,
+    WatchHistoryRepository,
+};
 use crate::torrent::filter::{FilterAction, MatchMode, TorrentFilter};
 use crate::torrent::models::TorrentFeed;
+
+// Re-export port contract types so existing `use storage::X` paths still work.
+pub use crate::repository::{
+    HistoryRow, LibraryRow, LibraryStatistics, TokenRecord, WatchHistoryRow,
+};
 
 const SCHEMA_V1: &str = include_str!("../../../migrations/001_initial.sql");
 const SCHEMA_V2: &str = include_str!("../../../migrations/002_add_anime_metadata.sql");
@@ -18,48 +27,9 @@ const SCHEMA_V3: &str = include_str!("../../../migrations/003_torrent_tables.sql
 const SCHEMA_V4: &str = include_str!("../../../migrations/004_add_library_fields.sql");
 const SCHEMA_V5: &str = include_str!("../../../migrations/005_add_available_episodes.sql");
 
-/// Token record: (access_token, refresh_token, expires_at).
-pub type TokenRecord = (String, Option<String>, Option<String>);
-
 /// SQLite-backed storage for the ryuuji library.
 pub struct Storage {
     conn: Connection,
-}
-
-/// A library entry joined with its anime data for display.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct LibraryRow {
-    pub entry: LibraryEntry,
-    pub anime: Anime,
-}
-
-/// Aggregate statistics about the user's library.
-#[derive(Debug, Clone)]
-pub struct LibraryStatistics {
-    pub total_entries: usize,
-    pub by_status: std::collections::HashMap<WatchStatus, usize>,
-    pub total_episodes_watched: u32,
-    pub total_rewatch_episodes: u32,
-    pub total_watch_time_minutes: u64,
-    pub mean_score: Option<f32>,
-    pub score_distribution: Vec<(u8, usize)>,
-    pub top_genres: Vec<(String, usize)>,
-}
-
-/// A watch history record (raw, without anime data).
-#[derive(Debug, Clone)]
-pub struct WatchHistoryRow {
-    pub anime_id: i64,
-    pub episode: u32,
-    pub watched_at: DateTime<Utc>,
-}
-
-/// A watch history record joined with anime data for display.
-#[derive(Debug, Clone)]
-pub struct HistoryRow {
-    pub anime: Anime,
-    pub episode: u32,
-    pub watched_at: DateTime<Utc>,
 }
 
 impl Storage {
@@ -1034,6 +1004,170 @@ impl Storage {
             score_distribution,
             top_genres,
         })
+    }
+}
+
+// ── Trait implementations ───────────────────────────────────────
+
+impl AnimeRepository for Storage {
+    fn get_anime(&self, id: i64) -> Result<Option<Anime>, RyuujiError> {
+        self.get_anime(id)
+    }
+    fn all_anime(&self) -> Result<Vec<Anime>, RyuujiError> {
+        self.all_anime()
+    }
+    fn get_anime_by_mal_id(&self, mal_id: u64) -> Result<Option<Anime>, RyuujiError> {
+        self.get_anime_by_mal_id(mal_id)
+    }
+    fn get_anime_by_anilist_id(&self, id: u64) -> Result<Option<Anime>, RyuujiError> {
+        self.get_anime_by_anilist_id(id)
+    }
+    fn get_anime_by_kitsu_id(&self, id: u64) -> Result<Option<Anime>, RyuujiError> {
+        self.get_anime_by_kitsu_id(id)
+    }
+    fn insert_anime(&self, anime: &Anime) -> Result<i64, RyuujiError> {
+        self.insert_anime(anime)
+    }
+    fn upsert_anime_by_mal_id(&self, anime: &Anime) -> Result<i64, RyuujiError> {
+        self.upsert_anime_by_mal_id(anime)
+    }
+    fn upsert_anime_by_anilist_id(&self, anime: &Anime) -> Result<i64, RyuujiError> {
+        self.upsert_anime_by_anilist_id(anime)
+    }
+    fn upsert_anime_by_kitsu_id(&self, anime: &Anime) -> Result<i64, RyuujiError> {
+        self.upsert_anime_by_kitsu_id(anime)
+    }
+    fn search_anime(&self, query: &str) -> Result<Vec<Anime>, RyuujiError> {
+        self.search_anime(query)
+    }
+}
+
+impl LibraryRepository for Storage {
+    fn get_library_entry_for_anime(
+        &self,
+        anime_id: i64,
+    ) -> Result<Option<LibraryEntry>, RyuujiError> {
+        self.get_library_entry_for_anime(anime_id)
+    }
+    fn upsert_library_entry(&self, entry: &LibraryEntry) -> Result<i64, RyuujiError> {
+        self.upsert_library_entry(entry)
+    }
+    fn update_episode_count(&self, anime_id: i64, episodes: u32) -> Result<(), RyuujiError> {
+        self.update_episode_count(anime_id, episodes)
+    }
+    fn update_library_status(&self, anime_id: i64, status: WatchStatus) -> Result<(), RyuujiError> {
+        self.update_library_status(anime_id, status)
+    }
+    fn update_library_score(&self, anime_id: i64, score: f32) -> Result<(), RyuujiError> {
+        self.update_library_score(anime_id, score)
+    }
+    fn update_library_dates(
+        &self,
+        anime_id: i64,
+        start: Option<&str>,
+        finish: Option<&str>,
+    ) -> Result<(), RyuujiError> {
+        self.update_library_dates(anime_id, start, finish)
+    }
+    fn update_library_notes(&self, anime_id: i64, notes: Option<&str>) -> Result<(), RyuujiError> {
+        self.update_library_notes(anime_id, notes)
+    }
+    fn update_library_rewatch(
+        &self,
+        anime_id: i64,
+        rewatching: bool,
+        count: u32,
+    ) -> Result<(), RyuujiError> {
+        self.update_library_rewatch(anime_id, rewatching, count)
+    }
+    fn delete_library_entry(&self, anime_id: i64) -> Result<(), RyuujiError> {
+        self.delete_library_entry(anime_id)
+    }
+    fn get_library_by_status(&self, status: WatchStatus) -> Result<Vec<LibraryRow>, RyuujiError> {
+        self.get_library_by_status(status)
+    }
+    fn get_all_library(&self) -> Result<Vec<LibraryRow>, RyuujiError> {
+        self.get_all_library()
+    }
+    fn get_library_statistics(&self) -> Result<LibraryStatistics, RyuujiError> {
+        self.get_library_statistics()
+    }
+}
+
+impl WatchHistoryRepository for Storage {
+    fn record_watch(&self, anime_id: i64, episode: u32) -> Result<(), RyuujiError> {
+        self.record_watch(anime_id, episode)
+    }
+    fn get_watch_history(&self, limit: u32) -> Result<Vec<HistoryRow>, RyuujiError> {
+        self.get_watch_history(limit)
+    }
+}
+
+impl TokenRepository for Storage {
+    fn save_token(
+        &self,
+        service: &str,
+        token: &str,
+        refresh: Option<&str>,
+        expires_at: Option<&str>,
+    ) -> Result<(), RyuujiError> {
+        self.save_token(service, token, refresh, expires_at)
+    }
+    fn get_token(&self, service: &str) -> Result<Option<String>, RyuujiError> {
+        self.get_token(service)
+    }
+    fn get_token_full(&self, service: &str) -> Result<Option<TokenRecord>, RyuujiError> {
+        self.get_token_full(service)
+    }
+}
+
+impl TorrentRepository for Storage {
+    fn get_torrent_feeds(&self) -> Result<Vec<TorrentFeed>, RyuujiError> {
+        self.get_torrent_feeds()
+    }
+    fn upsert_torrent_feed(&self, feed: &TorrentFeed) -> Result<i64, RyuujiError> {
+        self.upsert_torrent_feed(feed)
+    }
+    fn delete_torrent_feed(&self, id: i64) -> Result<(), RyuujiError> {
+        self.delete_torrent_feed(id)
+    }
+    fn get_torrent_filters(&self) -> Result<Vec<TorrentFilter>, RyuujiError> {
+        self.get_torrent_filters()
+    }
+    fn upsert_torrent_filter(&self, filter: &TorrentFilter) -> Result<i64, RyuujiError> {
+        self.upsert_torrent_filter(filter)
+    }
+    fn delete_torrent_filter(&self, id: i64) -> Result<(), RyuujiError> {
+        self.delete_torrent_filter(id)
+    }
+    fn is_torrent_archived(&self, guid: &str) -> Result<bool, RyuujiError> {
+        self.is_torrent_archived(guid)
+    }
+    fn archive_torrent(&self, guid: &str, title: &str, action: &str) -> Result<(), RyuujiError> {
+        self.archive_torrent(guid, title, action)
+    }
+    fn clear_torrent_archive(&self) -> Result<(), RyuujiError> {
+        self.clear_torrent_archive()
+    }
+}
+
+impl EpisodeFileRepository for Storage {
+    fn upsert_available_episode(&self, ep: &AvailableEpisode) -> Result<(), RyuujiError> {
+        self.upsert_available_episode(ep)
+    }
+    fn get_available_episode_summaries(&self) -> Result<Vec<AvailableEpisodeSummary>, RyuujiError> {
+        self.get_available_episode_summaries()
+    }
+    fn is_file_indexed(
+        &self,
+        file_path: &str,
+        file_size: u64,
+        file_modified: &str,
+    ) -> Result<bool, RyuujiError> {
+        self.is_file_indexed(file_path, file_size, file_modified)
+    }
+    fn clear_available_episodes(&self) -> Result<(), RyuujiError> {
+        self.clear_available_episodes()
     }
 }
 

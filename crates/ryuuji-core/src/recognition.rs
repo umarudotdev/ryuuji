@@ -7,7 +7,7 @@ use crate::debug_log::CacheStats;
 use crate::error::RyuujiError;
 use crate::matcher::{self, MatchResult};
 use crate::models::Anime;
-use crate::storage::Storage;
+use crate::repository::AnimeRepository;
 
 /// Maximum number of recent query results to cache.
 const QUERY_CACHE_CAPACITY: usize = 64;
@@ -56,8 +56,8 @@ impl RecognitionCache {
     }
 
     /// Load all anime from storage and build the title indices.
-    pub fn populate(&mut self, storage: &Storage) -> Result<(), RyuujiError> {
-        self.entries = storage.all_anime()?;
+    pub fn populate(&mut self, repo: &impl AnimeRepository) -> Result<(), RyuujiError> {
+        self.entries = repo.all_anime()?;
         self.exact_index.clear();
         self.normalized_index.clear();
         self.query_cache.clear();
@@ -98,14 +98,14 @@ impl RecognitionCache {
     ///
     /// Flow: query cache → exact index → normalized index → fuzzy scan.
     /// Results are stored in the query cache for subsequent calls.
-    #[tracing::instrument(name = "recognize", skip(self, storage), fields(query = %query))]
-    pub fn recognize(&mut self, query: &str, storage: &Storage) -> MatchResult {
+    #[tracing::instrument(name = "recognize", skip(self, repo), fields(query = %query))]
+    pub fn recognize(&mut self, query: &str, repo: &impl AnimeRepository) -> MatchResult {
         if query.is_empty() {
             return MatchResult::NoMatch;
         }
 
         if !self.populated {
-            if let Err(e) = self.populate(storage) {
+            if let Err(e) = self.populate(repo) {
                 tracing::error!(error = %e, "Failed to populate recognition cache");
                 return MatchResult::NoMatch;
             }
@@ -261,6 +261,7 @@ fn result_to_cached(result: &MatchResult) -> CachedMatch {
 mod tests {
     use super::*;
     use crate::models::{AnimeIds, AnimeTitle};
+    use crate::storage::Storage;
 
     fn insert_frieren(storage: &Storage) -> i64 {
         storage
