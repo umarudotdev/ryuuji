@@ -8,8 +8,6 @@ use crate::error::RyuujiError;
 const GITHUB_REPO: &str = "umarudotdev/ryuuji";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// ── Types ───────────────────────────────────────────────────────────
-
 /// How the app was installed — determines whether self-update is possible.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstallKind {
@@ -61,8 +59,6 @@ pub enum UpdateState {
     NotifyOnly(Box<UpdateInfo>),
 }
 
-// ── GitHub API types (private) ──────────────────────────────────────
-
 #[derive(Debug, Deserialize)]
 struct GitHubRelease {
     tag_name: String,
@@ -78,8 +74,6 @@ struct GitHubAsset {
     name: String,
     browser_download_url: String,
 }
-
-// ── Install kind detection ──────────────────────────────────────────
 
 /// Detect how the app was installed based on the current executable path
 /// and environment variables.
@@ -120,20 +114,15 @@ pub fn detect_install_kind() -> InstallKind {
     }
 }
 
-// ── Artifact name mapping ───────────────────────────────────────────
-
 /// Return the expected release artifact filename for a given install kind and version.
 fn asset_name_for(kind: InstallKind, version: &semver::Version) -> Option<String> {
     match kind {
         InstallKind::AppImage => Some(format!("Ryuuji-{version}-x86_64.AppImage")),
         InstallKind::WindowsPortable => Some(format!("ryuuji-{version}-windows-x64-portable.zip")),
         InstallKind::WindowsInstaller => Some(format!("ryuuji-{version}-windows-x64-setup.exe")),
-        // Package-managed installs (deb) don't self-update.
         InstallKind::DebPackage | InstallKind::Unknown => None,
     }
 }
-
-// ── Core update logic ───────────────────────────────────────────────
 
 /// Parse a version string from a git tag (strips leading 'v' if present).
 fn parse_tag_version(tag: &str) -> Option<semver::Version> {
@@ -219,8 +208,6 @@ pub async fn check_for_update(include_prerelease: bool) -> Result<Option<UpdateI
 
     let info = find_best_release(&releases, include_prerelease, install_kind);
 
-    // For install kinds that don't support self-update but still have a newer version,
-    // return UpdateInfo with download_url = None (the GUI will show notify-only UI).
     if let Some(ref info) = info {
         if !install_kind.supports_self_update() {
             return Ok(Some(UpdateInfo {
@@ -296,24 +283,19 @@ fn apply_appimage(artifact_path: &std::path::Path) -> Result<(), RyuujiError> {
 
     let old_path = appimage_path.with_extension("old");
 
-    // Rename current → .old
     std::fs::rename(&appimage_path, &old_path)?;
 
-    // Copy new artifact in place
     if let Err(e) = std::fs::copy(artifact_path, &appimage_path) {
-        // Rollback: restore old binary
         let _ = std::fs::rename(&old_path, &appimage_path);
         return Err(RyuujiError::Update(format!(
             "failed to copy new binary: {e}"
         )));
     }
 
-    // Make executable
     let mut perms = std::fs::metadata(&appimage_path)?.permissions();
     perms.set_mode(0o755);
     std::fs::set_permissions(&appimage_path, perms)?;
 
-    // Clean up old binary and downloaded artifact
     let _ = std::fs::remove_file(&old_path);
     let _ = std::fs::remove_file(artifact_path);
 
@@ -334,14 +316,11 @@ fn apply_windows_portable(artifact_path: &std::path::Path) -> Result<(), RyuujiE
         .parent()
         .ok_or_else(|| RyuujiError::Update("cannot determine exe directory".into()))?;
 
-    // Pre-cleanup: remove leftover .old files from previous updates
     cleanup_old_executables(exe_dir);
 
-    // Clean leftover staging dir from a previous failed attempt
     let extract_dir = exe_dir.join("_update_staging");
     let _ = std::fs::remove_dir_all(&extract_dir);
 
-    // Extract zip via PowerShell (use -LiteralPath for paths with special chars)
     let status = std::process::Command::new("powershell")
         .args([
             "-NoProfile",
@@ -363,15 +342,11 @@ fn apply_windows_portable(artifact_path: &std::path::Path) -> Result<(), RyuujiE
         return Err(RyuujiError::Update("Expand-Archive failed".into()));
     }
 
-    // Find the new exe in the extracted directory
     let new_exe = find_exe_in_dir(&extract_dir)?;
 
-    // Rename current exe → .old.exe
     let old_exe = current_exe.with_extension("old.exe");
-    // On Windows, rename doesn't overwrite — ensure target is removed first
     if old_exe.exists() {
         if let Err(e) = std::fs::remove_file(&old_exe) {
-            // If we can't remove .old.exe (e.g. locked by AV), use a timestamped name
             let ts = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -403,7 +378,6 @@ fn finish_portable_apply(
     artifact_path: &std::path::Path,
 ) -> Result<(), RyuujiError> {
     if let Err(e) = std::fs::copy(new_exe, target) {
-        // Rollback: try to restore from .old.exe
         let old_exe = target.with_extension("old.exe");
         let _ = std::fs::rename(&old_exe, target);
         let _ = std::fs::remove_dir_all(extract_dir);
@@ -480,8 +454,6 @@ fn apply_windows_installer(artifact_path: &std::path::Path) -> Result<(), Ryuuji
     let file = path_to_wide(artifact_path);
     let params = to_wide("/S"); // NSIS silent install
 
-    // SAFETY: ShellExecuteW is a well-defined Windows API. All string pointers are
-    // valid null-terminated wide strings. NULL pointers are permitted for hwnd and directory.
     let result = unsafe {
         ShellExecuteW(
             std::ptr::null_mut(),
@@ -493,7 +465,6 @@ fn apply_windows_installer(artifact_path: &std::path::Path) -> Result<(), Ryuuji
         )
     };
 
-    // ShellExecuteW returns a value > 32 on success.
     if (result as usize) <= 32 {
         return Err(RyuujiError::Update(format!(
             "failed to launch installer with elevation (ShellExecute returned {})",
@@ -501,7 +472,6 @@ fn apply_windows_installer(artifact_path: &std::path::Path) -> Result<(), Ryuuji
         )));
     }
 
-    // Clean up the downloaded installer
     let _ = std::fs::remove_file(artifact_path);
 
     Ok(())
@@ -523,8 +493,6 @@ pub fn restart() -> ! {
 
     #[cfg(not(target_os = "linux"))]
     let exe = {
-        // After a portable update, current_exe() may resolve to the renamed .old.exe.
-        // Use the exe directory + known binary name instead.
         let raw = std::env::current_exe().expect("cannot determine current exe");
         let dir = raw.parent().expect("exe has no parent dir");
         let canonical = dir.join("ryuuji.exe");
@@ -560,7 +528,6 @@ fn cleanup_old_executables(dir: &std::path::Path) {
             tracing::warn!("failed to clean up {}: {e}", old.display());
         }
     }
-    // Clean any timestamped ryuuji.old.*.exe files
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let name = entry.file_name();
@@ -572,7 +539,6 @@ fn cleanup_old_executables(dir: &std::path::Path) {
             }
         }
     }
-    // Clean leftover staging directory
     let staging = dir.join("_update_staging");
     if staging.exists() {
         let _ = std::fs::remove_dir_all(&staging);
@@ -584,15 +550,12 @@ pub fn current_version() -> &'static str {
     CURRENT_VERSION
 }
 
-// ── Tests ───────────────────────────────────────────────────────────
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_detect_install_kind() {
-        // In dev/test environment, should be Unknown (not running as AppImage or from /usr/bin)
         let kind = detect_install_kind();
         assert!(
             kind == InstallKind::Unknown || kind == InstallKind::WindowsPortable,
@@ -747,11 +710,7 @@ mod tests {
             assets: vec![],
         }];
 
-        // DebPackage has no matching asset, so find_best_release returns None
-        // (no asset matching the expected name).
         let info = find_best_release(&releases, false, InstallKind::DebPackage);
-        // For deb, asset_name_for returns None, so find_best_release sets
-        // download_url = None and asset_name = None, but still returns the release.
         assert!(info.is_some());
         let info = info.unwrap();
         assert!(info.download_url.is_none());

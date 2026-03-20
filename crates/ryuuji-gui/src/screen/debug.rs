@@ -75,14 +75,12 @@ impl Debug {
     where
         F: Fn(Message) -> crate::app::Message + Send + 'static,
     {
-        // Snapshot the event log (brief lock).
         let snapshot = event_log
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .snapshot();
         self.events = snapshot;
 
-        // Request cache stats from the DB actor.
         if let Some(db) = db {
             let db = db.clone();
             return Action::RunTask(iced::Task::perform(
@@ -106,10 +104,8 @@ impl Debug {
         .spacing(style::SPACE_SM)
         .align_y(iced::Alignment::Center);
 
-        // Current State section
         let state_section = self.current_state_view(cs);
 
-        // Event History section
         let history_section = self.event_history_view(cs);
 
         let page = column![header_row, state_section, history_section]
@@ -233,7 +229,6 @@ impl Debug {
     fn event_history_view<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
         let mut event_column = column![].spacing(style::SPACE_XXS);
 
-        // Reverse chronological — newest first.
         for (timestamp, event) in self.events.iter().rev() {
             let time_str = timestamp.format("%H:%M:%S").to_string();
             let (summary, color) = self.event_summary(cs, event);

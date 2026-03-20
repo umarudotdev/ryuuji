@@ -73,7 +73,6 @@ impl KeywordEntry {
 /// Compile-time keyword lookup table.
 /// All keys are UPPERCASE for case-insensitive matching.
 pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
-    // ── Video codecs ─────────────────────────────────────────────
     "H264" => KeywordEntry::new(KeywordKind::VideoCodec),
     "H.264" => KeywordEntry::new(KeywordKind::VideoCodec),
     "X264" => KeywordEntry::new(KeywordKind::VideoCodec),
@@ -93,7 +92,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "VC-1" => KeywordEntry::new(KeywordKind::VideoCodec),
     "VC1" => KeywordEntry::new(KeywordKind::VideoCodec),
 
-    // ── Video color depth ────────────────────────────────────────
     "8BIT" => KeywordEntry::new(KeywordKind::VideoColorDepth),
     "8-BIT" => KeywordEntry::new(KeywordKind::VideoColorDepth),
     "10BIT" => KeywordEntry::new(KeywordKind::VideoColorDepth),
@@ -107,7 +105,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "12BIT" => KeywordEntry::new(KeywordKind::VideoColorDepth),
     "12-BIT" => KeywordEntry::new(KeywordKind::VideoColorDepth),
 
-    // ── Video dynamic range ──────────────────────────────────────
     "HDR" => KeywordEntry::new(KeywordKind::VideoDynamicRange),
     "HDR10" => KeywordEntry::new(KeywordKind::VideoDynamicRange),
     "HDR10+" => KeywordEntry::new(KeywordKind::VideoDynamicRange),
@@ -116,7 +113,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "SDR" => KeywordEntry::new(KeywordKind::VideoDynamicRange),
     "HLG" => KeywordEntry::new(KeywordKind::VideoDynamicRange),
 
-    // ── Video frame rate ─────────────────────────────────────────
     "23.976FPS" => KeywordEntry::new(KeywordKind::VideoFrameRate),
     "24FPS" => KeywordEntry::new(KeywordKind::VideoFrameRate),
     "29.97FPS" => KeywordEntry::new(KeywordKind::VideoFrameRate),
@@ -124,11 +120,9 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "60FPS" => KeywordEntry::new(KeywordKind::VideoFrameRate),
     "120FPS" => KeywordEntry::new(KeywordKind::VideoFrameRate),
 
-    // ── Video terms (general) ────────────────────────────────────
     "REMUX" => KeywordEntry::new(KeywordKind::VideoTerm),
     "RAW" => KeywordEntry::ambiguous(KeywordKind::VideoTerm),
 
-    // ── Audio codecs ─────────────────────────────────────────────
     "AAC" => KeywordEntry::new(KeywordKind::AudioCodec),
     "AACX2" => KeywordEntry::new(KeywordKind::AudioCodec),
     "AACX3" => KeywordEntry::new(KeywordKind::AudioCodec),
@@ -156,7 +150,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "DTSX" => KeywordEntry::new(KeywordKind::AudioCodec),
     "DTS:X" => KeywordEntry::new(KeywordKind::AudioCodec),
 
-    // ── Audio channels ───────────────────────────────────────────
     "2.0" => KeywordEntry::ambiguous(KeywordKind::AudioChannels),
     "2.0CH" => KeywordEntry::new(KeywordKind::AudioChannels),
     "2CH" => KeywordEntry::new(KeywordKind::AudioChannels),
@@ -168,13 +161,11 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "STEREO" => KeywordEntry::new(KeywordKind::AudioChannels),
     "SURROUND" => KeywordEntry::new(KeywordKind::AudioChannels),
 
-    // ── Audio terms ──────────────────────────────────────────────
     "DUAL AUDIO" => KeywordEntry::new(KeywordKind::AudioTerm),
     "DUALAUDIO" => KeywordEntry::new(KeywordKind::AudioTerm),
     "DUAL-AUDIO" => KeywordEntry::new(KeywordKind::AudioTerm),
     "MULTI-AUDIO" => KeywordEntry::new(KeywordKind::AudioTerm),
 
-    // ── Resolution ───────────────────────────────────────────────
     "480P" => KeywordEntry::new(KeywordKind::Resolution),
     "576P" => KeywordEntry::new(KeywordKind::Resolution),
     "720P" => KeywordEntry::new(KeywordKind::Resolution),
@@ -188,7 +179,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "FHD" => KeywordEntry::new(KeywordKind::Resolution),
     "QHD" => KeywordEntry::new(KeywordKind::Resolution),
 
-    // ── Source ────────────────────────────────────────────────────
     "BD" => KeywordEntry::ambiguous(KeywordKind::Source),
     "BDMV" => KeywordEntry::new(KeywordKind::Source),
     "BDREMUX" => KeywordEntry::new(KeywordKind::Source),
@@ -221,7 +211,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "LD" => KeywordEntry::ambiguous(KeywordKind::Source),
     "LDRIP" => KeywordEntry::new(KeywordKind::Source),
 
-    // ── Streaming sources ────────────────────────────────────────
     "ABEMA" => KeywordEntry::new(KeywordKind::StreamingSource),
     "AMZN" => KeywordEntry::new(KeywordKind::StreamingSource),
     "AMAZON" => KeywordEntry::new(KeywordKind::StreamingSource),
@@ -242,7 +231,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "WAKANIM" => KeywordEntry::new(KeywordKind::StreamingSource),
     "MUSE" => KeywordEntry::ambiguous(KeywordKind::StreamingSource),
 
-    // ── Episode type / anime type ────────────────────────────────
     "SP" => KeywordEntry::ambiguous(KeywordKind::EpisodeType),
     "SPECIAL" => KeywordEntry::new(KeywordKind::EpisodeType),
     "SPECIALS" => KeywordEntry::new(KeywordKind::EpisodeType),
@@ -268,33 +256,27 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "OMAKE" => KeywordEntry::new(KeywordKind::EpisodeType),
     "PICTURE DRAMA" => KeywordEntry::new(KeywordKind::EpisodeType),
 
-    // ── Episode prefix keywords ──────────────────────────────────
     "EP" => KeywordEntry::prefix(KeywordKind::Episode),
     "EP." => KeywordEntry::prefix(KeywordKind::Episode),
     "EPS" => KeywordEntry::prefix(KeywordKind::Episode),
     "EPISODE" => KeywordEntry::prefix(KeywordKind::Episode),
     "EPISODES" => KeywordEntry::prefix(KeywordKind::Episode),
 
-    // ── Season prefix keywords ───────────────────────────────────
     "SEASON" => KeywordEntry::prefix(KeywordKind::Season),
     "SAISON" => KeywordEntry::prefix(KeywordKind::Season),
 
-    // ── Part keywords ────────────────────────────────────────────
     "PART" => KeywordEntry::ambiguous(KeywordKind::Part),
     "COUR" => KeywordEntry::ambiguous(KeywordKind::Part),
 
-    // ── Volume prefix keywords ───────────────────────────────────
     "VOL" => KeywordEntry::prefix(KeywordKind::Volume),
     "VOL." => KeywordEntry::prefix(KeywordKind::Volume),
     "VOLUME" => KeywordEntry::prefix(KeywordKind::Volume),
 
-    // ── Release version ──────────────────────────────────────────
     "V0" => KeywordEntry::new(KeywordKind::ReleaseVersion),
     "V2" => KeywordEntry::new(KeywordKind::ReleaseVersion),
     "V3" => KeywordEntry::new(KeywordKind::ReleaseVersion),
     "V4" => KeywordEntry::new(KeywordKind::ReleaseVersion),
 
-    // ── Release info ─────────────────────────────────────────────
     "REMASTER" => KeywordEntry::new(KeywordKind::ReleaseInfo),
     "REMASTERED" => KeywordEntry::new(KeywordKind::ReleaseInfo),
     "UNCENSORED" => KeywordEntry::new(KeywordKind::ReleaseInfo),
@@ -310,7 +292,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "FULLSCREEN" => KeywordEntry::new(KeywordKind::ReleaseInfo),
     "LETTERBOX" => KeywordEntry::new(KeywordKind::ReleaseInfo),
 
-    // ── Subtitles ────────────────────────────────────────────────
     "MULTI-SUB" => KeywordEntry::new(KeywordKind::Subtitles),
     "MULTI-SUBS" => KeywordEntry::new(KeywordKind::Subtitles),
     "MULTISUB" => KeywordEntry::new(KeywordKind::Subtitles),
@@ -327,7 +308,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "SRT" => KeywordEntry::ambiguous(KeywordKind::Subtitles),
     "SSA" => KeywordEntry::ambiguous(KeywordKind::Subtitles),
 
-    // ── Languages ────────────────────────────────────────────────
     "ENG" => KeywordEntry::new(KeywordKind::Language),
     "ENGLISH" => KeywordEntry::new(KeywordKind::Language),
     "JPN" => KeywordEntry::new(KeywordKind::Language),
@@ -366,7 +346,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "TELUGU" => KeywordEntry::new(KeywordKind::Language),
     "MULTI" => KeywordEntry::ambiguous(KeywordKind::Language),
 
-    // ── Device compatibility ─────────────────────────────────────
     "ANDROID" => KeywordEntry::ambiguous(KeywordKind::DeviceCompat),
     "IPAD3" => KeywordEntry::new(KeywordKind::DeviceCompat),
     "IPHONE5" => KeywordEntry::new(KeywordKind::DeviceCompat),
@@ -374,7 +353,6 @@ pub static KEYWORDS: phf::Map<&'static str, KeywordEntry> = phf_map! {
     "XBOX" => KeywordEntry::new(KeywordKind::DeviceCompat),
     "XBOX360" => KeywordEntry::new(KeywordKind::DeviceCompat),
 
-    // ── File extensions ──────────────────────────────────────────
     "MKV" => KeywordEntry::new(KeywordKind::FileExtension),
     "MP4" => KeywordEntry::new(KeywordKind::FileExtension),
     "AVI" => KeywordEntry::new(KeywordKind::FileExtension),

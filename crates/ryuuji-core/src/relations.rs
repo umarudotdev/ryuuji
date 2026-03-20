@@ -73,7 +73,6 @@ impl RelationDatabase {
         for line in data.lines() {
             let line = line.trim();
 
-            // Section headers.
             if line == "::rules" {
                 in_rules = true;
                 continue;
@@ -83,7 +82,6 @@ impl RelationDatabase {
                 continue;
             }
 
-            // Skip comments, blank lines, and metadata.
             if line.is_empty()
                 || line.starts_with('#')
                 || line.starts_with("- version:")
@@ -96,13 +94,11 @@ impl RelationDatabase {
                 continue;
             }
 
-            // Rule lines start with "- ".
             let rule_text = match line.strip_prefix("- ") {
                 Some(t) => t,
                 None => continue,
             };
 
-            // Parse rules. May produce multiple rules if bidirectional (!).
             let rules = parse_rule_line(rule_text)?;
             for rule in rules {
                 if let Some(mal_id) = rule.source_mal {
@@ -146,14 +142,12 @@ impl Default for RelationDatabase {
 fn parse_rule_line(line: &str) -> Result<Vec<RelationRule>, RyuujiError> {
     let err = |msg: &str| RyuujiError::Relation(format!("{msg}: {line}"));
 
-    // Check for bidirectional flag.
     let (line, bidirectional) = if let Some(stripped) = line.strip_suffix('!') {
         (stripped, true)
     } else {
         (line, false)
     };
 
-    // Split on " -> ".
     let parts: Vec<&str> = line.splitn(2, " -> ").collect();
     if parts.len() != 2 {
         return Err(err("missing ' -> '"));
@@ -162,7 +156,6 @@ fn parse_rule_line(line: &str) -> Result<Vec<RelationRule>, RyuujiError> {
     let (source_ids, source_eps) = parse_side(parts[0]).map_err(|e| err(&e))?;
     let (dest_ids_raw, dest_eps) = parse_side(parts[1]).map_err(|e| err(&e))?;
 
-    // Resolve "~" (same as source) in destination IDs.
     let dest_ids = resolve_tilde(&source_ids, &dest_ids_raw);
 
     let rule = RelationRule {
@@ -178,7 +171,6 @@ fn parse_rule_line(line: &str) -> Result<Vec<RelationRule>, RyuujiError> {
 
     let mut rules = vec![rule];
 
-    // Bidirectional: create reverse rule (destination redirects to itself).
     if bidirectional {
         let reverse = RelationRule {
             source_mal: dest_ids[0],
@@ -226,12 +218,9 @@ fn parse_ids(s: &str) -> Result<[Option<u64>; 3], String> {
     for (i, part) in parts.iter().enumerate() {
         let part = part.trim();
         if part == "?" || part == "~" {
-            // "?" = unknown, "~" = placeholder for tilde resolution.
             if part == "~" {
-                // Store a sentinel value that will be resolved later.
                 ids[i] = Some(u64::MAX);
             }
-            // "?" → None
         } else {
             ids[i] = Some(
                 part.parse::<u64>()
@@ -308,17 +297,14 @@ mod tests {
         let rules =
             parse_rule_line("41380|43367|116242:13-24 -> 44881|43883|127366:1-12!").unwrap();
         assert_eq!(rules.len(), 2);
-        // Forward rule
         assert_eq!(rules[0].source_mal, Some(41380));
         assert_eq!(rules[0].dest_mal, Some(44881));
-        // Reverse rule (destination redirects to itself)
         assert_eq!(rules[1].source_mal, Some(44881));
         assert_eq!(rules[1].dest_mal, Some(44881));
     }
 
     #[test]
     fn test_parse_tilde_resolution() {
-        // "~" means same as source
         let rules = parse_rule_line("10001|10002|10003:13 -> ~|~|~:1").unwrap();
         assert_eq!(rules.len(), 1);
         assert_eq!(rules[0].dest_mal, Some(10001));
@@ -341,19 +327,15 @@ mod tests {
         )
         .unwrap();
 
-        // Episode 13 → 1
         let redirect = db.redirect_mal(41380, 13).unwrap();
         assert_eq!(redirect.dest_mal, Some(44881));
         assert_eq!(redirect.dest_episode, 1);
 
-        // Episode 24 → 12
         let redirect = db.redirect_mal(41380, 24).unwrap();
         assert_eq!(redirect.dest_episode, 12);
 
-        // Episode 12 → no match (before range)
         assert!(db.redirect_mal(41380, 12).is_none());
 
-        // Unknown MAL ID → no match
         assert!(db.redirect_mal(99999, 13).is_none());
     }
 
@@ -372,7 +354,6 @@ mod tests {
     #[test]
     fn test_embedded_parses_without_error() {
         let db = RelationDatabase::embedded().unwrap();
-        // The embedded file should have hundreds of rules.
         let total_rules: usize = db.by_mal.values().map(|v| v.len()).sum();
         assert!(total_rules > 400, "Expected 400+ rules, got {total_rules}");
     }

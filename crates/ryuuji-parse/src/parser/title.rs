@@ -74,7 +74,6 @@ pub fn extract_episode_title(
                     if started {
                         break;
                     }
-                    // Skip leading dash after episode.
                     continue;
                 }
                 started = true;

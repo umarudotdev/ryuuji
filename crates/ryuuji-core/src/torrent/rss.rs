@@ -35,8 +35,6 @@ pub async fn fetch_feed(
 
             let title = rss_item.title().unwrap_or("").to_string();
 
-            // Nyaa uses nyaa:seeders, nyaa:leechers, nyaa:downloads, nyaa:size
-            // in the RSS extensions namespace.
             let nyaa = rss_item.extensions().get("nyaa");
             let nyaa_field = |name: &str| -> Option<String> {
                 nyaa?.get(name)?.first()?.value().map(|s| s.to_string())
@@ -52,8 +50,6 @@ pub async fn fetch_feed(
                 .and_then(|s| DateTime::parse_from_rfc2822(s).ok())
                 .map(|dt| dt.with_timezone(&Utc));
 
-            // Nyaa puts magnet links in the link field (the .torrent URL is
-            // typically the guid or not present).
             let link_str: Option<String> = rss_item.link().map(|s| s.to_string());
             let (link, magnet_link) = if link_str
                 .as_deref()

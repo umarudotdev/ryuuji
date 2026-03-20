@@ -63,7 +63,6 @@ pub fn scan_watch_folders(
 
             let path = entry.path();
 
-            // Check video extension
             let ext = path
                 .extension()
                 .and_then(|e| e.to_str())
@@ -78,7 +77,6 @@ pub fn scan_watch_folders(
 
             result.files_scanned += 1;
 
-            // Check file size
             let metadata = match entry.metadata() {
                 Ok(m) => m,
                 Err(e) => {
@@ -104,13 +102,11 @@ pub fn scan_watch_folders(
 
             let file_path_str = path.to_string_lossy().to_string();
 
-            // Incremental: skip if already indexed with same size + mtime
             if repo.is_file_indexed(&file_path_str, file_size, &file_modified)? {
                 result.files_skipped += 1;
                 continue;
             }
 
-            // Parse filename
             let file_stem = path
                 .file_name()
                 .and_then(|n| n.to_str())
@@ -123,7 +119,6 @@ pub fn scan_watch_folders(
                 continue;
             }
 
-            // Match against library
             let match_result = cache.recognize(title, repo);
             let anime_id = match &match_result {
                 MatchResult::Matched(anime) | MatchResult::Fuzzy(anime, _) => anime.id,
@@ -177,7 +172,6 @@ mod tests {
         let storage = Storage::open_memory().unwrap();
         let dir = TempDir::new().unwrap();
 
-        // Insert a known anime
         storage
             .insert_anime(&Anime {
                 id: 0,
@@ -211,7 +205,6 @@ mod tests {
     fn create_video_file(dir: &Path, name: &str, size_mb: u64) {
         let path = dir.join(name);
         let mut file = std::fs::File::create(path).unwrap();
-        // Write enough bytes to exceed minimum size
         let bytes = vec![0u8; (size_mb * 1024 * 1024) as usize];
         file.write_all(&bytes).unwrap();
     }
@@ -272,7 +265,6 @@ mod tests {
     #[test]
     fn test_scan_skips_non_video() {
         let (storage, dir) = setup_test_db();
-        // Create a non-video file
         std::fs::write(dir.path().join("readme.txt"), "hello").unwrap();
 
         let config = LibraryConfig {
@@ -286,7 +278,6 @@ mod tests {
         let mut cache = RecognitionCache::new();
         let result = scan_watch_folders(&storage, &mut cache, &config).unwrap();
 
-        // Non-video files are filtered before counting
         assert_eq!(result.files_scanned, 0);
     }
 
@@ -309,11 +300,9 @@ mod tests {
 
         let mut cache = RecognitionCache::new();
 
-        // First scan
         let result1 = scan_watch_folders(&storage, &mut cache, &config).unwrap();
         assert_eq!(result1.files_matched, 1);
 
-        // Second scan — file unchanged, should skip
         let result2 = scan_watch_folders(&storage, &mut cache, &config).unwrap();
         assert_eq!(result2.files_skipped, 1);
         assert_eq!(result2.files_matched, 0);

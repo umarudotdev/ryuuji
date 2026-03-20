@@ -269,8 +269,6 @@ impl AnimeService for AniListClient {
     type Error = AniListError;
 
     async fn authenticate(&self) -> Result<String, AniListError> {
-        // AniList auth is handled externally via the auth module.
-        // This just validates the token by fetching the viewer.
         let _ = self.get_viewer_id().await?;
         Ok(self.access_token.clone())
     }
@@ -295,7 +293,6 @@ impl AnimeService for AniListClient {
     ) -> Result<(), AniListError> {
         use super::types::FuzzyDate;
 
-        // Build variables conditionally — AniList ignores null variables.
         let mut vars = serde_json::json!({ "mediaId": anime_id });
         if let Some(ep) = update.episode {
             vars["progress"] = serde_json::json!(ep);
@@ -304,7 +301,6 @@ impl AnimeService for AniListClient {
             vars["status"] = serde_json::json!(map_status_to_anilist(status));
         }
         if let Some(score) = update.score {
-            // AniList POINT_100 scale: 0-100; score 0 clears.
             vars["score"] = serde_json::json!((score * 10.0).round() as u32);
         }
         if let Some(ref date) = update.start_date {
@@ -320,7 +316,6 @@ impl AnimeService for AniListClient {
         if let Some(ref notes) = update.notes {
             vars["notes"] = serde_json::json!(notes);
         }
-        // AniList has no separate rewatching bool — REPEATING status is used instead.
         if let Some(true) = update.rewatching {
             vars["status"] = serde_json::json!("REPEATING");
         }
@@ -361,7 +356,6 @@ impl AnimeService for AniListClient {
     }
 
     async fn delete_library_entry(&self, anime_id: u64) -> Result<(), AniListError> {
-        // Step 1: Look up the library entry ID for this media.
         let lookup: Result<GraphQLResponse<MediaListLookupResponse>, _> = self
             .graphql_request(
                 "FindMediaListEntry",
@@ -381,7 +375,6 @@ impl AnimeService for AniListClient {
             }
         };
 
-        // Step 2: Delete by library entry ID.
         let _: serde_json::Value = self
             .graphql_request(
                 "DeleteLibraryEntry",

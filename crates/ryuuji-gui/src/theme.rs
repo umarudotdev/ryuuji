@@ -6,7 +6,6 @@
 mod catalog;
 mod colors;
 
-// Re-export everything so `crate::theme::*` paths remain unchanged.
 pub use catalog::*;
 pub use colors::*;
 
@@ -78,7 +77,6 @@ impl RyuujiTheme {
     pub fn colors(&self, mode: ThemeMode) -> &ColorScheme {
         match mode {
             ThemeMode::Light => &self.light,
-            // Dark is the fallback for both Dark and System.
             _ => &self.dark,
         }
     }
@@ -122,7 +120,6 @@ pub fn available_themes() -> Vec<RyuujiTheme> {
         RyuujiTheme::from_toml(ONYX_THEME_TOML).expect("embedded Onyx theme is valid TOML"),
     ];
 
-    // Scan user themes directory.
     if let Some(user_themes) = user_themes_dir() {
         if let Ok(entries) = std::fs::read_dir(&user_themes) {
             for entry in entries.flatten() {

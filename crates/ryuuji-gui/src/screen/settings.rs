@@ -15,8 +15,6 @@ use crate::style;
 use crate::theme::{self, available_themes, ColorScheme};
 use crate::toast::ToastKind;
 
-// ── Settings Sections ─────────────────────────────────────────────
-
 /// Settings sidebar sections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SettingsSection {
@@ -63,8 +61,6 @@ impl SettingsSection {
     }
 }
 
-// ── Stats DTO ──────────────────────────────────────────────────────
-
 #[derive(Debug, Clone, Default)]
 pub struct LibraryStats {
     pub total: usize,
@@ -75,90 +71,67 @@ pub struct LibraryStats {
     pub plan_to_watch: usize,
 }
 
-// ── State ──────────────────────────────────────────────────────────
-
 /// Settings screen state.
 pub struct Settings {
     pub active_section: SettingsSection,
-    // Appearance
     pub selected_theme: String,
     pub selected_mode: ThemeMode,
     pub available_theme_names: Vec<String>,
-    // General
     pub interval_input: String,
     pub close_to_tray: bool,
-    // Library
     pub auto_update: bool,
     pub confirm_update: bool,
-    // Services
     pub primary_service: String,
     pub primary_service_options: Vec<String>,
-    // AniList
     pub anilist_enabled: bool,
     pub anilist_client_id: String,
     pub anilist_client_secret: String,
     pub anilist_authenticated: bool,
     pub anilist_status: String,
     pub anilist_busy: bool,
-    // Kitsu
     pub kitsu_enabled: bool,
     pub kitsu_authenticated: bool,
     pub kitsu_status: String,
     pub kitsu_busy: bool,
     pub kitsu_username: String,
     pub kitsu_password: String,
-    // MAL
     pub mal_enabled: bool,
     pub mal_client_id: String,
     pub mal_authenticated: bool,
     pub mal_status: String,
     pub mal_busy: bool,
-    // Torrents
     pub torrent_enabled: bool,
     pub torrent_interval_input: String,
     pub torrent_download_dir_input: String,
     pub torrent_client_input: String,
     pub torrent_auto_download: bool,
-    // Integrations
     pub discord_enabled: bool,
-    // Watch folders
     pub watch_folders: Vec<String>,
     pub new_folder_input: String,
     pub scan_on_startup: bool,
     pub scan_busy: bool,
     pub scan_status: String,
-    // Data
     pub library_stats: Option<LibraryStats>,
     pub export_status: String,
     pub export_busy: bool,
-    // Debug
     pub debug: debug::Debug,
-    // Update
     pub update_state: UpdateState,
     pub check_updates: bool,
     pub include_prerelease: bool,
 }
 
-// ── Messages ───────────────────────────────────────────────────────
-
 /// Messages handled by the Settings screen.
 #[derive(Debug, Clone)]
 pub enum Message {
-    // Navigation
     SectionChanged(SettingsSection),
-    // Appearance
     ThemeChanged(String),
     ModeChanged(ThemeMode),
-    // General
     IntervalChanged(String),
     IntervalSubmitted,
     CloseToTrayToggled(bool),
-    // Library
     AutoUpdateToggled(bool),
     ConfirmUpdateToggled(bool),
-    // Services
     PrimaryServiceChanged(String),
-    // AniList
     AniListEnabledToggled(bool),
     AniListClientIdChanged(String),
     AniListClientIdSubmitted,
@@ -169,7 +142,6 @@ pub enum Message {
     AniListImport,
     AniListImportResult(Result<usize, String>),
     AniListTokenChecked(bool),
-    // Kitsu
     KitsuEnabledToggled(bool),
     KitsuUsernameChanged(String),
     KitsuPasswordChanged(String),
@@ -178,7 +150,6 @@ pub enum Message {
     KitsuImport,
     KitsuImportResult(Result<usize, String>),
     KitsuTokenChecked(bool),
-    // MAL
     MalEnabledToggled(bool),
     MalClientIdChanged(String),
     MalClientIdSubmitted,
@@ -187,7 +158,6 @@ pub enum Message {
     MalImport,
     MalImportResult(Result<usize, String>),
     MalTokenChecked(bool),
-    // Torrents
     TorrentEnabledToggled(bool),
     TorrentIntervalChanged(String),
     TorrentIntervalSubmitted,
@@ -196,22 +166,17 @@ pub enum Message {
     TorrentClientChanged(String),
     TorrentClientSubmitted,
     TorrentAutoDownloadToggled(bool),
-    // Watch folders
     NewFolderInputChanged(String),
     AddWatchFolder,
     RemoveWatchFolder(usize),
     ScanOnStartupToggled(bool),
     ScanNow,
     ScanResult(Result<String, String>),
-    // Integrations
     DiscordEnabledToggled(bool),
-    // Data
     StatsLoaded(Result<LibraryStats, String>),
     ExportLibrary,
     ExportResult(Result<String, String>),
-    // About
     OpenLogsFolder,
-    // Update
     CheckUpdatesToggled(bool),
     IncludePrereleaseToggled(bool),
     CheckForUpdates,
@@ -221,11 +186,8 @@ pub enum Message {
     ApplyAndRestart,
     UpdateApplyResult(Result<(), String>),
     OpenReleasePage,
-    // Debug
     DebugMsg(debug::Message),
 }
-
-// ── Implementation ─────────────────────────────────────────────────
 
 impl Settings {
     /// Initialize form state from the current config.
@@ -243,7 +205,6 @@ impl Settings {
             confirm_update: config.library.confirm_update,
             primary_service: config.services.primary.clone(),
             primary_service_options: vec!["anilist".into(), "kitsu".into(), "mal".into()],
-            // AniList
             anilist_enabled: config.services.anilist.enabled,
             anilist_client_id: config
                 .services
@@ -260,14 +221,12 @@ impl Settings {
             anilist_authenticated: false,
             anilist_status: String::new(),
             anilist_busy: false,
-            // Kitsu
             kitsu_enabled: config.services.kitsu.enabled,
             kitsu_authenticated: false,
             kitsu_status: String::new(),
             kitsu_busy: false,
             kitsu_username: String::new(),
             kitsu_password: String::new(),
-            // MAL
             mal_enabled: config.services.mal.enabled,
             mal_client_id: config.services.mal.client_id.clone().unwrap_or_default(),
             mal_authenticated: false,
@@ -297,13 +256,11 @@ impl Settings {
     /// Handle a settings message, returning an Action for the app router.
     pub fn update(&mut self, msg: Message, config: &mut AppConfig) -> Action {
         match msg {
-            // ── Navigation ───────────────────────────────────────
             Message::SectionChanged(section) => {
                 self.active_section = section;
                 Action::None
             }
 
-            // ── Appearance ──────────────────────────────────────
             Message::ThemeChanged(name) => {
                 self.selected_theme = name.clone();
                 config.appearance.theme = name;
@@ -317,7 +274,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── General ─────────────────────────────────────────
             Message::IntervalChanged(val) => {
                 self.interval_input = val;
                 Action::None
@@ -340,7 +296,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Library ─────────────────────────────────────────
             Message::AutoUpdateToggled(val) => {
                 self.auto_update = val;
                 config.library.auto_update = val;
@@ -354,7 +309,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Services ────────────────────────────────────────
             Message::PrimaryServiceChanged(svc) => {
                 self.primary_service = svc.clone();
                 config.services.primary = svc;
@@ -362,7 +316,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── AniList ─────────────────────────────────────────
             Message::AniListEnabledToggled(val) => {
                 self.anilist_enabled = val;
                 config.services.anilist.enabled = val;
@@ -439,7 +392,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Kitsu ───────────────────────────────────────────
             Message::KitsuEnabledToggled(val) => {
                 self.kitsu_enabled = val;
                 config.services.kitsu.enabled = val;
@@ -498,7 +450,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── MAL ─────────────────────────────────────────────
             Message::MalEnabledToggled(val) => {
                 self.mal_enabled = val;
                 config.services.mal.enabled = val;
@@ -519,7 +470,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── MAL actions ─────────────────────────────────────
             Message::MalLogin => {
                 self.mal_busy = true;
                 self.mal_status = "Opening browser for MAL login...".into();
@@ -563,7 +513,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Torrents ──────────────────────────────────────────
             Message::TorrentEnabledToggled(val) => {
                 self.torrent_enabled = val;
                 config.torrent.enabled = val;
@@ -618,7 +567,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Watch Folders ────────────────────────────────────
             Message::NewFolderInputChanged(val) => {
                 self.new_folder_input = val;
                 Action::None
@@ -666,7 +614,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Integrations ────────────────────────────────────
             Message::DiscordEnabledToggled(val) => {
                 self.discord_enabled = val;
                 config.discord.enabled = val;
@@ -674,7 +621,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Data ────────────────────────────────────────────
             Message::StatsLoaded(result) => {
                 match result {
                     Ok(stats) => self.library_stats = Some(stats),
@@ -705,7 +651,6 @@ impl Settings {
                 }
             }
 
-            // ── About ────────────────────────────────────────────
             Message::OpenLogsFolder => {
                 let log_dir = AppConfig::log_dir();
                 if let Err(e) = open::that(&log_dir) {
@@ -714,7 +659,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Update ──────────────────────────────────────────
             Message::CheckUpdatesToggled(val) => {
                 self.check_updates = val;
                 config.update.check_on_startup = val;
@@ -768,10 +712,7 @@ impl Settings {
                     Action::None
                 }
             },
-            Message::ApplyAndRestart => {
-                // State transition handled by app.rs
-                Action::None
-            }
+            Message::ApplyAndRestart => Action::None,
             Message::UpdateApplyResult(result) => match result {
                 Ok(()) => {
                     self.update_state = UpdateState::ReadyToRestart;
@@ -798,7 +739,6 @@ impl Settings {
                 Action::None
             }
 
-            // ── Debug ────────────────────────────────────────────
             Message::DebugMsg(msg) => self.debug.update(msg),
         }
     }
@@ -837,10 +777,7 @@ impl Settings {
         ))
     }
 
-    // ── View ────────────────────────────────────────────────────────
-
     pub fn view<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
-        // ── Sidebar navigation ───────────────────────────────
         let heading = text("Settings")
             .size(style::TEXT_LG)
             .font(style::FONT_HEADING)
@@ -874,7 +811,6 @@ impl Settings {
             .width(Length::Fixed(style::SETTINGS_SIDEBAR_WIDTH))
             .padding([style::SPACE_XL, style::SPACE_MD]);
 
-        // ── Active section content ───────────────────────────
         let section_content: Element<'_, Message> = match self.active_section {
             SettingsSection::Appearance => self.appearance_card(cs),
             SettingsSection::General => self.general_card(cs),
@@ -900,8 +836,6 @@ impl Settings {
             .height(Length::Fill)
             .into()
     }
-
-    // ── Card builders ───────────────────────────────────────────────
 
     fn appearance_card<'a>(&'a self, cs: &ColorScheme) -> Element<'a, Message> {
         container(
@@ -1051,7 +985,6 @@ impl Settings {
         ]
         .spacing(style::SPACE_SM);
 
-        // AniList sub-section
         content = content.push(rule::horizontal(1));
         content = content.push(
             text("AniList")
@@ -1151,7 +1084,6 @@ impl Settings {
             }
         }
 
-        // Kitsu sub-section
         content = content.push(rule::horizontal(1));
         content = content.push(
             text("Kitsu")
@@ -1243,7 +1175,6 @@ impl Settings {
             }
         }
 
-        // MAL sub-section
         content = content.push(rule::horizontal(1));
         content = content.push(
             text("MyAnimeList")
@@ -1447,7 +1378,6 @@ impl Settings {
             .line_height(style::LINE_HEIGHT_LOOSE),]
         .spacing(style::SPACE_SM);
 
-        // Stats
         if let Some(stats) = &self.library_stats {
             content = content.push(
                 column![
@@ -1489,7 +1419,6 @@ impl Settings {
             );
         }
 
-        // Export
         content = content.push(rule::horizontal(1));
 
         let mut export_btn = button(text("Export library as JSON").size(style::TEXT_SM))
@@ -1538,7 +1467,6 @@ impl Settings {
         ]
         .spacing(style::SPACE_SM);
 
-        // Existing folders
         for (i, folder) in self.watch_folders.iter().enumerate() {
             content = content.push(
                 row![
@@ -1556,7 +1484,6 @@ impl Settings {
             );
         }
 
-        // Add folder input
         content = content.push(
             row![
                 text_input("/path/to/anime", &self.new_folder_input)
@@ -1575,7 +1502,6 @@ impl Settings {
             .spacing(style::SPACE_SM),
         );
 
-        // Scan button
         if !self.watch_folders.is_empty() {
             let mut scan_btn = button(text("Scan Now").size(style::TEXT_SM))
                 .padding([style::SPACE_SM, style::SPACE_XL])
@@ -1663,7 +1589,6 @@ impl Settings {
         ]
         .spacing(style::SPACE_SM);
 
-        // ── Updates subsection ──────────────────────────────────
         content = content.push(rule::horizontal(1));
         content = content.push(
             text("Updates")
@@ -1693,7 +1618,6 @@ impl Settings {
                 .style(theme::toggler_style(cs)),
         );
 
-        // Status-dependent update UI
         match &self.update_state {
             UpdateState::Idle => {
                 content = content.push(

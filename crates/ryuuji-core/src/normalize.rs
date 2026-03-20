@@ -29,14 +29,10 @@ pub fn normalize(s: &str) -> String {
     collapse_whitespace(&s)
 }
 
-// ── Level 1: Unicode NFKC + case folding ──────────────────────────────
-
 /// Apply NFKC normalization (fullwidth → ASCII, compose diacritics) and lowercase.
 fn unicode_normalize(s: &str) -> String {
     s.nfkc().collect::<String>().to_lowercase()
 }
-
-// ── Level 2: Character transliteration ────────────────────────────────
 
 /// Replace common character substitutions used in anime titles.
 fn transliterate(s: &str) -> String {
@@ -74,8 +70,6 @@ fn looks_like_letter_o(chars: &[char], pos: usize) -> bool {
     before && after
 }
 
-// ── Level 3: Roman numeral conversion ─────────────────────────────────
-
 /// Roman numeral values for conversion, ordered longest-first for greedy matching.
 const ROMAN_NUMERALS: &[(&str, u32)] = &[
     ("xiii", 13),
@@ -101,7 +95,6 @@ fn convert_roman_numerals(s: &str) -> String {
     let converted: Vec<String> = words
         .iter()
         .map(|&word| {
-            // Strip trailing punctuation for matching, preserve it after.
             let (base, suffix) = split_trailing_punct(word);
             let lower = base.to_lowercase();
 
@@ -129,8 +122,6 @@ fn split_trailing_punct(s: &str) -> (&str, &str) {
     (&s[..end], &s[end..])
 }
 
-// ── Level 4: Ordinal conversion ───────────────────────────────────────
-
 /// Convert ordinal numbers ("1st", "2nd", "3rd", "4th", etc.) to plain numbers.
 fn convert_ordinals(s: &str) -> String {
     let words: Vec<&str> = s.split_whitespace().collect();
@@ -155,8 +146,6 @@ fn convert_ordinals(s: &str) -> String {
     converted.join(" ")
 }
 
-// ── Level 5: Season keyword normalization ─────────────────────────────
-
 /// Normalize season references to just the number.
 ///
 /// Patterns handled:
@@ -165,7 +154,6 @@ fn convert_ordinals(s: &str) -> String {
 /// - "2nd Season" → "2 season" (ordinal already handled, "season" removed by stop words)
 /// - "Cour 2" → "2"
 fn normalize_season_keywords(s: &str) -> String {
-    // Work at the word level for UTF-8 safety.
     let words: Vec<&str> = s.split_whitespace().collect();
     let mut result: Vec<String> = Vec::with_capacity(words.len());
     let mut i = 0;
@@ -173,7 +161,6 @@ fn normalize_season_keywords(s: &str) -> String {
     while i < words.len() {
         let lower = words[i].to_lowercase();
 
-        // Check for "season N", "cour N", "series N" (keyword + next word is digits)
         if matches!(lower.as_str(), "season" | "cour" | "series") {
             if let Some(next) = words.get(i + 1) {
                 if next.chars().all(|c| c.is_ascii_digit()) && !next.is_empty() {
@@ -182,7 +169,6 @@ fn normalize_season_keywords(s: &str) -> String {
                     continue;
                 }
             }
-            // "seasonN" / "courN" / "seriesN" — keyword glued to digits
             for keyword in &["season", "cour", "series"] {
                 if let Some(digits) = lower.strip_prefix(keyword) {
                     if !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()) {
@@ -192,13 +178,11 @@ fn normalize_season_keywords(s: &str) -> String {
                     }
                 }
             }
-            // Standalone keyword without number — pass through (stop words handle it)
             result.push(words[i].to_string());
             i += 1;
             continue;
         }
 
-        // Standalone "S2", "s2" etc.
         if lower.starts_with('s')
             && lower.len() > 1
             && lower[1..].chars().all(|c| c.is_ascii_digit())
@@ -215,8 +199,6 @@ fn normalize_season_keywords(s: &str) -> String {
     result.join(" ")
 }
 
-// ── Level 6: Stop word removal ────────────────────────────────────────
-
 /// Words to remove entirely from titles during normalization.
 const STOP_WORDS: &[&str] = &[
     "the", "a", "an", "episode", "ep", "ep.", "tv", "ova", "ona", "season", "cour", "part",
@@ -229,7 +211,6 @@ const STOP_WORDS: &[&str] = &[
 /// - Normalizes "oad"/"oav" → "ova"
 /// - Strips parenthesized tags like "(tv)", "(ova)"
 fn remove_stop_words(s: &str) -> String {
-    // First strip parenthesized tags like "(TV)", "(OVA)", "(2024)"
     let mut result = String::with_capacity(s.len());
     let mut in_parens = false;
     let mut paren_content = String::new();
@@ -243,7 +224,6 @@ fn remove_stop_words(s: &str) -> String {
             ')' if in_parens => {
                 in_parens = false;
                 let lower = paren_content.trim().to_lowercase();
-                // Only strip known tags, keep meaningful parenthesized content
                 if !matches!(
                     lower.as_str(),
                     "tv" | "ova" | "ona" | "oad" | "oav" | "special" | "specials"
@@ -259,19 +239,16 @@ fn remove_stop_words(s: &str) -> String {
         }
     }
 
-    // Word-level transformations
     let words: Vec<&str> = result.split_whitespace().collect();
     let filtered: Vec<String> = words
         .iter()
         .filter_map(|&word| {
             let lower = word.to_lowercase();
 
-            // Remove stop words
             if STOP_WORDS.contains(&lower.as_str()) {
                 return None;
             }
 
-            // Synonym normalization
             match lower.as_str() {
                 "&" => Some("and".to_string()),
                 "oad" | "oav" => Some("ova".to_string()),
@@ -283,16 +260,12 @@ fn remove_stop_words(s: &str) -> String {
     filtered.join(" ")
 }
 
-// ── Level 7: Punctuation erasure ──────────────────────────────────────
-
 /// Strip all Unicode punctuation and symbol characters, keeping alphanumerics and whitespace.
 fn erase_punctuation(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace())
         .collect()
 }
-
-// ── Level 8: Whitespace collapse ──────────────────────────────────────
 
 /// Trim and collapse multiple whitespace runs to a single space.
 fn collapse_whitespace(s: &str) -> String {
@@ -302,8 +275,6 @@ fn collapse_whitespace(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ── Level 1: Unicode NFKC ─────────────────────────────────────────
 
     #[test]
     fn fullwidth_ascii() {
@@ -317,12 +288,9 @@ mod tests {
 
     #[test]
     fn nfkc_diacritics() {
-        // NFKC composes diacritics but doesn't strip them; case folding lowercases
         let result = unicode_normalize("café");
         assert_eq!(result, "café");
     }
-
-    // ── Level 2: Transliteration ──────────────────────────────────────
 
     #[test]
     fn at_sign_to_a() {
@@ -336,7 +304,6 @@ mod tests {
 
     #[test]
     fn zero_not_letter_o_in_number() {
-        // "10" should stay "10", not "1o"
         assert_eq!(transliterate("Season 10"), "Season 10");
     }
 
@@ -361,8 +328,6 @@ mod tests {
         assert_eq!(transliterate("œuvre"), "oeuvre");
     }
 
-    // ── Level 3: Roman numerals ───────────────────────────────────────
-
     #[test]
     fn roman_numeral_basic() {
         assert_eq!(convert_roman_numerals("series ii"), "series 2");
@@ -372,7 +337,6 @@ mod tests {
 
     #[test]
     fn roman_numeral_word_boundary() {
-        // "hawaii" should NOT have "ii" converted
         assert_eq!(convert_roman_numerals("hawaii"), "hawaii");
     }
 
@@ -380,8 +344,6 @@ mod tests {
     fn roman_numeral_standalone() {
         assert_eq!(convert_roman_numerals("iii"), "3");
     }
-
-    // ── Level 4: Ordinals ─────────────────────────────────────────────
 
     #[test]
     fn ordinal_conversion() {
@@ -393,11 +355,8 @@ mod tests {
 
     #[test]
     fn ordinal_not_text() {
-        // "the" ends in "th" but is not a number
         assert_eq!(convert_ordinals("the best"), "the best");
     }
-
-    // ── Level 5: Season keywords ──────────────────────────────────────
 
     #[test]
     fn season_n() {
@@ -416,8 +375,6 @@ mod tests {
     fn cour_keyword() {
         assert_eq!(normalize_season_keywords("title cour 2"), "title 2");
     }
-
-    // ── Level 6: Stop words ───────────────────────────────────────────
 
     #[test]
     fn remove_the_prefix() {
@@ -449,22 +406,16 @@ mod tests {
         assert_eq!(result, "title ova");
     }
 
-    // ── Level 7: Punctuation ──────────────────────────────────────────
-
     #[test]
     fn erase_all_punctuation() {
         assert_eq!(erase_punctuation("hello: world!"), "hello world");
         assert_eq!(erase_punctuation("test-case_foo"), "testcasefoo");
     }
 
-    // ── Level 8: Whitespace ───────────────────────────────────────────
-
     #[test]
     fn collapse_spaces() {
         assert_eq!(collapse_whitespace("  hello   world  "), "hello world");
     }
-
-    // ── Full pipeline integration tests ───────────────────────────────
 
     #[test]
     fn full_pipeline_fullwidth() {
@@ -473,15 +424,12 @@ mod tests {
 
     #[test]
     fn full_pipeline_roman_numeral() {
-        // "Series" is a season keyword → stripped, "II" → "2"
         assert_eq!(normalize("Series II"), "2");
-        // More realistic: roman numeral in a real title
         assert_eq!(normalize("Jojo Part III"), "jojo 3");
     }
 
     #[test]
     fn full_pipeline_hawaii_safe() {
-        // "hawaii" must NOT become "hawa2"
         assert_eq!(normalize("Hawaii"), "hawaii");
     }
 
@@ -497,8 +445,6 @@ mod tests {
 
     #[test]
     fn full_pipeline_complex() {
-        // Multiple levels interact: NFKC + ordinal + stop words + punctuation
-        // "The" removed, "2nd" → "2", "Season" removed as stop word, "(TV)" stripped
         assert_eq!(normalize("The Title: 2nd Season (TV)"), "title 2");
     }
 

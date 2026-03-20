@@ -91,7 +91,6 @@ enum DbCommand {
         limit: u32,
         reply: oneshot::Sender<Result<Vec<HistoryRow>, RyuujiError>>,
     },
-    // ── Torrent commands ─────────────────────────────────────────
     GetTorrentFeeds {
         reply: oneshot::Sender<Result<Vec<TorrentFeed>, RyuujiError>>,
     },
@@ -148,7 +147,6 @@ enum DbCommand {
         rewatch_count: u32,
         reply: oneshot::Sender<Result<(), RyuujiError>>,
     },
-    // ── Scanner commands ─────────────────────────────────────────
     ScanWatchFolders {
         config: Box<AppConfig>,
         reply: oneshot::Sender<Result<ScanResult, RyuujiError>>,
@@ -156,7 +154,6 @@ enum DbCommand {
     GetAvailableEpisodeSummaries {
         reply: oneshot::Sender<Result<Vec<AvailableEpisodeSummary>, RyuujiError>>,
     },
-    // ── Statistics commands ──────────────────────────────────────
     GetLibraryStatistics {
         reply: oneshot::Sender<Result<LibraryStatistics, RyuujiError>>,
     },
@@ -330,8 +327,6 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
     }
 
-    // ── Torrent handle methods ────────────────────────────────────
-
     pub async fn get_torrent_feeds(&self) -> Result<Vec<TorrentFeed>, RyuujiError> {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(DbCommand::GetTorrentFeeds { reply });
@@ -463,8 +458,6 @@ impl DbHandle {
             .unwrap_or_else(|_| Err(RyuujiError::Config("DB actor closed".into())))
     }
 
-    // ── Scanner handle methods ─────────────────────────────────────
-
     pub async fn scan_watch_folders(&self, config: AppConfig) -> Result<ScanResult, RyuujiError> {
         let (reply, rx) = oneshot::channel();
         let _ = self.tx.send(DbCommand::ScanWatchFolders {
@@ -526,8 +519,6 @@ fn actor_loop(
     let mut cache = RecognitionCache::new();
     let relations = RelationDatabase::embedded().unwrap_or_default();
 
-    // Block the thread waiting for commands. We use blocking_recv because
-    // this thread has no tokio runtime — it's a plain OS thread.
     while let Some(cmd) = rx.blocking_recv() {
         match cmd {
             DbCommand::GetLibraryByStatus { status, reply } => {
@@ -583,7 +574,6 @@ fn actor_loop(
 
                 match result {
                     Ok(det) => {
-                        // Execute persistence commands.
                         let mut cmd_err = None;
                         for cmd in &det.commands {
                             let r = match cmd {
@@ -604,7 +594,6 @@ fn actor_loop(
                             }
                         }
 
-                        // Derive debug events from domain events.
                         {
                             let mut log = event_log.lock().unwrap_or_else(|e| e.into_inner());
                             for event in &det.events {
@@ -667,7 +656,6 @@ fn actor_loop(
             DbCommand::GetWatchHistory { limit, reply } => {
                 let _ = reply.send(storage.get_watch_history(limit));
             }
-            // ── Torrent commands ───────────────────────────────────
             DbCommand::GetTorrentFeeds { reply } => {
                 let _ = reply.send(storage.get_torrent_feeds());
             }
@@ -734,7 +722,6 @@ fn actor_loop(
                 let _ =
                     reply.send(storage.update_library_rewatch(anime_id, rewatching, rewatch_count));
             }
-            // ── Scanner commands ───────────────────────────────────
             DbCommand::ScanWatchFolders { config, reply } => {
                 let result = scanner::scan_watch_folders(&storage, &mut cache, &config.library);
                 let _ = reply.send(result);
@@ -742,7 +729,6 @@ fn actor_loop(
             DbCommand::GetAvailableEpisodeSummaries { reply } => {
                 let _ = reply.send(storage.get_available_episode_summaries());
             }
-            // ── Statistics commands ──────────────────────────────────
             DbCommand::GetLibraryStatistics { reply } => {
                 let _ = reply.send(storage.get_library_statistics());
             }
@@ -784,7 +770,6 @@ fn actor_loop(
                     }
                 }
 
-                // Invalidate recognition cache after bulk import.
                 cache.invalidate();
 
                 tracing::info!(

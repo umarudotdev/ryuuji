@@ -20,8 +20,6 @@ const MODAL_BACKDROP: Color = Color {
     a: 0.65,
 };
 
-// ── Public API ──────────────────────────────────────────────────────
-
 /// Wrap `base` with a modal overlay showing `content` over a backdrop.
 ///
 /// When the user clicks the backdrop or presses Escape, `on_blur` is
@@ -39,15 +37,11 @@ pub fn modal<'a, Message: Clone + 'a>(
     .into()
 }
 
-// ── Internal types ──────────────────────────────────────────────────
-
 struct Modal<'a, Message> {
     base: Element<'a, Message>,
     modal_content: Option<Element<'a, Message>>,
     on_blur: Message,
 }
-
-// ── Widget impl ─────────────────────────────────────────────────────
 
 impl<'a, Message: Clone + 'a> Widget<Message, Theme, iced::Renderer> for Modal<'a, Message> {
     fn children(&self) -> Vec<Tree> {
@@ -113,7 +107,6 @@ impl<'a, Message: Clone + 'a> Widget<Message, Theme, iced::Renderer> for Modal<'
         _shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) {
-        // Don't forward events to base — the modal blocks interaction.
     }
 
     fn mouse_interaction(
@@ -135,7 +128,6 @@ impl<'a, Message: Clone + 'a> Widget<Message, Theme, iced::Renderer> for Modal<'
         viewport: &Rectangle,
         _translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, iced::Renderer>> {
-        // Take the content out so the overlay can own it with lifetime 'b.
         let content = self.modal_content.take()?;
         Some(overlay::Element::new(Box::new(ModalOverlay {
             content,
@@ -164,8 +156,6 @@ impl<'a, Message: Clone + 'a> From<Modal<'a, Message>> for Element<'a, Message> 
     }
 }
 
-// ── Overlay impl ────────────────────────────────────────────────────
-
 struct ModalOverlay<'a, Message> {
     content: Element<'a, Message>,
     tree: &'a mut Tree,
@@ -185,7 +175,6 @@ impl<'a, Message: Clone + 'a> overlay::Overlay<Message, Theme, iced::Renderer>
 
         let content_size = node.size();
 
-        // Center in viewport.
         let x = (bounds.width - content_size.width) / 2.0;
         let y = (bounds.height - content_size.height) / 2.0;
 
@@ -200,7 +189,6 @@ impl<'a, Message: Clone + 'a> overlay::Overlay<Message, Theme, iced::Renderer>
         layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
-        // Draw semi-transparent backdrop.
         renderer.fill_quad(
             Quad {
                 bounds: self.viewport,
@@ -210,7 +198,6 @@ impl<'a, Message: Clone + 'a> overlay::Overlay<Message, Theme, iced::Renderer>
             MODAL_BACKDROP,
         );
 
-        // Draw modal content.
         self.content.as_widget().draw(
             self.tree,
             renderer,
@@ -231,7 +218,6 @@ impl<'a, Message: Clone + 'a> overlay::Overlay<Message, Theme, iced::Renderer>
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        // Forward events to modal content.
         self.content.as_widget_mut().update(
             self.tree,
             event,
@@ -248,14 +234,12 @@ impl<'a, Message: Clone + 'a> overlay::Overlay<Message, Theme, iced::Renderer>
         }
 
         match event {
-            // Click outside -> dismiss.
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 if cursor.position_over(layout.bounds()).is_none() {
                     shell.publish(self.on_blur.clone());
                     shell.capture_event();
                 }
             }
-            // Escape -> dismiss.
             Event::Keyboard(iced::keyboard::Event::KeyPressed {
                 key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
                 ..

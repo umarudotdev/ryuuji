@@ -12,8 +12,6 @@ use crate::error::RyuujiError;
 use crate::models::{Anime, AvailableEpisode, AvailableEpisodeSummary, LibraryEntry, WatchStatus};
 use crate::torrent::{TorrentFeed, TorrentFilter};
 
-// ── Port contract types ─────────────────────────────────────────
-
 /// A library entry joined with its anime data for display.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct LibraryRow {
@@ -52,8 +50,6 @@ pub struct HistoryRow {
 
 /// Token record: (access_token, refresh_token, expires_at).
 pub type TokenRecord = (String, Option<String>, Option<String>);
-
-// ── Repository traits ───────────────────────────────────────────
 
 pub trait AnimeRepository {
     fn get_anime(&self, id: i64) -> Result<Option<Anime>, RyuujiError>;

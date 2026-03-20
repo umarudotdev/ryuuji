@@ -116,14 +116,12 @@ impl RecognitionCache {
             );
         }
 
-        // 1. Check query cache.
         if let Some(cached) = self.query_cache_lookup(query) {
             tracing::debug!(method = "query_cache", "Recognition hit");
             self.stats.hits_lru += 1;
             return cached;
         }
 
-        // 2. Check exact index.
         if let Some(&anime_id) = self.exact_index.get(query) {
             if let Some(anime) = self.find_entry(anime_id) {
                 tracing::debug!(method = "exact", matched = %anime.title.preferred(), "Recognition hit");
@@ -135,7 +133,6 @@ impl RecognitionCache {
             }
         }
 
-        // 3. Check normalized index.
         let normalized = matcher::normalize(query);
         if let Some(&anime_id) = self.normalized_index.get(&normalized) {
             if let Some(anime) = self.find_entry(anime_id) {
@@ -148,7 +145,6 @@ impl RecognitionCache {
             }
         }
 
-        // 4. Fuzzy fallback over all entries.
         let result = self.fuzzy_scan(&normalized);
         match &result {
             MatchResult::Fuzzy(anime, confidence) => {
@@ -341,7 +337,6 @@ mod tests {
         insert_frieren(&storage);
 
         let mut cache = RecognitionCache::new();
-        // Different case — should still match via normalized index.
         match cache.recognize("sousou no frieren", &storage) {
             MatchResult::Matched(a) => {
                 assert_eq!(a.title.romaji.as_deref(), Some("Sousou no Frieren"))
@@ -357,7 +352,6 @@ mod tests {
         insert_aot(&storage);
 
         let mut cache = RecognitionCache::new();
-        // Partial match — should fuzzy match.
         match cache.recognize("Frieren Beyond Journeys End", &storage) {
             MatchResult::Fuzzy(a, _) | MatchResult::Matched(a) => {
                 assert_eq!(a.title.romaji.as_deref(), Some("Sousou no Frieren"));
@@ -373,15 +367,12 @@ mod tests {
 
         let mut cache = RecognitionCache::new();
 
-        // First call populates and matches.
         let result1 = cache.recognize("Sousou no Frieren", &storage);
         assert!(matches!(result1, MatchResult::Matched(_)));
 
-        // Second call should hit query cache (still returns correct result).
         let result2 = cache.recognize("Sousou no Frieren", &storage);
         assert!(matches!(result2, MatchResult::Matched(_)));
 
-        // Verify query cache has an entry.
         assert_eq!(cache.query_cache.len(), 1);
     }
 
@@ -392,17 +383,14 @@ mod tests {
 
         let mut cache = RecognitionCache::new();
 
-        // Recognize existing anime.
         assert!(matches!(
             cache.recognize("Sousou no Frieren", &storage),
             MatchResult::Matched(_)
         ));
 
-        // Insert new anime and invalidate.
         insert_aot(&storage);
         cache.invalidate();
 
-        // New anime should now be found after re-population.
         match cache.recognize("Attack on Titan", &storage) {
             MatchResult::Matched(a) => {
                 assert_eq!(a.title.english.as_deref(), Some("Attack on Titan"));
@@ -419,13 +407,11 @@ mod tests {
         let mut cache = RecognitionCache::new();
         cache.populate(&storage).unwrap();
 
-        // Fill the cache beyond capacity.
         for i in 0..QUERY_CACHE_CAPACITY + 10 {
             let query = format!("nonexistent anime {i}");
             cache.recognize(&query, &storage);
         }
 
-        // Cache should be bounded.
         assert_eq!(cache.query_cache.len(), QUERY_CACHE_CAPACITY);
     }
 
@@ -459,9 +445,7 @@ mod tests {
         insert_frieren(&storage);
 
         let mut cache = RecognitionCache::new();
-        // First call: exact hit.
         cache.recognize("Sousou no Frieren", &storage);
-        // Second call: LRU cache hit.
         cache.recognize("Sousou no Frieren", &storage);
         let stats = cache.stats();
         assert_eq!(stats.hits_exact, 1);

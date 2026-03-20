@@ -209,7 +209,6 @@ mod tests {
     fn test_extract_title_no_pattern() {
         let db = PlayerDatabase::embedded();
         let player = db.find_by_mpris("mpv").unwrap();
-        // mpv has no title patterns, so extraction should return None.
         assert!(db.extract_title(player, "anything").is_none());
     }
 
@@ -238,10 +237,8 @@ mod tests {
         let user_db = PlayerDatabase::from_toml(user_toml).unwrap();
         db.merge_user(&user_db);
 
-        // VLC should be disabled now.
         assert!(db.find_by_mpris("vlc").is_none());
 
-        // Custom Player should be added.
         assert_eq!(db.players.len(), original_count + 1);
         let custom = db.find_by_mpris("custom").unwrap();
         assert_eq!(custom.name, "Custom Player");

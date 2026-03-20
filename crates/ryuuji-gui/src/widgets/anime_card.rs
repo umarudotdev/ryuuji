@@ -24,7 +24,6 @@ pub fn anime_card<'a, Message: Clone + 'static>(
     status_color: iced::Color,
     on_select: Message,
 ) -> Element<'a, Message> {
-    // Cover image
     let cover = widgets::rounded_cover(
         cs,
         covers,
@@ -34,7 +33,6 @@ pub fn anime_card<'a, Message: Clone + 'static>(
         style::RADIUS_MD,
     );
 
-    // Title (clipped to 2 lines via container height)
     let title_el = container(
         text(title.to_string())
             .size(style::TEXT_SM)
@@ -48,13 +46,11 @@ pub fn anime_card<'a, Message: Clone + 'static>(
     ))
     .clip(true);
 
-    // Episode text
     let ep_el = text(episode_text.to_string())
         .size(style::TEXT_XS)
         .color(cs.on_surface_variant)
         .line_height(style::LINE_HEIGHT_LOOSE);
 
-    // Progress bar (only when we have a fraction)
     let mut card_content = column![cover, title_el, ep_el]
         .spacing(style::SPACE_XS)
         .padding(style::SPACE_SM)
@@ -68,7 +64,6 @@ pub fn anime_card<'a, Message: Clone + 'static>(
         );
     }
 
-    // Status color indicator — thin left border via a styled container
     let inner = container(card_content).style(theme::anime_card_style(cs, status_color));
 
     button(inner)

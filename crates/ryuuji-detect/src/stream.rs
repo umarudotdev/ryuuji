@@ -157,7 +157,6 @@ pub fn detect_stream(
         return None;
     }
 
-    // Strategy 1: URL matching (primary — available on Linux via MPRIS metadata URL).
     if let Some(url) = player.file_path.as_deref() {
         if url.starts_with("http") {
             if let Some(idx) = stream_db.match_url(url) {
@@ -174,7 +173,6 @@ pub fn detect_stream(
         }
     }
 
-    // Strategy 2: Title matching (fallback — Windows or when no URL is available).
     if let Some(title) = player.media_title.as_deref() {
         if let Some(idx) = stream_db.match_title(title) {
             let extracted = stream_db.extract_title(idx, title)?;
@@ -352,12 +350,10 @@ mod tests {
         let user_db = StreamDatabase::from_toml(user_toml).unwrap();
         db.merge_user(&user_db);
 
-        // Crunchyroll should be disabled now — no URL match.
         assert!(db
             .match_url("https://www.crunchyroll.com/watch/G1XHJV2W1/episode-5")
             .is_none());
 
-        // Funimation should be added.
         assert_eq!(db.len(), 7);
         let idx = db
             .match_url("https://www.funimation.com/v/attack-on-titan")

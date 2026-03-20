@@ -122,7 +122,6 @@ impl KitsuClient {
                 .await
                 .map_err(|e| KitsuError::Parse(e.to_string()))?;
 
-            // Build a map of included anime by ID.
             let included = page.included.unwrap_or_default();
             let anime_map: std::collections::HashMap<String, &super::types::JsonApiResource> =
                 included.iter().map(|r| (r.id.clone(), r)).collect();
@@ -132,7 +131,6 @@ impl KitsuClient {
                     serde_json::from_value(entry_resource.attributes.clone())
                         .map_err(|e| KitsuError::Parse(e.to_string()))?;
 
-                // Extract anime ID from relationships.
                 let anime_id_str = entry_resource
                     .relationships
                     .as_ref()
@@ -171,8 +169,6 @@ impl AnimeService for KitsuClient {
     type Error = KitsuError;
 
     async fn authenticate(&self) -> Result<String, KitsuError> {
-        // Kitsu auth is handled externally via the auth module.
-        // Validate the token by fetching the user.
         let _ = self.get_user_id().await?;
         Ok(self.access_token.clone())
     }
@@ -235,7 +231,6 @@ impl AnimeService for KitsuClient {
         update: LibraryEntryUpdate,
     ) -> Result<(), KitsuError> {
         tracing::debug!(anime_id, "Kitsu: updating library entry");
-        // First, find the library entry ID for this anime.
         let user_id = self.get_user_id().await?;
         let entry_id = self.find_library_entry_id(&user_id, anime_id).await?;
 
@@ -244,7 +239,6 @@ impl AnimeService for KitsuClient {
             message: "library entry not found".into(),
         })?;
 
-        // Build attributes conditionally — only send fields that are Some.
         let mut attrs = serde_json::Map::new();
         if let Some(ep) = update.episode {
             attrs.insert("progress".into(), serde_json::json!(ep));
@@ -256,7 +250,6 @@ impl AnimeService for KitsuClient {
             );
         }
         if let Some(score) = update.score {
-            // Kitsu ratingTwenty: 2-20 scale; score <= 0 sends null to clear.
             if score <= 0.0 {
                 attrs.insert("ratingTwenty".into(), serde_json::Value::Null);
             } else {
@@ -265,7 +258,6 @@ impl AnimeService for KitsuClient {
             }
         }
         if let Some(ref date) = update.start_date {
-            // Kitsu expects ISO-8601 datetime; append time component.
             attrs.insert(
                 "startedAt".into(),
                 serde_json::json!(format!("{date}T00:00:00.000Z")),
@@ -378,7 +370,6 @@ impl AnimeService for KitsuClient {
             .send()
             .await?;
 
-        // Treat 422 as success — entry already exists (Kitsu doesn't upsert).
         if resp.status().as_u16() == 422 {
             return Ok(());
         }
@@ -404,7 +395,6 @@ impl AnimeService for KitsuClient {
             .send()
             .await?;
 
-        // Treat 404 as success — entry already gone.
         if resp.status().as_u16() == 404 {
             return Ok(());
         }

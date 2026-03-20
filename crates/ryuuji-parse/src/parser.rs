@@ -39,34 +39,24 @@ pub fn parse(filename: &str) -> Elements {
     elements.file_extension = extension;
     trace!(filename, tokens = tokens.len(), "Tokenized");
 
-    // Pass 1: Identify keywords in bracketed tokens (contextual).
     identify_keywords_contextual(&tokens, &mut elements, &mut identified, true);
 
-    // Pass 2: Extract release group (first unidentified bracket before free text).
     extract_release_group(&tokens, &mut elements, &mut identified);
 
-    // Pass 3: Extract checksum (8-char hex in brackets).
     extract_checksum(&tokens, &mut elements, &mut identified);
 
-    // Pass 4: Identify keywords in free text (contextual — ambiguous keywords skipped).
     identify_keywords_contextual(&tokens, &mut elements, &mut identified, false);
 
-    // Pass 5: Extract resolution from remaining tokens.
     extract_resolution(&tokens, &mut elements, &mut identified);
 
-    // Pass 6: Extract year.
     extract_year(&tokens, &mut elements, &mut identified);
 
-    // Pass 7: Extract season.
     extract_season(&tokens, &mut elements, &mut identified);
 
-    // Pass 8: Extract episode number.
     let episode_idx = extract_episode(&tokens, &mut elements, &mut identified);
 
-    // Pass 9: Extract title.
     elements.title = title::extract_title(&tokens, &identified);
 
-    // Pass 10: Extract episode title.
     elements.episode_title = title::extract_episode_title(&tokens, &identified, episode_idx);
 
     trace!(
@@ -105,8 +95,6 @@ fn identify_keywords_contextual(
         let is_enclosed = token.kind == TokenKind::Bracketed || token.is_enclosed;
 
         if let Some(entry) = keyword::lookup_contextual(&token.text, is_enclosed) {
-            // Skip PREFIX_NUMBER keywords — they're handled by dedicated passes
-            // (season, episode, volume) which need to see them in context.
             if entry.flags.contains(keyword::KeywordFlags::PREFIX_NUMBER) {
                 continue;
             }
@@ -178,7 +166,6 @@ fn extract_year(tokens: &[Token], elements: &mut Elements, identified: &mut [boo
     if elements.year.is_some() {
         return;
     }
-    // Prefer years in brackets.
     for (i, token) in tokens.iter().enumerate() {
         if identified[i] {
             continue;
@@ -191,7 +178,6 @@ fn extract_year(tokens: &[Token], elements: &mut Elements, identified: &mut [boo
             }
         }
     }
-    // Fallback: year in free text (only after some title text has been seen).
     let mut saw_text = false;
     for (i, token) in tokens.iter().enumerate() {
         if identified[i] {
@@ -216,8 +202,6 @@ fn extract_season(tokens: &[Token], elements: &mut Elements, identified: &mut [b
         return;
     }
 
-    // Try multi-token season patterns first: reconstruct phrases from consecutive tokens.
-    // Check individual tokens against season strategies.
     for (i, token) in tokens.iter().enumerate() {
         if identified[i] {
             continue;
@@ -232,8 +216,6 @@ fn extract_season(tokens: &[Token], elements: &mut Elements, identified: &mut [b
         }
     }
 
-    // Try multi-word patterns: "Season 2", "2nd Season", "Saison 3".
-    // Look at pairs of consecutive free text tokens.
     let free_indices: Vec<usize> = tokens
         .iter()
         .enumerate()
@@ -260,8 +242,6 @@ fn extract_episode(
     elements: &mut Elements,
     identified: &mut [bool],
 ) -> Option<usize> {
-    // Strategy 3: Dash-separated "- 08", "- 08v2".
-    // This is the most common anime filename pattern.
     for i in 0..tokens.len() {
         if identified[i] || tokens[i].kind != TokenKind::FreeText {
             continue;
@@ -278,15 +258,12 @@ fn extract_episode(
         }
     }
 
-    // Try episode extraction on all remaining unidentified tokens.
-    // Look for combined patterns (S01E05) and keyword-prefixed patterns first.
     for (i, token) in tokens.iter().enumerate() {
         if identified[i] {
             continue;
         }
         if matches!(token.kind, TokenKind::FreeText | TokenKind::Bracketed) {
             if let Some(m) = episode::try_extract(&token.text) {
-                // For combined S01E05, also set the season.
                 apply_episode(&m, elements);
                 identified[i] = true;
                 return Some(i);
@@ -294,7 +271,6 @@ fn extract_episode(
         }
     }
 
-    // Strategy 10: Isolated bracket number [12] after title text.
     for (i, token) in tokens.iter().enumerate() {
         if identified[i] || token.kind != TokenKind::Bracketed {
             continue;
@@ -306,7 +282,6 @@ fn extract_episode(
         }
     }
 
-    // Strategy 11: First number after title text.
     let mut saw_text = false;
     for (i, token) in tokens.iter().enumerate() {
         if identified[i] {
@@ -320,7 +295,6 @@ fn extract_episode(
                     return Some(i);
                 }
             } else {
-                // Check if this is text (not a number) to mark as "seen title text".
                 if token.text.parse::<u32>().is_err() {
                     saw_text = true;
                 }
@@ -366,7 +340,6 @@ fn next_free_text(tokens: &[Token], identified: &[bool], start: usize) -> Option
 fn parse_resolution(s: &str) -> Option<String> {
     let lower = s.to_lowercase();
 
-    // "1920x1080" → "1080p"
     if let Some(pos) = lower.find('x') {
         let height = &lower[pos + 1..];
         if height.parse::<u32>().is_ok() {
@@ -374,7 +347,6 @@ fn parse_resolution(s: &str) -> Option<String> {
         }
     }
 
-    // Already a resolution like "1080p" or "1080i"
     if lower.ends_with('p') || lower.ends_with('i') {
         let num_part = &lower[..lower.len() - 1];
         if num_part.parse::<u32>().is_ok() {
@@ -458,17 +430,13 @@ fn apply_keyword(kind: KeywordKind, text: &str, elements: &mut Elements) {
         | KeywordKind::Part
         | KeywordKind::Volume
         | KeywordKind::DeviceCompat
-        | KeywordKind::FileExtension => {
-            // Handled by dedicated passes or not stored separately.
-        }
+        | KeywordKind::FileExtension => {}
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ── Original tests (must pass unchanged) ────────────────────
 
     #[test]
     fn test_typical_subgroup_format() {
@@ -526,8 +494,6 @@ mod tests {
         assert!(episode::try_extract("2024").is_none());
         assert!(episode::try_extract("abc").is_none());
     }
-
-    // ── New tests ───────────────────────────────────────────────
 
     #[test]
     fn test_combined_s01e05() {
@@ -617,8 +583,6 @@ mod tests {
     #[test]
     fn test_streaming_source() {
         let r = parse("[SubsPlease] Title - 05 (1080p) [AMZN].mkv");
-        // AMZN is not 8 hex chars so it won't be treated as checksum.
-        // It's a StreamingSource keyword.
         assert_eq!(r.streaming_source.as_deref(), Some("AMZN"));
     }
 

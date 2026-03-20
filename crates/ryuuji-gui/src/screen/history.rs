@@ -35,7 +35,6 @@ pub enum Message {
     AnimeSelected(i64),
     CloseDetail,
     LibraryRowFetched(Box<Result<Option<LibraryRow>, String>>),
-    // Detail panel editing
     EpisodeChanged(i64, u32),
     StatusChanged(i64, WatchStatus),
     ScoreChanged(i64, f32),
@@ -53,7 +52,6 @@ pub enum Message {
     RewatchCountChanged(i64, u32),
     RewatchCountInputChanged(String),
     RewatchCountInputSubmitted,
-    // Context menu
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
     CancelModal,
@@ -102,13 +100,11 @@ impl History {
                     self.rewatch_count_input = row.entry.rewatch_count.to_string();
                     self.selected_row = Some(row);
                 } else {
-                    // Anime no longer in library — close the detail panel.
                     self.selected_anime = None;
                     self.selected_row = None;
                 }
                 Action::None
             }
-            // ── Detail panel editing ─────────────────────────────
             Message::EpisodeChanged(anime_id, new_ep) => {
                 if let Some(db) = db {
                     let db = db.clone();
@@ -315,7 +311,6 @@ impl History {
                 }
                 Action::None
             }
-            // ── Context menu ─────────────────────────────────────
             Message::ContextAction(anime_id, action) => match action {
                 ContextAction::ChangeStatus(new_status) => {
                     if let Some(db) = db {
@@ -367,8 +362,6 @@ impl History {
             Message::DbOperationDone(_result) => self.refresh_all(db),
         }
     }
-
-    // ── Async actions ────────────────────────────────────────────
 
     /// Fire a task to load watch history from the DB.
     pub fn load_history(&self, db: Option<&DbHandle>) -> Action {
@@ -422,8 +415,6 @@ impl History {
         Action::RunTask(Task::batch([history_task, row_task]))
     }
 
-    // ── View ─────────────────────────────────────────────────────
-
     pub fn view<'a>(
         &'a self,
         cs: &ColorScheme,
@@ -443,7 +434,6 @@ impl History {
         for entry in &self.entries {
             let entry_date = entry.watched_at.with_timezone(&Local).date_naive();
 
-            // Insert date header when the date changes.
             if current_date != Some(entry_date) {
                 current_date = Some(entry_date);
                 let label = if entry_date == today {
@@ -479,7 +469,6 @@ impl History {
         .height(Length::Fill);
 
         let list = column![
-            // Header
             container(
                 text("History")
                     .size(style::TEXT_XL)
@@ -496,7 +485,6 @@ impl History {
         .width(Length::Fill)
         .height(Length::Fill);
 
-        // Detail panel (shown when a library row has been fetched for the selection)
         if let Some(lib_row) = &self.selected_row {
             let anime_id = lib_row.anime.id;
             let detail = widgets::detail_panel(
@@ -548,8 +536,6 @@ impl History {
     }
 }
 
-// ── History item widget ──────────────────────────────────────────
-
 /// A single history item row with cover thumbnail, metadata, and selection support.
 fn history_item<'a>(
     entry: &'a HistoryRow,
@@ -576,7 +562,6 @@ fn history_item<'a>(
         style::RADIUS_SM,
     );
 
-    // Title + metadata column
     let mut meta_parts: Vec<String> = Vec::new();
     if let Some(mt) = &entry.anime.media_type {
         meta_parts.push(crate::format::media_type(mt));
@@ -613,7 +598,6 @@ fn history_item<'a>(
         );
     }
 
-    // Right side: episode badge + timestamp
     let right_col = column![
         text(episode_text)
             .size(style::TEXT_SM)

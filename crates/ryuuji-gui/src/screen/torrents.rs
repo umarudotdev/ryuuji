@@ -92,20 +92,15 @@ pub struct Torrents {
     pub filters: Vec<TorrentFilter>,
     pub loading: bool,
     pub search_query: String,
-    // Feed filtering and sorting
     pub feed_filter: FeedFilter,
     pub feed_sort: FeedSort,
     pub sort_ascending: bool,
-    // Feed detail panel
     pub selected_torrent: Option<String>,
-    // Feed editing
     pub editing_feed: Option<TorrentFeed>,
     pub feed_name_input: String,
     pub feed_url_input: String,
-    // Filter editing
     pub editing_filter: Option<TorrentFilter>,
     pub filter_name_input: String,
-    // New-torrent notification tracking
     seen_guids: HashSet<String>,
     first_load: bool,
 }
@@ -115,7 +110,6 @@ pub struct Torrents {
 pub enum Message {
     TabChanged(TorrentTab),
     SearchChanged(String),
-    // Feed tab
     RefreshFeeds,
     /// (items, auto_downloaded_count)
     FeedItemsLoaded(Result<(Vec<TorrentItem>, usize), String>),
@@ -126,7 +120,6 @@ pub enum Message {
     FeedSortChanged(FeedSort),
     TorrentSelected(String),
     CloseTorrentDetail,
-    // Sources tab
     FeedsLoaded(Result<Vec<TorrentFeed>, String>),
     ToggleFeed(i64, bool),
     FeedSaved,
@@ -136,7 +129,6 @@ pub enum Message {
     FeedNameChanged(String),
     FeedUrlChanged(String),
     SaveFeed,
-    // Filters tab
     FiltersLoaded(Result<Vec<TorrentFilter>, String>),
     ToggleFilter(i64, bool),
     FilterSaved,
@@ -203,13 +195,11 @@ impl Torrents {
                 self.search_query = q;
                 Action::None
             }
-            // ── Feed tab ─────────────────────────────────────────
             Message::RefreshFeeds => {
                 self.loading = true;
                 self.refresh_feeds(db, torrent_config)
             }
             Message::FeedItemsLoaded(Ok((items, auto_count))) => {
-                // Track new matched torrents for notifications.
                 let new_matched = if self.first_load {
                     self.first_load = false;
                     0
@@ -219,7 +209,6 @@ impl Torrents {
                         .filter(|i| i.anime_id.is_some() && !self.seen_guids.contains(&i.guid))
                         .count()
                 };
-                // Update seen GUIDs.
                 self.seen_guids.clear();
                 self.seen_guids.extend(items.iter().map(|i| i.guid.clone()));
 
@@ -279,7 +268,6 @@ impl Torrents {
                 self.selected_torrent = None;
                 Action::None
             }
-            // ── Sources tab ──────────────────────────────────────
             Message::FeedsLoaded(Ok(feeds)) => {
                 self.feeds = feeds;
                 Action::None
@@ -304,7 +292,6 @@ impl Torrents {
                 } else {
                     self.feed_name_input.clear();
                     self.feed_url_input.clear();
-                    // Use a sentinel TorrentFeed so the edit form renders.
                     self.editing_feed = Some(TorrentFeed {
                         id: 0,
                         name: String::new(),
@@ -338,7 +325,6 @@ impl Torrents {
                 self.editing_feed = None;
                 self.save_feed_action(db, feed)
             }
-            // ── Filters tab ──────────────────────────────────────
             Message::FiltersLoaded(Ok(filters)) => {
                 self.filters = filters;
                 Action::None
@@ -437,8 +423,6 @@ impl Torrents {
         }
     }
 
-    // ── Async actions ────────────────────────────────────────────
-
     fn load_feeds(&self, db: Option<&DbHandle>) -> Action {
         let Some(db) = db else {
             return Action::None;
@@ -471,11 +455,9 @@ impl Torrents {
         let torrent_client = config.torrent_client.clone();
         Action::RunTask(Task::perform(
             async move {
-                // Load feeds and filters from DB.
                 let feeds = db.get_torrent_feeds().await.map_err(|e| e.to_string())?;
                 let filters = db.get_torrent_filters().await.map_err(|e| e.to_string())?;
 
-                // Fetch RSS from all enabled feeds concurrently.
                 let client = reqwest::Client::new();
                 let results = ryuuji_core::torrent::rss::fetch_all_feeds(&client, &feeds).await;
                 let mut all_items: Vec<TorrentItem> = Vec::new();
@@ -486,13 +468,10 @@ impl Torrents {
                     }
                 }
 
-                // Match titles against library (runs on actor thread).
                 let mut all_items = db.match_torrent_items(all_items).await;
 
-                // Apply filters.
                 ryuuji_core::torrent::engine::apply_filters(&mut all_items, &filters);
 
-                // Auto-download preferred items.
                 let mut auto_count = 0usize;
                 if auto_download {
                     for item in &all_items {
@@ -541,7 +520,6 @@ impl Torrents {
                         launch_download(url, torrent_client.as_deref());
                         count += 1;
                     }
-                    // Archive the item.
                     let _ = db
                         .archive_torrent(item.guid.clone(), item.title.clone(), "downloaded".into())
                         .await;
@@ -608,8 +586,6 @@ impl Torrents {
         ))
     }
 
-    // ── Sorting & filtering helpers ──────────────────────────────
-
     /// Build an index of visible feed items after filtering and sorting.
     fn visible_feed_indices(&self) -> Vec<usize> {
         let query_lower = self.search_query.to_lowercase();
@@ -618,17 +594,14 @@ impl Torrents {
             .iter()
             .enumerate()
             .filter(|(_, item)| {
-                // Text search filter
                 if !query_lower.is_empty() && !item.title.to_lowercase().contains(&query_lower) {
                     return false;
                 }
-                // State filter
                 self.feed_filter.matches(item)
             })
             .map(|(i, _)| i)
             .collect();
 
-        // Sort
         let items = &self.feed_items;
         indices.sort_by(|&a, &b| {
             let ia = &items[a];
@@ -654,8 +627,6 @@ impl Torrents {
         indices
     }
 
-    // ── View ─────────────────────────────────────────────────────
-
     pub fn view<'a>(
         &'a self,
         cs: &ColorScheme,
@@ -671,7 +642,6 @@ impl Torrents {
 
         container(
             column![
-                // Header
                 container(
                     column![
                         text("Torrents")
@@ -715,14 +685,11 @@ impl Torrents {
         .into()
     }
 
-    // ── Feed tab view ────────────────────────────────────────────
-
     fn feed_view<'a>(
         &'a self,
         cs: &ColorScheme,
         cover_cache: &'a CoverCache,
     ) -> Element<'a, Message> {
-        // Toolbar: refresh + download + search
         let refresh_label = if self.loading {
             "Refreshing..."
         } else {
@@ -774,7 +741,6 @@ impl Torrents {
         .spacing(style::SPACE_SM)
         .align_y(Alignment::Center);
 
-        // Filter chips
         let filter_chips = self.feed_filter_chips(cs);
 
         if self.feed_items.is_empty() {
@@ -810,7 +776,6 @@ impl Torrents {
         let visible = self.visible_feed_indices();
         let count_text = format!("{} of {} torrents", visible.len(), self.feed_items.len());
 
-        // Sortable column headers
         let header_row = self.feed_column_headers(cs);
 
         let mut list = column![header_row].spacing(style::SPACE_XXS);
@@ -908,7 +873,6 @@ impl Torrents {
         .width(Length::Fill)
         .height(Length::Fill);
 
-        // Detail panel
         if let Some(ref guid) = self.selected_torrent {
             if let Some(item) = self.feed_items.iter().find(|i| &i.guid == guid) {
                 let detail = torrent_detail_panel(item, cs, cover_cache);
@@ -974,9 +938,7 @@ impl Torrents {
 
         container(
             row![
-                // Checkbox spacer
                 Space::new().width(Length::Fixed(32.0)),
-                // Title header (sortable)
                 button(
                     text(format!("Title{}", sort_indicator(FeedSort::Title)))
                         .size(style::TEXT_XS)
@@ -990,7 +952,6 @@ impl Torrents {
                 .padding(0)
                 .style(theme::ghost_button(cs))
                 .width(Length::Fill),
-                // Episode header (sortable)
                 button(
                     text(format!("Ep{}", sort_indicator(FeedSort::Episode)))
                         .size(style::TEXT_XS)
@@ -1004,12 +965,10 @@ impl Torrents {
                 .padding(0)
                 .style(theme::ghost_button(cs))
                 .width(Length::Fixed(40.0)),
-                // Group (not sortable)
                 text("Group")
                     .size(style::TEXT_XS)
                     .color(cs.on_surface_variant)
                     .width(Length::Fixed(100.0)),
-                // Size header (sortable)
                 button(
                     text(format!("Size{}", sort_indicator(FeedSort::Size)))
                         .size(style::TEXT_XS)
@@ -1023,7 +982,6 @@ impl Torrents {
                 .padding(0)
                 .style(theme::ghost_button(cs))
                 .width(Length::Fixed(70.0)),
-                // S/L header (sortable)
                 button(
                     text(format!("S/L{}", sort_indicator(FeedSort::Seeders)))
                         .size(style::TEXT_XS)
@@ -1037,7 +995,6 @@ impl Torrents {
                 .padding(0)
                 .style(theme::ghost_button(cs))
                 .width(Length::Fixed(60.0)),
-                // Date header (sortable)
                 button(
                     text(format!("Date{}", sort_indicator(FeedSort::Date)))
                         .size(style::TEXT_XS)
@@ -1059,8 +1016,6 @@ impl Torrents {
         .into()
     }
 
-    // ── Sources tab view ─────────────────────────────────────────
-
     fn sources_view(&self, cs: &ColorScheme) -> Element<'_, Message> {
         let toolbar = row![button(
             row![
@@ -1079,7 +1034,6 @@ impl Torrents {
 
         let mut content = column![toolbar].spacing(style::SPACE_MD);
 
-        // Edit form (if editing)
         if self.editing_feed.is_some() {
             let form = container(
                 column![
@@ -1128,12 +1082,10 @@ impl Torrents {
             ));
         }
 
-        // Feed list
         for feed in &self.feeds {
             let feed_id = feed.id;
             let enabled = feed.enabled;
 
-            // "last checked" label
             let checked_label = match &feed.last_checked {
                 Some(dt) => crate::format::relative_time(dt),
                 None => "never checked".into(),
@@ -1196,8 +1148,6 @@ impl Torrents {
         .into()
     }
 
-    // ── Filters tab view ─────────────────────────────────────────
-
     fn filter_view(&self, cs: &ColorScheme) -> Element<'_, Message> {
         let toolbar = row![button(
             row![
@@ -1224,7 +1174,6 @@ impl Torrents {
 
         let mut content = column![toolbar].spacing(style::SPACE_MD);
 
-        // Edit form (if editing)
         if let Some(ref filter) = self.editing_filter {
             let mut form = column![
                 text("Filter Rule")
@@ -1266,7 +1215,6 @@ impl Torrents {
             ]
             .spacing(style::SPACE_SM);
 
-            // Conditions
             for (idx, cond) in filter.conditions.iter().enumerate() {
                 let i = idx;
                 let cond_row = row![
@@ -1380,7 +1328,6 @@ impl Torrents {
             ));
         }
 
-        // Filter list
         for filter in &self.filters {
             let filter_id = filter.id;
             let enabled = filter.enabled;
@@ -1395,7 +1342,6 @@ impl Torrents {
                 }
             );
 
-            // Color-code the action badge
             let action_color = match filter.action {
                 FilterAction::Discard => cs.error,
                 FilterAction::Select => cs.on_secondary_container,
@@ -1468,15 +1414,12 @@ impl Torrents {
     }
 }
 
-// ── Torrent detail panel ─────────────────────────────────────────
-
 /// Detail panel for a selected torrent item.
 fn torrent_detail_panel<'a>(
     item: &'a TorrentItem,
     cs: &ColorScheme,
     cover_cache: &'a CoverCache,
 ) -> Element<'a, Message> {
-    // Close button
     let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
     let close_btn = button(
         container(
@@ -1497,7 +1440,6 @@ fn torrent_detail_panel<'a>(
 
     let mut detail = column![top_bar].spacing(style::SPACE_MD);
 
-    // Cover image (if matched to an anime)
     if let Some(anime_id) = item.anime_id {
         let cover = crate::widgets::rounded_cover(
             cs,
@@ -1510,7 +1452,6 @@ fn torrent_detail_panel<'a>(
         detail = detail.push(container(cover).center_x(Length::Fill));
     }
 
-    // Title
     detail = detail.push(
         text(&item.title)
             .size(style::TEXT_BASE)
@@ -1518,7 +1459,6 @@ fn torrent_detail_panel<'a>(
             .line_height(style::LINE_HEIGHT_NORMAL),
     );
 
-    // Matched anime name (if different from raw title)
     if let Some(ref anime_title) = item.anime_title {
         detail = detail.push(row![
             text("Matched: ")
@@ -1530,7 +1470,6 @@ fn torrent_detail_panel<'a>(
         ]);
     }
 
-    // Details card
     let info_label_width = Length::Fixed(90.0);
     let mut info_rows = column![].spacing(style::SPACE_XS);
 
@@ -1566,7 +1505,6 @@ fn torrent_detail_panel<'a>(
         info_rows = info_rows.push(info_row("Published", crate::format::relative_time(dt), cs));
     }
 
-    // Filter state badge
     let state_label = match item.filter_state {
         FilterState::None => "Unfiltered",
         FilterState::Discarded => "Discarded",
@@ -1604,7 +1542,6 @@ fn torrent_detail_panel<'a>(
             .width(Length::Fill),
     );
 
-    // Description
     if let Some(ref desc) = item.description {
         if !desc.is_empty() {
             detail = detail.push(
@@ -1623,7 +1560,6 @@ fn torrent_detail_panel<'a>(
         }
     }
 
-    // Download button
     let has_link = item.magnet_link.is_some() || item.link.is_some();
     if has_link {
         let guid = item.guid.clone();
@@ -1645,8 +1581,6 @@ fn torrent_detail_panel<'a>(
     .height(Length::Fill)
     .into()
 }
-
-// ── Download helper ──────────────────────────────────────────────
 
 /// Launch a download using the configured torrent client or fall back to `open::that`.
 fn launch_download(url: &str, torrent_client: Option<&str>) {

@@ -155,8 +155,6 @@ mod tests {
         }
     }
 
-    // ── extract_media tests ──────────────────────────────────────
-
     #[test]
     fn extract_media_returns_some_when_both_present() {
         let d = detected(Some("Frieren"), Some(5));
@@ -176,8 +174,6 @@ mod tests {
         let d = detected(Some("Frieren"), None);
         assert!(extract_media(&d).is_none());
     }
-
-    // ── evaluate_progress tests ──────────────────────────────────
 
     #[test]
     fn progress_update_when_ahead() {
@@ -221,8 +217,6 @@ mod tests {
             ProgressDecision::Suppressed { episode: 5, .. }
         ));
     }
-
-    // ── create_initial_entry tests ───────────────────────────────
 
     #[test]
     fn initial_entry_has_watching_status() {

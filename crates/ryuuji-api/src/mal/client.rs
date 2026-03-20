@@ -138,8 +138,6 @@ impl AnimeService for MalClient {
         tracing::debug!(anime_id, "MAL: updating library entry");
         let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
 
-        // MAL requires form-encoded body for PATCH, not JSON.
-        // Build params conditionally — only send fields that are Some.
         let mut params: Vec<(&str, String)> = Vec::new();
         if let Some(ep) = update.episode {
             params.push(("num_watched_episodes", ep.to_string()));
@@ -148,7 +146,6 @@ impl AnimeService for MalClient {
             params.push(("status", map_status_to_mal(status).to_string()));
         }
         if let Some(score) = update.score {
-            // MAL uses integer scores 0-10; 0 clears the score.
             params.push(("score", (score.round() as u32).min(10).to_string()));
         }
         if let Some(ref date) = update.start_date {
@@ -202,7 +199,6 @@ impl AnimeService for MalClient {
 
     async fn add_library_entry(&self, anime_id: u64, status: &str) -> Result<(), MalError> {
         tracing::debug!(anime_id, status, "MAL: adding library entry");
-        // MAL's PATCH my_list_status is an upsert — creates if absent.
         let url = format!("{BASE_URL}/v2/anime/{anime_id}/my_list_status");
         let mal_status = map_status_to_mal(status);
 
@@ -229,7 +225,6 @@ impl AnimeService for MalClient {
             .send()
             .await?;
 
-        // Treat 404 as success — entry already gone.
         if resp.status().as_u16() == 404 {
             return Ok(());
         }

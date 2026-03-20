@@ -84,7 +84,6 @@ pub fn process_detection(
 ) -> Result<DetectionResult, RyuujiError> {
     let now = Utc::now();
 
-    // 1. Extract title + episode from detection result.
     let media = match policy::extract_media(detected) {
         Some(m) => m,
         None => {
@@ -103,7 +102,6 @@ pub fn process_detection(
         }
     };
 
-    // 2. Match against known anime via recognition cache.
     let match_result = cache.recognize(&media.title, repo);
     let anime = match match_result {
         MatchResult::Matched(anime) | MatchResult::Fuzzy(anime, _) => anime,
@@ -123,7 +121,6 @@ pub fn process_detection(
         }
     };
 
-    // 3. Resolve episode relation redirects (cross-season mapping).
     let mut target_anime_id = anime.id;
     let mut target_episode = media.episode;
     let mut anime_title = anime.title.preferred().to_string();
@@ -149,7 +146,6 @@ pub fn process_detection(
         }
     }
 
-    // 4. Decide on progress — return commands, don't execute writes.
     match repo.get_library_entry_for_anime(target_anime_id)? {
         Some(entry) => {
             let decision = policy::evaluate_progress(
@@ -225,7 +221,6 @@ pub fn process_detection(
             }
         }
         None => {
-            // No library entry — auto-add as Watching.
             let (entry, event) =
                 policy::create_initial_entry(target_anime_id, &anime_title, target_episode, now);
             info!(title = %anime_title, episode = target_episode, "Added to library");
@@ -342,7 +337,7 @@ mod tests {
             DomainEvent::AddedToLibrary { .. }
         ));
         assert!(result.invalidate_cache);
-        assert_eq!(result.commands.len(), 2); // UpsertLibraryEntry + RecordWatch
+        assert_eq!(result.commands.len(), 2);
 
         execute_commands(&storage, &result);
         let entry = storage.get_library_entry_for_anime(1).unwrap().unwrap();
@@ -355,7 +350,6 @@ mod tests {
         let (storage, config, mut cache) = setup();
         let anime_id = insert_frieren(&storage);
 
-        // First detection creates entry.
         let r = process_detection(
             &detected("Sousou no Frieren", 3),
             &storage,
@@ -366,7 +360,6 @@ mod tests {
         .unwrap();
         execute_commands(&storage, &r);
 
-        // Second detection with higher episode updates.
         let result = process_detection(
             &detected("Sousou no Frieren", 5),
             &storage,
@@ -387,7 +380,7 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(result.commands.len(), 2); // UpdateEpisodeCount + RecordWatch
+        assert_eq!(result.commands.len(), 2);
 
         execute_commands(&storage, &result);
         let entry = storage
@@ -412,7 +405,6 @@ mod tests {
         .unwrap();
         execute_commands(&storage, &r);
 
-        // Same episode again — no commands should be produced.
         let result = process_detection(
             &detected("Sousou no Frieren", 5),
             &storage,
@@ -431,7 +423,6 @@ mod tests {
     #[test]
     fn test_unrecognized() {
         let (storage, config, mut cache) = setup();
-        // DB is empty, so nothing matches.
         let result = process_detection(
             &detected("Unknown Anime", 1),
             &storage,
@@ -454,7 +445,6 @@ mod tests {
 
         insert_frieren(&storage);
 
-        // First detection adds to library (auto-add always works).
         let r = process_detection(
             &detected("Sousou no Frieren", 1),
             &storage,
@@ -465,7 +455,6 @@ mod tests {
         .unwrap();
         execute_commands(&storage, &r);
 
-        // Higher episode — but auto_update is disabled, so suppressed.
         let result = process_detection(
             &detected("Sousou no Frieren", 5),
             &storage,
@@ -478,7 +467,7 @@ mod tests {
             result.outcome,
             UpdateOutcome::AlreadyCurrent { .. }
         ));
-        assert!(result.commands.is_empty()); // no writes!
+        assert!(result.commands.is_empty());
     }
 
     #[test]
@@ -487,7 +476,6 @@ mod tests {
         let config = AppConfig::default();
         let mut cache = RecognitionCache::new();
 
-        // Insert source anime (continuous numbering) with MAL ID.
         let source_id = storage
             .insert_anime(&Anime {
                 id: 0,
@@ -518,7 +506,6 @@ mod tests {
             })
             .unwrap();
 
-        // Insert dest anime (season 2) with its own MAL ID.
         let dest_id = storage
             .insert_anime(&Anime {
                 id: 0,
@@ -549,7 +536,6 @@ mod tests {
             })
             .unwrap();
 
-        // Build a minimal relation database with a redirect rule.
         use crate::relations::{EpisodeRange, RelationDatabase, RelationRule};
         let mut relations = RelationDatabase::new();
         relations.by_mal.insert(
@@ -566,7 +552,6 @@ mod tests {
             }],
         );
 
-        // Detect "episode 26" of source → should redirect to dest episode 1.
         let result = process_detection(
             &detected("Shingeki no Kyojin", 26),
             &storage,
@@ -588,12 +573,10 @@ mod tests {
 
         execute_commands(&storage, &result);
 
-        // Source anime should NOT have a library entry.
         assert!(storage
             .get_library_entry_for_anime(source_id)
             .unwrap()
             .is_none());
-        // Dest anime should have episode 1.
         let dest_entry = storage
             .get_library_entry_for_anime(dest_id)
             .unwrap()

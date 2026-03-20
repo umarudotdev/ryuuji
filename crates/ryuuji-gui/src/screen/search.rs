@@ -14,8 +14,6 @@ use crate::style;
 use crate::theme::{self, ColorScheme};
 use crate::widgets::{self, detail_panel, online_detail_panel};
 
-// ── Sort ──────────────────────────────────────────────────────────
-
 /// Sort mode for search results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SearchSort {
@@ -39,16 +37,12 @@ impl std::fmt::Display for SearchSort {
     }
 }
 
-// ── Search mode ───────────────────────────────────────────────────
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SearchMode {
     #[default]
     Local,
     Online,
 }
-
-// ── State ─────────────────────────────────────────────────────────
 
 /// Search screen state.
 pub struct Search {
@@ -59,10 +53,8 @@ pub struct Search {
     pub selected_anime: Option<i64>,
     pub score_input: String,
     pub episode_input: String,
-    // Filtering & sorting
     status_filter: Option<WatchStatus>,
     sort: SearchSort,
-    // Online search
     pub search_mode: SearchMode,
     pub online_results: Vec<AnimeSearchResult>,
     pub online_loading: bool,
@@ -74,8 +66,6 @@ pub struct Search {
     pub notes_input: String,
     pub rewatch_count_input: String,
 }
-
-// ── Messages ──────────────────────────────────────────────────────
 
 /// Messages handled by the Search screen.
 #[derive(Debug, Clone)]
@@ -106,10 +96,8 @@ pub enum Message {
     RewatchCountChanged(i64, u32),
     RewatchCountInputChanged(String),
     RewatchCountInputSubmitted,
-    // Filter & sort
     StatusFilterChanged(Option<WatchStatus>),
     SortChanged(SearchSort),
-    // Online search
     SearchOnline,
     OnlineResultsLoaded(Result<Vec<AnimeSearchResult>, String>),
     BackToLocal,
@@ -117,8 +105,6 @@ pub enum Message {
     AddToLibrary(usize),
     AddedToLibrary(Result<(), String>),
 }
-
-// ── Implementation ────────────────────────────────────────────────
 
 impl Search {
     pub fn new() -> Self {
@@ -171,13 +157,11 @@ impl Search {
             .iter()
             .enumerate()
             .filter(|(_, row)| {
-                // Status filter
                 if let Some(status) = self.status_filter {
                     if row.entry.status != status {
                         return false;
                     }
                 }
-                // Text query
                 if !q.is_empty() && !matches_query(row, &q) {
                     return false;
                 }
@@ -186,7 +170,6 @@ impl Search {
             .map(|(i, _)| i)
             .collect();
 
-        // Sort filtered indices
         let entries = &self.all_entries;
         match self.sort {
             SearchSort::Alphabetical => {
@@ -236,7 +219,6 @@ impl Search {
                 self.query = new_query;
                 if self.search_mode == SearchMode::Local {
                     self.refilter();
-                    // Deselect if selected anime is no longer in filtered results
                     if let Some(id) = self.selected_anime {
                         let still_visible = self
                             .filtered_indices
@@ -254,7 +236,6 @@ impl Search {
                     self.all_entries = entries;
                     self.loaded = true;
                     self.refilter();
-                    // Re-sync stepper text buffers to the (possibly updated) selected entry
                     if let Some(id) = self.selected_anime {
                         if let Some(row) = self.all_entries.iter().find(|r| r.anime.id == id) {
                             self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
@@ -404,10 +385,7 @@ impl Search {
                 Action::None
             }
             Message::CancelModal => Action::DismissModal,
-            Message::DbOperationDone(_result) => {
-                // After any DB write, reload entries.
-                self.load_entries(db)
-            }
+            Message::DbOperationDone(_result) => self.load_entries(db),
             Message::StatusFilterChanged(filter) => {
                 self.status_filter = filter;
                 self.refilter();
@@ -418,14 +396,12 @@ impl Search {
                 self.refilter();
                 Action::None
             }
-            // ── Online search messages ────────────────────────────
             Message::SearchOnline => {
                 self.search_mode = SearchMode::Online;
                 self.online_loading = true;
                 self.online_error = None;
                 self.online_results.clear();
                 self.selected_online = None;
-                // The actual MAL call is handled by app.rs
                 Action::None
             }
             Message::OnlineResultsLoaded(result) => {
@@ -583,10 +559,7 @@ impl Search {
                 }
                 Action::None
             }
-            Message::AddToLibrary(_idx) => {
-                // Handled by app.rs which has access to DB
-                Action::None
-            }
+            Message::AddToLibrary(_idx) => Action::None,
             Message::AddedToLibrary(result) => {
                 match result {
                     Ok(()) => {
@@ -597,13 +570,10 @@ impl Search {
                         self.online_error = Some(e);
                     }
                 }
-                // Reload local entries to reflect the new addition
                 self.load_entries(db)
             }
         }
     }
-
-    // ── View ──────────────────────────────────────────────────────
 
     pub fn view<'a>(&'a self, cs: &'a ColorScheme, covers: &'a CoverCache) -> Element<'a, Message> {
         match self.search_mode {
@@ -658,7 +628,6 @@ impl Search {
 
         let header = container(header).padding([style::SPACE_SM, style::SPACE_LG]);
 
-        // Status filter chip bar + result count + sort picker
         let result_count = format!(
             "{} {}",
             self.filtered_indices.len(),
@@ -739,7 +708,6 @@ impl Search {
             .into()
         };
 
-        // Online search prompt
         let mal_prompt = self.online_search_prompt(cs);
 
         let content = column![header, filter_bar, rule::horizontal(1), list, mal_prompt]
@@ -836,14 +804,11 @@ impl Search {
             .into()
     }
 
-    // ── Online view ───────────────────────────────────────────────
-
     fn view_online<'a>(
         &'a self,
         cs: &'a ColorScheme,
         covers: &'a CoverCache,
     ) -> Element<'a, Message> {
-        // Header: back button + "MAL Results"
         let back = button(
             row![
                 lucide_icons::iced::icon_arrow_left()
@@ -873,7 +838,6 @@ impl Search {
         .align_y(Alignment::Center)
         .padding([style::SPACE_SM, style::SPACE_LG]);
 
-        // Content area
         let body: Element<'_, Message> = if self.online_loading {
             container(
                 text("Searching...")
@@ -940,7 +904,6 @@ impl Search {
             .width(Length::Fill)
             .height(Length::Fill);
 
-        // Show detail panel for selected online result
         if let Some(idx) = self.selected_online {
             if let Some(result) = self.online_results.get(idx) {
                 let cover_key = online_cover_key(result.service_id);
@@ -970,8 +933,6 @@ impl Search {
             .into()
     }
 }
-
-// ── Helper functions ──────────────────────────────────────────────
 
 /// Check if a library row matches the search query (case-insensitive substring).
 fn matches_query(row: &LibraryRow, query: &str) -> bool {
@@ -1008,7 +969,6 @@ fn matches_query(row: &LibraryRow, query: &str) -> bool {
 fn status_chip_bar(cs: &ColorScheme, active: Option<WatchStatus>) -> Element<'static, Message> {
     let mut chips: Vec<Element<'_, Message>> = Vec::with_capacity(6);
 
-    // "All" chip
     let is_all = active.is_none();
     let all_chip = {
         let mut chip_content = row![].spacing(style::SPACE_XXS).align_y(Alignment::Center);
@@ -1028,7 +988,6 @@ fn status_chip_bar(cs: &ColorScheme, active: Option<WatchStatus>) -> Element<'st
     };
     chips.push(all_chip.into());
 
-    // Status chips
     for &status in WatchStatus::ALL {
         let is_selected = active == Some(status);
         let label = match status {
@@ -1083,7 +1042,6 @@ fn online_list_item<'a>(
         style::RADIUS_SM,
     );
 
-    // Title + metadata
     let mut info_col = column![text(result.title.as_str())
         .size(style::TEXT_BASE)
         .font(style::FONT_HEADING)
@@ -1116,7 +1074,6 @@ fn online_list_item<'a>(
         );
     }
 
-    // Episode count + score on the right
     let mut right_col = column![].spacing(style::SPACE_XXS).align_x(Alignment::End);
     if let Some(eps) = result.episodes {
         right_col = right_col.push(

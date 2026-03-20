@@ -28,7 +28,6 @@ pub struct TokenResponse {
 pub async fn authorize(client_id: &str) -> Result<TokenResponse, MalError> {
     let verifier = generate_verifier();
 
-    // MAL uses plain PKCE: challenge == verifier.
     let auth_url = format!(
         "{AUTH_URL}?response_type=code\
          &client_id={client_id}\
@@ -72,14 +71,11 @@ pub async fn refresh(client_id: &str, refresh_token: &str) -> Result<TokenRespon
         .map_err(|e| MalError::Parse(e.to_string()))
 }
 
-// ── Internals ───────────────────────────────────────────────────
-
 /// Generate a random 128-character URL-safe PKCE verifier.
 fn generate_verifier() -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::{BuildHasher, Hasher};
 
-    // Generate enough randomness from multiple hashers.
     let mut out = String::with_capacity(128);
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
     while out.len() < 128 {
@@ -114,7 +110,6 @@ fn listen_for_redirect() -> Result<String, MalError> {
         .map_err(|e| MalError::Auth(format!("failed to read from stream: {e}")))?;
     let request = String::from_utf8_lossy(&buf[..n]);
 
-    // Extract the path from the HTTP request line: "GET /?code=...&state=... HTTP/1.1"
     let path = request
         .lines()
         .next()

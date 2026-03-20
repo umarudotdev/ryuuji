@@ -86,7 +86,6 @@ pub enum Message {
     ContextAction(i64, ContextAction),
     ConfirmDelete(i64),
     CancelModal,
-    // Async result messages (errors stringified for Clone)
     LibraryRefreshed(Result<Vec<LibraryRow>, String>),
     DbOperationDone(Result<(), String>),
 }
@@ -122,7 +121,6 @@ impl Library {
             }
             Message::AnimeSelected(id) => {
                 self.selected_anime = Some(id);
-                // Sync stepper text buffers to the selected entry
                 if let Some(row) = self.entries.iter().find(|r| r.anime.id == id) {
                     self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
                     self.episode_input = row.entry.watched_episodes.to_string();
@@ -400,7 +398,6 @@ impl Library {
                 if let Ok(mut entries) = result {
                     self.sort_entries(&mut entries);
                     self.entries = entries;
-                    // Re-sync stepper text buffers to the (possibly updated) selected entry
                     if let Some(id) = self.selected_anime {
                         if let Some(row) = self.entries.iter().find(|r| r.anime.id == id) {
                             self.score_input = format!("{:.1}", row.entry.score.unwrap_or(0.0));
@@ -416,10 +413,7 @@ impl Library {
                 }
                 Action::None
             }
-            Message::DbOperationDone(_result) => {
-                // After any DB write, refresh the library.
-                self.refresh_task(db)
-            }
+            Message::DbOperationDone(_result) => self.refresh_task(db),
         }
     }
 
@@ -465,7 +459,6 @@ impl Library {
             }
         );
 
-        // View mode toggle buttons
         let list_icon = lucide_icons::iced::icon_list().size(style::TEXT_SM).color(
             if self.view_mode == ViewMode::List {
                 cs.primary

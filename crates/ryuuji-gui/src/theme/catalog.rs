@@ -571,8 +571,6 @@ pub fn status_color(cs: &ColorScheme, status: ryuuji_core::models::WatchStatus) 
     }
 }
 
-// ── iced_aw widget styles ───────────────────────────────────────────
-
 /// iced_aw ContextMenu style: transparent backdrop (menu container is styled separately).
 pub fn aw_context_menu_style(
     _cs: &ColorScheme,
@@ -581,8 +579,6 @@ pub fn aw_context_menu_style(
         background: Background::Color(Color::TRANSPARENT),
     }
 }
-
-// ── New styled components ─────────────────────────────────────────
 
 /// Progress bar track (surface_container_high) with primary-colored fill.
 pub fn episode_progress(cs: &ColorScheme) -> impl Fn(&Theme) -> progress_bar::Style {

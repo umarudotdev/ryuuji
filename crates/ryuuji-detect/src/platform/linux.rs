@@ -38,7 +38,6 @@ pub fn detect_mpris(db: &PlayerDatabase) -> Vec<PlayerInfo> {
                 }
             });
 
-            // Resolve the player name using the database.
             let player_def = db.find_by_mpris(&identity);
             let player_name = player_def
                 .map(|p| p.name.clone())

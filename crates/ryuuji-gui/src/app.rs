@@ -33,10 +33,8 @@ pub struct Ryuuji {
     config: AppConfig,
     db: Option<DbHandle>,
     event_log: SharedEventLog,
-    // Theme
     current_theme: RyuujiTheme,
     active_mode: ThemeMode,
-    // Screens
     now_playing: now_playing::NowPlaying,
     library: library::Library,
     history: history::History,
@@ -45,16 +43,11 @@ pub struct Ryuuji {
     torrents: torrents::Torrents,
     stats: stats::Stats,
     settings: settings::Settings,
-    // Cover images
     cover_cache: CoverCache,
-    // App-level chrome
     modal_state: Option<ModalKind>,
     status_message: String,
-    // Window persistence
     window_state: WindowState,
-    // Discord Rich Presence
     discord: Option<DiscordHandle>,
-    // Toast notifications
     toasts: Vec<Toast>,
     next_toast_id: u64,
 }
@@ -72,7 +65,6 @@ impl Default for Ryuuji {
             }
         };
 
-        // Resolve initial theme from config.
         let current_theme =
             theme::find_theme(&config.appearance.theme).unwrap_or_else(RyuujiTheme::default_theme);
         let active_mode = theme::resolve_mode(config.appearance.mode);
@@ -141,10 +133,8 @@ impl Ryuuji {
     pub fn new() -> (Self, Task<Message>) {
         let mut app = Self::default();
 
-        // Clean up leftover binaries from a previous update (Windows).
         updater::cleanup_old_binary();
 
-        // Check if service tokens exist on startup.
         let token_task = if let Some(db) = &app.db {
             let db_mal = db.clone();
             let db_al = db.clone();
@@ -187,7 +177,6 @@ impl Ryuuji {
             Task::none()
         };
 
-        // Check for app updates on startup (if enabled).
         let update_task = if app.config.update.check_on_startup {
             app.settings.update_state = updater::UpdateState::Checking;
             let include_pre = app.config.update.include_prerelease;
@@ -250,7 +239,6 @@ impl Ryuuji {
                 if page == Page::Settings {
                     let a1 = self.settings.load_stats(self.db.as_ref());
                     let t1 = self.handle_action(a1);
-                    // Also refresh debug panel data when navigating to Settings.
                     let a2 = self
                         .settings
                         .refresh_debug(&self.event_log, self.db.as_ref());
@@ -324,7 +312,6 @@ impl Ryuuji {
                             UpdateOutcome::NothingPlaying => self.status_message.clone(),
                         };
 
-                        // Fire follow-up query for matched anime details.
                         let anime_id = match &outcome {
                             UpdateOutcome::Updated { anime_id, .. }
                             | UpdateOutcome::AlreadyCurrent { anime_id, .. }
@@ -343,7 +330,6 @@ impl Ryuuji {
                             );
                         }
 
-                        // Auto-push progress to primary service.
                         let sync_task = match &outcome {
                             UpdateOutcome::Updated {
                                 anime_id, episode, ..
@@ -361,7 +347,6 @@ impl Ryuuji {
                         };
                         follow_up = Task::batch([follow_up, sync_task]);
 
-                        // Update Discord Rich Presence.
                         if let Some(discord) = &self.discord {
                             match &outcome {
                                 UpdateOutcome::Updated {
@@ -383,9 +368,7 @@ impl Ryuuji {
                                             .and_then(|d| d.service_name.clone()),
                                     );
                                 }
-                                UpdateOutcome::AlreadyCurrent { .. } => {
-                                    // Presence is already set — no change needed.
-                                }
+                                UpdateOutcome::AlreadyCurrent { .. } => {}
                                 UpdateOutcome::NothingPlaying
                                 | UpdateOutcome::Unrecognized { .. } => {
                                     discord.clear_presence();
@@ -419,7 +402,6 @@ impl Ryuuji {
                 Task::none()
             }
             Message::AppearanceChanged(_mode) => {
-                // OS appearance changed — re-resolve theme for System mode.
                 self.sync_theme();
                 Task::none()
             }
@@ -447,7 +429,6 @@ impl Ryuuji {
                     } else {
                         Task::none()
                     };
-                    // Sync episode input with the matched row's current episode count.
                     self.now_playing.episode_input = row
                         .as_ref()
                         .map(|r| r.entry.watched_episodes.to_string())
@@ -485,7 +466,6 @@ impl Ryuuji {
                 }
             },
             Message::History(msg) => {
-                // Intercept ConfirmDelete to fire remote sync before local delete.
                 if let history::Message::ConfirmDelete(anime_id) = &msg {
                     let sync_task = self.spawn_sync_delete(*anime_id);
                     let action = self.history.update(msg, self.db.as_ref());
@@ -499,7 +479,6 @@ impl Ryuuji {
                     let batch_covers = self.batch_request_covers(info);
                     return Task::batch([sync_task, action_task, batch_covers]);
                 }
-                // Intercept edit messages to sync changes to the remote service.
                 let sync_task = match &msg {
                     history::Message::StatusChanged(id, status) => self.spawn_sync_update(
                         *id,
@@ -589,7 +568,6 @@ impl Ryuuji {
                     ),
                     _ => Task::none(),
                 };
-                // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     history::Message::AnimeSelected(id) => {
                         let info = self
@@ -608,7 +586,6 @@ impl Ryuuji {
                 };
                 let action = self.history.update(msg, self.db.as_ref());
                 let action_task = self.handle_action(action);
-                // Batch-request covers for history entries.
                 let info: Vec<(i64, Option<String>)> = self
                     .history
                     .entries
@@ -619,7 +596,6 @@ impl Ryuuji {
                 Task::batch([cover_task, action_task, batch_covers, sync_task])
             }
             Message::Library(msg) => {
-                // Intercept ConfirmDelete to fire remote sync before local delete.
                 if let library::Message::ConfirmDelete(anime_id) = &msg {
                     let sync_task = self.spawn_sync_delete(*anime_id);
                     let action = self.library.update(msg, self.db.as_ref());
@@ -628,7 +604,6 @@ impl Ryuuji {
                     let batch_covers = self.batch_request_covers(info);
                     return Task::batch([sync_task, action_task, batch_covers]);
                 }
-                // Intercept edit messages to sync changes to the remote service.
                 let sync_task = match &msg {
                     library::Message::StatusChanged(id, status) => self.spawn_sync_update(
                         *id,
@@ -718,7 +693,6 @@ impl Ryuuji {
                     ),
                     _ => Task::none(),
                 };
-                // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     library::Message::AnimeSelected(id) => {
                         let info = self
@@ -737,13 +711,11 @@ impl Ryuuji {
                 };
                 let action = self.library.update(msg, self.db.as_ref());
                 let action_task = self.handle_action(action);
-                // Batch-request covers for all visible entries.
                 let info = Self::cover_info_from_rows(&self.library.entries);
                 let batch_covers = self.batch_request_covers(info);
                 Task::batch([cover_task, action_task, batch_covers, sync_task])
             }
             Message::Search(msg) => {
-                // Intercept messages that need app-level access.
                 match &msg {
                     search::Message::SearchOnline => {
                         let query = self.search.query().to_string();
@@ -764,7 +736,6 @@ impl Ryuuji {
                         return Task::batch([sync_task, action_task]);
                     }
                     search::Message::OnlineResultsLoaded(_) => {
-                        // After online results load, batch-request covers.
                         let action = self.search.update(msg, self.db.as_ref());
                         let action_task = self.handle_action(action);
                         let online_covers: Vec<(i64, Option<String>)> = self
@@ -779,7 +750,6 @@ impl Ryuuji {
                     _ => {}
                 }
 
-                // Intercept edit messages to sync changes to the remote service.
                 let sync_task = match &msg {
                     search::Message::StatusChanged(id, status) => self.spawn_sync_update(
                         *id,
@@ -870,7 +840,6 @@ impl Ryuuji {
                     _ => Task::none(),
                 };
 
-                // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     search::Message::AnimeSelected(id) => {
                         let info = self
@@ -900,13 +869,11 @@ impl Ryuuji {
                 };
                 let action = self.search.update(msg, self.db.as_ref());
                 let action_task = self.handle_action(action);
-                // Batch-request covers for all entries.
                 let info = Self::cover_info_from_rows(&self.search.all_entries);
                 let batch_covers = self.batch_request_covers(info);
                 Task::batch([cover_task, action_task, batch_covers, sync_task])
             }
             Message::Seasons(msg) => {
-                // Intercept messages that need app-level access.
                 match &msg {
                     seasons::Message::SeasonChanged(_)
                     | seasons::Message::YearPrev
@@ -923,7 +890,6 @@ impl Ryuuji {
                         return Task::none();
                     }
                     seasons::Message::DataLoaded(_) => {
-                        // After results load, batch-request covers.
                         self.seasons.update(msg);
                         let covers: Vec<(i64, Option<String>)> = self
                             .seasons
@@ -936,7 +902,6 @@ impl Ryuuji {
                     _ => {}
                 }
 
-                // Request cover for newly selected anime.
                 let cover_task = match &msg {
                     seasons::Message::AnimeSelected(idx) => {
                         let info = self.seasons.entries.get(*idx).map(|r| {
@@ -974,7 +939,6 @@ impl Ryuuji {
                 let id = self.next_toast_id;
                 self.next_toast_id += 1;
                 self.toasts.push(Toast { id, message, kind });
-                // Auto-dismiss after delay.
                 Task::perform(
                     async {
                         tokio::time::sleep(std::time::Duration::from_secs(
@@ -989,109 +953,103 @@ impl Ryuuji {
                 self.toasts.retain(|t| t.id != id);
                 Task::none()
             }
-            Message::Settings(ref msg) => {
-                // Intercept async actions before delegating to settings.
-                match msg {
-                    settings::Message::AniListLogin => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_anilist_login()
-                    }
-                    settings::Message::AniListImport => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_anilist_import()
-                    }
-                    settings::Message::KitsuLogin => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_kitsu_login()
-                    }
-                    settings::Message::KitsuImport => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_kitsu_import()
-                    }
-                    settings::Message::MalLogin => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_mal_login()
-                    }
-                    settings::Message::MalImport => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_mal_import()
-                    }
-                    settings::Message::ExportLibrary => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_library_export()
-                    }
-                    settings::Message::ScanNow => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_watch_folder_scan()
-                    }
-                    settings::Message::CheckForUpdates => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_update_check()
-                    }
-                    settings::Message::DownloadUpdate => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_update_download()
-                    }
-                    settings::Message::ApplyAndRestart => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        self.spawn_update_apply()
-                    }
-                    settings::Message::UpdateCheckResult(Ok(Some(_))) => {
-                        let msg = msg.clone();
-                        let action = self.settings.update(msg, &mut self.config);
-                        let action_task = self.handle_action(action);
-                        // Show a toast when an update is found.
-                        let toast_msg = match &self.settings.update_state {
-                            updater::UpdateState::Available(info)
-                            | updater::UpdateState::NotifyOnly(info) => {
-                                Some(format!("Update available: v{}", info.version))
-                            }
-                            _ => None,
-                        };
-                        if let Some(msg) = toast_msg {
-                            let toast_task = self.update(Message::ShowToast(msg, ToastKind::Info));
-                            Task::batch([action_task, toast_task])
-                        } else {
-                            action_task
+            Message::Settings(ref msg) => match msg {
+                settings::Message::AniListLogin => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_anilist_login()
+                }
+                settings::Message::AniListImport => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_anilist_import()
+                }
+                settings::Message::KitsuLogin => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_kitsu_login()
+                }
+                settings::Message::KitsuImport => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_kitsu_import()
+                }
+                settings::Message::MalLogin => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_mal_login()
+                }
+                settings::Message::MalImport => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_mal_import()
+                }
+                settings::Message::ExportLibrary => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_library_export()
+                }
+                settings::Message::ScanNow => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_watch_folder_scan()
+                }
+                settings::Message::CheckForUpdates => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_update_check()
+                }
+                settings::Message::DownloadUpdate => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_update_download()
+                }
+                settings::Message::ApplyAndRestart => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    self.spawn_update_apply()
+                }
+                settings::Message::UpdateCheckResult(Ok(Some(_))) => {
+                    let msg = msg.clone();
+                    let action = self.settings.update(msg, &mut self.config);
+                    let action_task = self.handle_action(action);
+                    let toast_msg = match &self.settings.update_state {
+                        updater::UpdateState::Available(info)
+                        | updater::UpdateState::NotifyOnly(info) => {
+                            Some(format!("Update available: v{}", info.version))
                         }
-                    }
-                    settings::Message::UpdateCheckResult(Err(_)) => {
-                        // Startup check failures: just log, no toast for non-intrusive UX.
-                        // Manual check failures get the error shown in the settings UI.
-                        let msg = msg.clone();
-                        if let settings::Message::UpdateCheckResult(Err(ref e)) = msg {
-                            tracing::warn!(error = %e, "Update check failed");
-                        }
-                        let action = self.settings.update(msg, &mut self.config);
-                        self.handle_action(action)
-                    }
-                    settings::Message::SectionChanged(settings::SettingsSection::Debug) => {
-                        let msg = msg.clone();
-                        self.settings.update(msg, &mut self.config);
-                        let action = self
-                            .settings
-                            .refresh_debug(&self.event_log, self.db.as_ref());
-                        self.handle_action(action)
-                    }
-                    _ => {
-                        let msg = msg.clone();
-                        let action = self.settings.update(msg, &mut self.config);
-                        self.sync_theme();
-                        self.handle_action(action)
+                        _ => None,
+                    };
+                    if let Some(msg) = toast_msg {
+                        let toast_task = self.update(Message::ShowToast(msg, ToastKind::Info));
+                        Task::batch([action_task, toast_task])
+                    } else {
+                        action_task
                     }
                 }
-            }
+                settings::Message::UpdateCheckResult(Err(_)) => {
+                    let msg = msg.clone();
+                    if let settings::Message::UpdateCheckResult(Err(ref e)) = msg {
+                        tracing::warn!(error = %e, "Update check failed");
+                    }
+                    let action = self.settings.update(msg, &mut self.config);
+                    self.handle_action(action)
+                }
+                settings::Message::SectionChanged(settings::SettingsSection::Debug) => {
+                    let msg = msg.clone();
+                    self.settings.update(msg, &mut self.config);
+                    let action = self
+                        .settings
+                        .refresh_debug(&self.event_log, self.db.as_ref());
+                    self.handle_action(action)
+                }
+                _ => {
+                    let msg = msg.clone();
+                    let action = self.settings.update(msg, &mut self.config);
+                    self.sync_theme();
+                    self.handle_action(action)
+                }
+            },
         }
     }
 
@@ -1258,7 +1216,6 @@ impl Ryuuji {
                     .await
                     .map_err(|e| e.to_string())?;
 
-                // AniList tokens don't expire — store with no refresh/expiry.
                 db.save_service_token("anilist", token_resp.access_token, None, None)
                     .await
                     .map_err(|e| e.to_string())?;
@@ -1832,7 +1789,6 @@ impl Ryuuji {
                     .map(|_| ())
                     .map_err(|e| e.to_string())?;
 
-                // Best-effort remote push.
                 if authenticated {
                     if let Err(e) =
                         sync_add_to_remote(&db, &primary, result.service_id, "plan_to_watch").await
@@ -1919,7 +1875,6 @@ impl Ryuuji {
                     .map(|_| ())
                     .map_err(|e| e.to_string())?;
 
-                // Best-effort remote push.
                 if authenticated {
                     if let Err(e) =
                         sync_add_to_remote(&db, &primary, result.service_id, "plan_to_watch").await
@@ -1957,7 +1912,6 @@ impl Ryuuji {
             async move {
                 use ryuuji_api::traits::AnimeService;
 
-                // Look up the anime to get its service IDs.
                 let row = db
                     .get_library_row(anime_id)
                     .await
@@ -2025,7 +1979,6 @@ impl Ryuuji {
 
         Task::perform(
             async move {
-                // Look up the anime to get its service IDs before it's deleted locally.
                 let row = db
                     .get_library_row(anime_id)
                     .await
@@ -2052,13 +2005,11 @@ impl Ryuuji {
 
     /// Handle a global keyboard shortcut.
     fn handle_shortcut(&mut self, shortcut: Shortcut) -> Task<Message> {
-        // Escape always works: dismiss modal first, then deselect.
         if let Shortcut::Escape = shortcut {
             if self.modal_state.is_some() {
                 self.modal_state = None;
                 return Task::none();
             }
-            // Deselect on current screen.
             match self.page {
                 Page::Library => {
                     self.library.selected_anime = None;
@@ -2076,7 +2027,6 @@ impl Ryuuji {
             }
         }
 
-        // All other shortcuts are blocked while a modal is open.
         if self.modal_state.is_some() {
             return Task::none();
         }
@@ -2229,7 +2179,6 @@ impl Ryuuji {
     /// Request a cover image download for an anime if not already requested.
     fn request_cover(&mut self, anime_id: i64, cover_url: Option<&str>) -> Task<Message> {
         let Some(url) = cover_url else {
-            // No cover URL available — mark as failed so the placeholder renders.
             self.cover_cache
                 .states
                 .entry(anime_id)
@@ -2239,7 +2188,6 @@ impl Ryuuji {
         if self.cover_cache.states.contains_key(&anime_id) {
             return Task::none();
         }
-        // Check disk cache first.
         let path = cover_cache::cover_path(anime_id);
         if path.exists() {
             self.cover_cache
@@ -2297,7 +2245,6 @@ impl Ryuuji {
         .height(Length::Fixed(style::STATUS_BAR_HEIGHT))
         .padding([4.0, style::SPACE_MD]);
 
-        // Toast overlay
         let toasts = toast::toast_overlay(cs, &self.toasts, Message::DismissToast);
 
         let main: Element<'_, Message> = stack![
@@ -2306,7 +2253,6 @@ impl Ryuuji {
         ]
         .into();
 
-        // Wrap in modal if one is active.
         if let Some(modal_kind) = &self.modal_state {
             let modal_content = self.build_modal_content(cs, modal_kind);
             let dismiss_msg = match modal_kind {
@@ -2492,7 +2438,6 @@ async fn detect_and_parse(event_log: SharedEventLog) -> Option<DetectedMedia> {
     }
 
     if player.is_browser {
-        // Browser detected — try stream service matching.
         let stream_db = ryuuji_detect::StreamDatabase::embedded();
         let stream_match = ryuuji_detect::stream::detect_stream(&player, &stream_db);
 
@@ -2549,7 +2494,6 @@ async fn detect_and_parse(event_log: SharedEventLog) -> Option<DetectedMedia> {
         });
     }
 
-    // Regular media player — extract basename from file path or use media title.
     let raw_title = player
         .file_path
         .as_deref()

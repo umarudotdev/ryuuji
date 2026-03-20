@@ -51,7 +51,6 @@ unsafe extern "system" fn enum_window_callback(hwnd: HWND, lparam: LPARAM) -> BO
             None
         };
 
-        // Try to extract the media title from the window title using player patterns.
         let media_title = window_title
             .as_deref()
             .and_then(|t| ctx.db.extract_title(player, t))

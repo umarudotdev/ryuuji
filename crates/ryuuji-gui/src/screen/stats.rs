@@ -207,7 +207,6 @@ impl Stats {
 
         let mut bars = column![].spacing(style::SPACE_XS).width(Length::Fill);
 
-        // Show 1-10, always in order
         for bucket in 1..=10u8 {
             let count = stats
                 .score_distribution
@@ -269,8 +268,6 @@ impl Stats {
             .into()
     }
 }
-
-// ── Helper widgets ────────────────────────────────────────────────
 
 /// A label + value row.
 fn stat_row<'a>(label: &str, value: &str, cs: &ColorScheme) -> Element<'a, Message> {

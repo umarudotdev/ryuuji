@@ -34,13 +34,11 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
     let anime_id = anime.id;
     let status_col = theme::status_color(cs, lib_row.entry.status);
 
-    // Left status accent bar
     let status_bar = container(text("").size(1))
         .width(Length::Fixed(3.0))
         .height(Length::Fill)
         .style(theme::status_bar_accent(status_col));
 
-    // Cover thumbnail
     let thumb = widgets::rounded_cover(
         cs,
         covers,
@@ -50,7 +48,6 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
         style::RADIUS_SM,
     );
 
-    // Title + metadata column
     let mut info_col = column![text(title)
         .size(style::TEXT_BASE)
         .font(style::FONT_HEADING)
@@ -59,7 +56,6 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
     .spacing(style::SPACE_XXS)
     .clip(true);
 
-    // Meta line: media type · year · genres
     let mut meta_parts: Vec<String> = Vec::new();
     if let Some(mt) = &anime.media_type {
         meta_parts.push(crate::format::media_type(mt));
@@ -86,7 +82,6 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
         );
     }
 
-    // Right-side: status badge + episode progress
     let status_label = lib_row.entry.status.to_string();
     let right_col = column![
         container(
@@ -116,7 +111,6 @@ pub fn anime_list_item<'a, Message: Clone + 'static>(
         .on_press(on_select_clone(anime_id))
         .style(theme::list_item(is_selected, cs));
 
-    // Context menu
     let primary = cs.primary;
     let on_primary = cs.on_primary;
     let on_surface = cs.on_surface;

@@ -2,14 +2,10 @@ use serde::Deserialize;
 
 use crate::traits::{AnimeSearchResult, UserListEntry};
 
-// ── GraphQL response wrappers ────────────────────────────────────
-
 #[derive(Debug, Deserialize)]
 pub struct GraphQLResponse<T> {
     pub data: T,
 }
-
-// ── Search / media queries ───────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct PageResponse {
@@ -96,15 +92,11 @@ pub struct FuzzyDate {
     pub day: Option<u32>,
 }
 
-// ── Single media response (for get_anime) ───────────────────────
-
 #[derive(Debug, Deserialize)]
 pub struct MediaResponse {
     #[serde(rename = "Media")]
     pub media: AniListMedia,
 }
-
-// ── Media list lookup (for delete) ──────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct MediaListLookupResponse {
@@ -117,8 +109,6 @@ pub struct MediaListId {
     pub id: u64,
 }
 
-// ── Status mapping ──────────────────────────────────────────────
-
 /// Map internal status strings to AniList API status values.
 pub fn map_status_to_anilist(status: &str) -> &'static str {
     match status {
@@ -130,8 +120,6 @@ pub fn map_status_to_anilist(status: &str) -> &'static str {
         _ => "PLANNING",
     }
 }
-
-// ── User list queries ────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct MediaListCollectionResponse {
@@ -165,8 +153,6 @@ pub struct MediaListEntry {
     pub media: AniListMedia,
 }
 
-// ── Viewer query ─────────────────────────────────────────────────
-
 #[derive(Debug, Deserialize)]
 pub struct ViewerResponse {
     #[serde(rename = "Viewer")]
@@ -178,8 +164,6 @@ pub struct Viewer {
     pub id: u64,
     pub name: String,
 }
-
-// ── Conversions ──────────────────────────────────────────────────
 
 impl FuzzyDate {
     pub fn to_string_opt(&self) -> Option<String> {
@@ -398,7 +382,6 @@ mod tests {
         assert_eq!(entry.watched_episodes, 14);
         assert_eq!(entry.total_episodes, Some(28));
         assert_eq!(entry.status, "watching");
-        // AniList score is on 0-100 scale, we divide by 10
         assert_eq!(entry.score, Some(0.9));
     }
 

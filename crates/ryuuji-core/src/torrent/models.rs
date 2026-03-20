@@ -29,7 +29,6 @@ pub struct TorrentItem {
     pub downloads: Option<u32>,
     pub pub_date: Option<DateTime<Utc>>,
     pub info_link: Option<String>,
-    // Populated by parser/matcher:
     pub anime_id: Option<i64>,
     pub anime_title: Option<String>,
     pub episode: Option<u32>,

@@ -60,7 +60,7 @@ impl WatchStatus {
             Self::PlanToWatch => &[Self::Watching],
             Self::Watching => &[Self::Completed, Self::OnHold, Self::Dropped],
             Self::OnHold => &[Self::Watching, Self::Dropped],
-            Self::Completed => &[Self::Watching], // rewatch
+            Self::Completed => &[Self::Watching],
             Self::Dropped => &[Self::Watching, Self::PlanToWatch],
         }
     }
@@ -143,12 +143,10 @@ impl LibraryEntry {
         let old_status = self.status;
         let now = Utc::now();
 
-        // Auto-set start date when beginning to watch.
         if new_status == WatchStatus::Watching && self.start_date.is_none() {
             self.start_date = Some(now.format("%Y-%m-%d").to_string());
         }
 
-        // Auto-set finish date when completing.
         if new_status == WatchStatus::Completed && self.finish_date.is_none() {
             self.finish_date = Some(now.format("%Y-%m-%d").to_string());
         }
@@ -176,7 +174,7 @@ impl LibraryEntry {
         if self.status != WatchStatus::Watching && self.status != WatchStatus::Completed {
             return Err(InvalidTransition {
                 from: self.status,
-                to: self.status, // not a status transition, but episode update
+                to: self.status,
             });
         }
 
@@ -238,8 +236,6 @@ mod tests {
         }
     }
 
-    // ── valid_transitions ────────────────────────────────────────
-
     #[test]
     fn plan_to_watch_can_transition_to_watching() {
         assert!(WatchStatus::PlanToWatch.can_transition_to(WatchStatus::Watching));
@@ -270,8 +266,6 @@ mod tests {
         assert!(WatchStatus::Dropped.can_transition_to(WatchStatus::PlanToWatch));
     }
 
-    // ── transition_status ────────────────────────────────────────
-
     #[test]
     fn valid_transition_updates_status() {
         let mut e = entry(WatchStatus::Watching);
@@ -287,7 +281,6 @@ mod tests {
         let mut e = entry(WatchStatus::Watching);
         let result = e.transition_status(WatchStatus::PlanToWatch, "Frieren", ChangeSource::Manual);
         assert!(result.is_err());
-        // Status should not change.
         assert_eq!(e.status, WatchStatus::Watching);
     }
 
@@ -308,8 +301,6 @@ mod tests {
             .unwrap();
         assert!(e.finish_date.is_some());
     }
-
-    // ── increment_episode ────────────────────────────────────────
 
     #[test]
     fn increment_episode_while_watching() {
@@ -334,10 +325,8 @@ mod tests {
         assert!(e
             .increment_episode(10, "Frieren", ChangeSource::Manual)
             .is_err());
-        assert_eq!(e.watched_episodes, 5); // unchanged
+        assert_eq!(e.watched_episodes, 5);
     }
-
-    // ── set_score ────────────────────────────────────────────────
 
     #[test]
     fn set_score_produces_event() {
@@ -370,26 +359,18 @@ mod tests {
         ));
     }
 
-    // ── comprehensive transition matrix ──────────────────────────
-
-    /// Test every invalid transition exhaustively.
     #[test]
     fn all_invalid_transitions_are_rejected() {
         let invalid_pairs = [
-            // PlanToWatch can only → Watching
             (WatchStatus::PlanToWatch, WatchStatus::Completed),
             (WatchStatus::PlanToWatch, WatchStatus::OnHold),
             (WatchStatus::PlanToWatch, WatchStatus::Dropped),
-            // Watching can → Completed, OnHold, Dropped (not PlanToWatch, not self)
             (WatchStatus::Watching, WatchStatus::PlanToWatch),
-            // OnHold can → Watching, Dropped (not PlanToWatch, Completed)
             (WatchStatus::OnHold, WatchStatus::PlanToWatch),
             (WatchStatus::OnHold, WatchStatus::Completed),
-            // Completed can → Watching (not OnHold, Dropped, PlanToWatch)
             (WatchStatus::Completed, WatchStatus::OnHold),
             (WatchStatus::Completed, WatchStatus::Dropped),
             (WatchStatus::Completed, WatchStatus::PlanToWatch),
-            // Dropped can → Watching, PlanToWatch (not OnHold, Completed)
             (WatchStatus::Dropped, WatchStatus::OnHold),
             (WatchStatus::Dropped, WatchStatus::Completed),
         ];
@@ -399,7 +380,6 @@ mod tests {
                 !from.can_transition_to(to),
                 "{from} should NOT be able to transition to {to}"
             );
-            // Also verify transition_status rejects it
             let mut e = entry(from);
             assert!(
                 e.transition_status(to, "Test", ChangeSource::Manual)
@@ -413,7 +393,6 @@ mod tests {
         }
     }
 
-    /// Self-transitions are not in the valid_transitions table.
     #[test]
     fn self_transitions_are_rejected() {
         for &status in WatchStatus::ALL {
@@ -424,7 +403,6 @@ mod tests {
         }
     }
 
-    /// Every valid transition in the table actually works.
     #[test]
     fn all_valid_transitions_are_accepted() {
         let valid_pairs = [
@@ -454,8 +432,6 @@ mod tests {
         }
     }
 
-    // ── date preservation ────────────────────────────────────────
-
     #[test]
     fn transition_to_watching_preserves_existing_start_date() {
         let mut e = entry(WatchStatus::PlanToWatch);
@@ -473,8 +449,6 @@ mod tests {
             .unwrap();
         assert_eq!(e.finish_date.as_deref(), Some("2024-06-30"));
     }
-
-    // ── increment_episode edge cases ─────────────────────────────
 
     #[test]
     fn increment_episode_while_completed_is_allowed() {

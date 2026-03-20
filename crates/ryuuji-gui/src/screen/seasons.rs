@@ -12,8 +12,6 @@ use crate::widgets::{self, anime_card};
 
 pub use crate::screen::library::ViewMode;
 
-// ── Sort ──────────────────────────────────────────────────────────
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SeasonSort {
     #[default]
@@ -36,8 +34,6 @@ impl std::fmt::Display for SeasonSort {
     }
 }
 
-// ── State ─────────────────────────────────────────────────────────
-
 pub struct Seasons {
     pub season: AnimeSeason,
     pub year: u32,
@@ -51,8 +47,6 @@ pub struct Seasons {
     /// Whether any service token is available for browsing.
     pub service_authenticated: bool,
 }
-
-// ── Messages ──────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -69,8 +63,6 @@ pub enum Message {
     ViewModeChanged(ViewMode),
     Refresh,
 }
-
-// ── Implementation ────────────────────────────────────────────────
 
 impl Seasons {
     pub fn new() -> Self {
@@ -96,7 +88,6 @@ impl Seasons {
                 self.selected = None;
                 self.loading = true;
                 self.error = None;
-                // App will intercept Refresh to spawn the API call.
                 Action::None
             }
             Message::YearPrev => {
@@ -136,10 +127,7 @@ impl Seasons {
                 self.selected = None;
                 Action::None
             }
-            Message::AddToLibrary(_idx) => {
-                // Handled by app.rs
-                Action::None
-            }
+            Message::AddToLibrary(_idx) => Action::None,
             Message::AddedToLibrary(result) => {
                 if let Err(e) = result {
                     self.error = Some(e);
@@ -221,14 +209,11 @@ impl Seasons {
         genres
     }
 
-    // ── View ──────────────────────────────────────────────────────
-
     pub fn view<'a>(&'a self, cs: &'a ColorScheme, covers: &'a CoverCache) -> Element<'a, Message> {
         if !self.service_authenticated {
             return self.view_unauthenticated(cs);
         }
 
-        // ── Season / Year picker header ────────────────────────────
         let season_buttons: Vec<Element<'_, Message>> = AnimeSeason::ALL
             .iter()
             .map(|&s| {
@@ -299,7 +284,6 @@ impl Seasons {
         .align_y(Alignment::Center)
         .padding([style::SPACE_SM, style::SPACE_LG]);
 
-        // ── Genre filter + sort bar ────────────────────────────────
         let filtered = self.filtered_sorted();
         let result_count = format!("{} anime", filtered.len());
 
@@ -307,7 +291,6 @@ impl Seasons {
         let mut filter_bar = row![].spacing(style::SPACE_SM).align_y(Alignment::Center);
 
         if !genre_options.is_empty() {
-            // Genre filter as a pick list
             let genre_pick = pick_list(genre_options, self.genre_filter.clone(), |g| {
                 Message::GenreFilterChanged(Some(g))
             })
@@ -318,7 +301,6 @@ impl Seasons {
             .menu_style(theme::pick_list_menu_style(cs));
             filter_bar = filter_bar.push(genre_pick);
 
-            // Clear genre filter button
             if self.genre_filter.is_some() {
                 let clear_size = style::TEXT_SM + style::SPACE_XS * 2.0;
                 let clear_btn = button(
@@ -339,7 +321,6 @@ impl Seasons {
             }
         }
 
-        // View mode toggle
         let list_icon = lucide_icons::iced::icon_list().size(style::TEXT_SM).color(
             if self.view_mode == ViewMode::List {
                 cs.primary
@@ -390,7 +371,6 @@ impl Seasons {
 
         let filter_bar = container(filter_bar).padding([style::SPACE_XS, style::SPACE_LG]);
 
-        // ── Content area ───────────────────────────────────────────
         let body: Element<'_, Message> = if self.loading {
             container(
                 text("Loading...")
@@ -486,7 +466,6 @@ impl Seasons {
             .width(Length::Fill)
             .height(Length::Fill);
 
-        // Show detail panel for selected anime
         if let Some(idx) = self.selected {
             if let Some(result) = self.entries.get(idx) {
                 let cover_key = season_cover_key(result.service_id);
@@ -544,8 +523,6 @@ impl Seasons {
     }
 }
 
-// ── Helper functions ──────────────────────────────────────────────
-
 /// Cover cache key for season browse results (negative to avoid colliding with local IDs).
 pub fn season_cover_key(service_id: u64) -> i64 {
     -(service_id as i64)
@@ -571,7 +548,6 @@ fn season_list_item<'a>(
         style::RADIUS_SM,
     );
 
-    // Title + metadata
     let mut info_col = column![text(result.title.as_str())
         .size(style::TEXT_BASE)
         .font(style::FONT_HEADING)
@@ -604,7 +580,6 @@ fn season_list_item<'a>(
         );
     }
 
-    // Episode count + score on the right
     let mut right_col = column![].spacing(style::SPACE_XXS).align_x(Alignment::End);
     if let Some(eps) = result.episodes {
         right_col = right_col.push(

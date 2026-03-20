@@ -2,8 +2,6 @@ use serde::Deserialize;
 
 use crate::traits::{AnimeSearchResult, UserListEntry};
 
-// ── Search / anime detail responses ─────────────────────────────
-
 #[derive(Debug, Deserialize)]
 pub struct MalSearchResponse {
     pub data: Vec<MalSearchNode>,
@@ -65,15 +63,11 @@ pub struct MalSeason {
     pub season: String,
 }
 
-// ── Season browse response ──────────────────────────────────────
-
 #[derive(Debug, Deserialize)]
 pub struct MalSeasonResponse {
     pub data: Vec<MalSearchNode>,
     pub paging: MalPaging,
 }
-
-// ── Status mapping ──────────────────────────────────────────────
 
 /// Map internal status strings to MAL API status values.
 pub fn map_status_to_mal(status: &str) -> &'static str {
@@ -86,8 +80,6 @@ pub fn map_status_to_mal(status: &str) -> &'static str {
         _ => "plan_to_watch",
     }
 }
-
-// ── User anime list responses ───────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct MalListResponse {
@@ -119,8 +111,6 @@ pub struct MalListStatus {
 pub struct MalPaging {
     pub next: Option<String>,
 }
-
-// ── Conversions to shared trait types ───────────────────────────
 
 impl MalAnimeNode {
     pub fn into_search_result(self) -> AnimeSearchResult {

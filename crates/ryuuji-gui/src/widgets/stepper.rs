@@ -19,7 +19,6 @@ pub fn stepper<'a, Message: Clone + 'a>(
 ) -> Element<'a, Message> {
     let btn_size = style::INPUT_HEIGHT;
 
-    // ── Minus button ───────────────────────────────────────────
     let icon_minus = container(
         lucide_icons::iced::icon_minus()
             .size(style::TEXT_SM)
@@ -37,7 +36,6 @@ pub fn stepper<'a, Message: Clone + 'a>(
         minus_btn = minus_btn.on_press(msg);
     }
 
-    // ── Center input ───────────────────────────────────────────
     let center_input = text_input("0", value)
         .on_input(on_input)
         .on_submit(on_submit)
@@ -46,7 +44,6 @@ pub fn stepper<'a, Message: Clone + 'a>(
         .width(Length::Fill)
         .style(theme::text_input_style(cs));
 
-    // ── Plus button ────────────────────────────────────────────
     let icon_plus = container(
         lucide_icons::iced::icon_plus()
             .size(style::TEXT_SM)

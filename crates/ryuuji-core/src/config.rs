@@ -286,7 +286,6 @@ mod tests {
 
     #[test]
     fn test_backward_compat_without_update_section() {
-        // TOML without [update] should still deserialize with defaults.
         let toml_str = r#"
 [general]
 detection_interval = 5
@@ -316,7 +315,6 @@ mode = "dark"
 enabled = false
 "#;
         let config: AppConfig = toml::from_str(toml_str).unwrap();
-        // Defaults from UpdateConfig::default()
         assert!(config.update.check_on_startup);
         assert!(!config.update.include_prerelease);
     }

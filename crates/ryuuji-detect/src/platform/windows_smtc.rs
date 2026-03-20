@@ -40,7 +40,6 @@ fn extract_session(
     db: &PlayerDatabase,
     session: &GlobalSystemMediaTransportControlsSession,
 ) -> Option<PlayerInfo> {
-    // Only report actively playing sessions.
     let status = session.GetPlaybackInfo().ok()?.PlaybackStatus().ok()?;
     if status != GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing {
         return None;
@@ -48,7 +47,6 @@ fn extract_session(
 
     let app_id = session.SourceAppUserModelId().ok()?.to_string();
 
-    // Look up the player in our database.
     let (player_name, is_browser) = match db.find_by_smtc(&app_id) {
         Some(def) => (def.name.clone(), def.is_browser),
         None => (app_id_to_display_name(&app_id), false),
@@ -82,20 +80,16 @@ fn extract_session(
 fn app_id_to_display_name(app_id: &str) -> String {
     let mut name = app_id;
 
-    // Take only the last path component.
     if let Some(pos) = name.rfind('\\') {
         name = &name[pos + 1..];
     }
 
-    // Strip .exe suffix.
     if let Some(stripped) = name.strip_suffix(".exe") {
         name = stripped;
     }
 
-    // Strip UWP package hash suffix (e.g. "App_1a2b3c4d" → "App").
     if let Some(pos) = name.rfind('_') {
         let suffix = &name[pos + 1..];
-        // Package hashes are hex-like, 8+ chars.
         if suffix.len() >= 8 && suffix.chars().all(|c| c.is_ascii_alphanumeric()) {
             name = &name[..pos];
         }
@@ -131,7 +125,6 @@ mod tests {
 
     #[test]
     fn test_display_name_preserves_short_suffix() {
-        // Short suffix after underscore is not a package hash.
         assert_eq!(app_id_to_display_name("My_App"), "My_App");
     }
 

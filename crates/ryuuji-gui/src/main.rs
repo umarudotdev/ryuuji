@@ -43,10 +43,8 @@ fn main() -> iced::Result {
     let cli = Cli::parse();
     let config = ryuuji_core::config::AppConfig::load().unwrap_or_default();
 
-    // CLI flags take highest priority, always.
     let cli_override = cli.trace || cli.verbose || cli.log_level.is_some();
 
-    // Priority: CLI flag > RUST_LOG env > config.toml > default ("info")
     let level = if cli.trace {
         "trace"
     } else if cli.verbose {
@@ -69,7 +67,6 @@ fn main() -> iced::Result {
         .with_target(true)
         .with_thread_names(false);
 
-    // File logging layer (daily rotation, 7-day retention).
     let _file_guard = if config.logging.file_logging {
         let log_dir = ryuuji_core::config::AppConfig::log_dir();
         if let Err(e) = std::fs::create_dir_all(&log_dir) {

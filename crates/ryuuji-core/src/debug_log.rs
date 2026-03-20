@@ -188,8 +188,6 @@ pub fn debug_events_from_domain(
                 raw_title: raw_title.clone(),
             },
         ],
-        // StatusChanged, ScoreUpdated, EntryDeleted, NothingPlaying don't
-        // originate from the detection pipeline — no debug entry needed.
         _ => vec![],
     }
 }

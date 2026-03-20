@@ -6,8 +6,6 @@
 use iced::Color;
 use serde::Deserialize;
 
-// ── Hex color serde ─────────────────────────────────────────────────
-
 #[allow(dead_code)]
 mod hex_color {
     use iced::Color;
@@ -56,8 +54,6 @@ mod hex_color {
         }
     }
 }
-
-// ── TOML intermediate structs ──────────────────────────────────────
 
 /// Raw TOML theme file structure.
 ///
@@ -187,10 +183,7 @@ pub struct InverseColors {
     pub modal_backdrop: Color,
 }
 
-// Re-export ThemeMode from core so there's a single source of truth.
 pub use ryuuji_core::config::ThemeMode;
-
-// ── ColorScheme ────────────────────────────────────────────────────
 
 /// All semantic color tokens for the application.
 ///
@@ -200,7 +193,6 @@ pub use ryuuji_core::config::ThemeMode;
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct ColorScheme {
-    // Surfaces (7 levels, low -> high elevation)
     pub surface_container_lowest: Color,
     pub surface: Color,
     pub surface_container_low: Color,
@@ -209,13 +201,11 @@ pub struct ColorScheme {
     pub surface_container_highest: Color,
     pub surface_bright: Color,
 
-    // Text hierarchy
     pub on_surface: Color,
     pub on_surface_variant: Color,
     pub outline: Color,
     pub outline_variant: Color,
 
-    // Primary accent (warm pink)
     pub primary: Color,
     pub primary_hover: Color,
     pub primary_dim: Color,
@@ -223,28 +213,23 @@ pub struct ColorScheme {
     pub primary_container: Color,
     pub on_primary_container: Color,
 
-    // Secondary
     pub secondary_container: Color,
     pub on_secondary_container: Color,
 
-    // Tertiary (warm gold)
     pub tertiary: Color,
     pub on_tertiary: Color,
 
-    // Error
     pub error: Color,
     pub error_hover: Color,
     pub error_pressed: Color,
     pub on_error: Color,
 
-    // Status colors (watch status)
     pub status_watching: Color,
     pub status_completed: Color,
     pub status_on_hold: Color,
     pub status_dropped: Color,
     pub status_plan: Color,
 
-    // Inverse / scrim
     pub inverse_surface: Color,
     pub inverse_on_surface: Color,
     pub scrim: Color,

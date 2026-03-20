@@ -27,21 +27,18 @@ pub fn match_title(query: &str, candidates: &[Anime]) -> MatchResult {
 
     let normalized_query = normalize(query);
 
-    // Pass 1: Exact match against any title variant or synonym.
     for anime in candidates {
         if exact_match(query, anime) {
             return MatchResult::Matched(anime.clone());
         }
     }
 
-    // Pass 2: Normalized match (lowercase, no punctuation).
     for anime in candidates {
         if normalized_match(&normalized_query, anime) {
             return MatchResult::Matched(anime.clone());
         }
     }
 
-    // Pass 3: Fuzzy match using Skim algorithm.
     let matcher = SkimMatcherV2::default();
     let mut best_score: i64 = 0;
     let mut best_anime: Option<&Anime> = None;
@@ -187,7 +184,6 @@ mod tests {
     #[test]
     fn test_normalized_match() {
         let candidates = vec![frieren()];
-        // Different case and missing colon.
         match match_title("sousou no frieren", &candidates) {
             MatchResult::Matched(a) => assert_eq!(a.id, 1),
             other => panic!("Expected Matched, got {other:?}"),
@@ -206,7 +202,6 @@ mod tests {
     #[test]
     fn test_fuzzy_match() {
         let candidates = vec![frieren(), aot()];
-        // English title variant with different wording — should fuzzy match.
         match match_title("Frieren Beyond Journeys End", &candidates) {
             MatchResult::Fuzzy(a, _) | MatchResult::Matched(a) => {
                 assert_eq!(a.id, 1);

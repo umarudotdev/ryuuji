@@ -52,8 +52,6 @@ impl NowPlaying {
     }
 }
 
-// ── Reusable helpers ──────────────────────────────────────────────
-
 /// Label:value row helper for info cards.
 fn info_row<'a>(cs: &ColorScheme, label: &'a str, value: String) -> Element<'a, Message> {
     row![
@@ -114,8 +112,6 @@ fn badge_row<'a>(cs: &ColorScheme, label: &'a str, items: &'a [String]) -> Eleme
     .into()
 }
 
-// ── Main dashboard ────────────────────────────────────────────────
-
 /// Hero-style dashboard for active playback.
 fn playing_dashboard<'a>(
     cs: &ColorScheme,
@@ -124,13 +120,11 @@ fn playing_dashboard<'a>(
     covers: &'a CoverCache,
     episode_input: &str,
 ) -> Element<'a, Message> {
-    // ── Title & metadata ────────────────────────────────────────
     let display_title = matched_row
         .map(|r| r.anime.title.preferred().to_string())
         .or_else(|| media.anime_title.clone())
         .unwrap_or_else(|| media.raw_title.clone());
 
-    // Cover image — hero size.
     let cover_element: Element<'_, Message> = if let Some(lib_row) = matched_row {
         widgets::rounded_cover(
             cs,
@@ -144,14 +138,12 @@ fn playing_dashboard<'a>(
         container(text("").size(1)).width(Length::Fixed(0.0)).into()
     };
 
-    // ── Right side: title + episode progress + stepper ────────
     let mut title_block = column![text(display_title)
         .size(style::TEXT_2XL)
         .font(style::FONT_HEADING)
         .line_height(style::LINE_HEIGHT_TIGHT),]
     .spacing(style::SPACE_SM);
 
-    // English subtitle
     if let Some(lib_row) = matched_row {
         if let Some(english) = &lib_row.anime.title.english {
             if Some(english.as_str()) != lib_row.anime.title.romaji.as_deref() {
@@ -165,7 +157,6 @@ fn playing_dashboard<'a>(
         }
     }
 
-    // Episode progress bar
     if let Some(lib_row) = matched_row {
         let entry = &lib_row.entry;
         let (pct, ep_label) = match lib_row.anime.episodes {
@@ -191,7 +182,6 @@ fn playing_dashboard<'a>(
             .spacing(style::SPACE_XS),
         );
 
-        // Inline episode stepper
         let anime_id = lib_row.anime.id;
         let max_ep = lib_row.anime.episodes.unwrap_or(u32::MAX);
 
@@ -221,7 +211,6 @@ fn playing_dashboard<'a>(
             ep_inc,
         ));
     } else {
-        // Show episode from detection for unmatched media
         let episode_text = media
             .episode
             .map(|ep| format!("Episode {ep}"))
@@ -236,7 +225,6 @@ fn playing_dashboard<'a>(
         }
     }
 
-    // Player info line
     let player_label = if let Some(service) = &media.service_name {
         format!("{} \u{00B7} {service}", media.player_name)
     } else {
@@ -271,7 +259,6 @@ fn playing_dashboard<'a>(
         .spacing(style::SPACE_LG)
         .padding(style::SPACE_XL);
 
-    // ── Synopsis card ──────────────────────────────────────────
     if let Some(lib_row) = matched_row {
         if let Some(synopsis) = &lib_row.anime.synopsis {
             if !synopsis.is_empty() {
@@ -293,12 +280,10 @@ fn playing_dashboard<'a>(
         }
     }
 
-    // ── Two-column info cards ──────────────────────────────────
     if let Some(lib_row) = matched_row {
         let anime = &lib_row.anime;
         let entry = &lib_row.entry;
 
-        // Left column: Anime Info
         let mut info_rows: Vec<Element<'_, Message>> = Vec::new();
         if let Some(mt) = &anime.media_type {
             info_rows.push(info_row(cs, "Type", format::media_type(mt)));
@@ -343,7 +328,6 @@ fn playing_dashboard<'a>(
             info_rows.push(info_row(cs, "Aired", aired));
         }
 
-        // Right column: Your Entry
         let status_color = theme::status_color(cs, entry.status);
         let status_label = entry.status.to_string();
         let score_text = match entry.score {

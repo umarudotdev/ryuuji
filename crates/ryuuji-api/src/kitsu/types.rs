@@ -2,8 +2,6 @@ use serde::Deserialize;
 
 use crate::traits::{AnimeSearchResult, UserListEntry};
 
-// ── JSON:API response types ──────────────────────────────────────
-
 #[derive(Debug, Deserialize)]
 pub struct JsonApiListResponse {
     pub data: Vec<JsonApiResource>,
@@ -30,14 +28,10 @@ pub struct Links {
     pub next: Option<String>,
 }
 
-// ── Single resource response (for get_anime) ───────────────────
-
 #[derive(Debug, Deserialize)]
 pub struct JsonApiSingleResourceResponse {
     pub data: JsonApiResource,
 }
-
-// ── Status mapping ──────────────────────────────────────────────
 
 /// Map internal status strings to Kitsu API status values.
 pub fn map_status_to_kitsu(status: &str) -> &'static str {
@@ -50,8 +44,6 @@ pub fn map_status_to_kitsu(status: &str) -> &'static str {
         _ => "planned",
     }
 }
-
-// ── Kitsu-specific types ─────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,8 +86,6 @@ pub struct KitsuLibraryAttributes {
     pub reconsuming: Option<bool>,
     pub reconsume_count: Option<u32>,
 }
-
-// ── Conversions ──────────────────────────────────────────────────
 
 fn map_kitsu_status(s: &str) -> &'static str {
     match s {
@@ -172,7 +162,6 @@ impl KitsuListItem {
                 .map(map_kitsu_status)
                 .unwrap_or("watching")
                 .to_string(),
-            // Kitsu ratingTwenty is 2-20 scale; divide by 2 to get 1-10
             score: self.entry.rating_twenty.map(|r| r as f32 / 2.0),
             start_date: self.entry.started_at.as_deref().map(kitsu_datetime_to_date),
             finish_date: self
@@ -229,7 +218,6 @@ mod tests {
         assert_eq!(result.title_english.as_deref(), Some("One Piece"));
         assert_eq!(result.episodes, Some(1000));
         assert!(result.cover_url.is_some());
-        // 83.45 / 10 = 8.345
         assert!((result.mean_score.unwrap() - 8.345).abs() < 0.01);
         assert_eq!(result.year, Some(1999));
     }
@@ -287,7 +275,6 @@ mod tests {
         assert_eq!(user_entry.title, "One Piece");
         assert_eq!(user_entry.watched_episodes, 14);
         assert_eq!(user_entry.status, "watching");
-        // 18 / 2 = 9.0
         assert_eq!(user_entry.score, Some(9.0));
     }
 

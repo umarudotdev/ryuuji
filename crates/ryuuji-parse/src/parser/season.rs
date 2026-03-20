@@ -9,8 +9,6 @@ pub struct SeasonMatch {
     pub number: u32,
 }
 
-// ── Regex patterns ──────────────────────────────────────────────
-
 /// "S2", "S01" — standalone season prefix.
 static RE_S_PREFIX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^S(\d{1,2})$").unwrap());
 

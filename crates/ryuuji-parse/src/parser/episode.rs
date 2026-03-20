@@ -13,8 +13,6 @@ pub struct EpisodeMatch {
     pub version: Option<String>,
 }
 
-// ── Regex patterns (compiled once) ──────────────────────────────
-
 static RE_COMBINED: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^S(\d{1,2})E(\d{1,4})$").unwrap());
 
@@ -49,44 +47,34 @@ pub fn try_extract(text: &str) -> Option<EpisodeMatch> {
         return None;
     }
 
-    // Reject year-like 4-digit numbers early.
     if is_year_like(text) {
         return None;
     }
 
-    // Strategy 1: Combined S01E05 or 01x05.
     if let Some(m) = try_combined(text) {
         return Some(m);
     }
-    // Strategy 2: Keyword-prefixed EP05, E05, #05, Episode 05.
     if let Some(m) = try_keyword_prefix(text) {
         return Some(m);
     }
-    // Strategy 4: Version suffix 05v2.
     if let Some(m) = try_version_suffix(text) {
         return Some(m);
     }
-    // Strategy 5: Fractional 07.5.
     if let Some(m) = try_fractional(text) {
         return Some(m);
     }
-    // Strategy 6: Range 01-13.
     if let Some(m) = try_range(text) {
         return Some(m);
     }
-    // Strategy 7: Japanese counter 第05話, 第05集.
     if let Some(m) = try_japanese_counter(text) {
         return Some(m);
     }
-    // Strategy 9: Partial 4a, 111C.
     if let Some(m) = try_partial(text) {
         return Some(m);
     }
-    // Strategy 13: Volume + episode Vol.3 EP05.
     if let Some(m) = try_vol_episode(text) {
         return Some(m);
     }
-    // Strategy 11/12: Plain number (handled by caller using parse_plain_number).
     if let Some(m) = try_plain_number(text) {
         return Some(m);
     }
@@ -213,7 +201,6 @@ fn try_partial(text: &str) -> Option<EpisodeMatch> {
 
 /// Strategy 13: Volume + episode (Vol.3 EP05).
 fn try_vol_episode(text: &str) -> Option<EpisodeMatch> {
-    // Only trigger if text contains "vol" (case-insensitive).
     if !text.to_lowercase().contains("vol") {
         return None;
     }

@@ -32,13 +32,11 @@ const BRACKETS: &[(char, char)] = &[
 /// Characters that separate tokens (excluding dash, which gets special treatment).
 fn is_soft_delimiter(c: char) -> bool {
     matches!(c, ' ' | '_' | '.' | '\u{3000}')
-    // space, underscore, dot, ideographic space
 }
 
 /// Dash-family characters that act as token separators but are preserved as FreeText.
 fn is_dash(c: char) -> bool {
     matches!(c, '-' | '\u{2013}' | '\u{2014}')
-    // hyphen-minus, en-dash, em-dash
 }
 
 fn opening_bracket(c: char) -> Option<char> {
@@ -66,7 +64,6 @@ pub fn tokenize(input: &str) -> (Vec<Token>, Option<String>) {
     while i < chars.len() {
         let c = chars[i];
 
-        // Bracket-enclosed content.
         if let Some(close) = opening_bracket(c) {
             i += 1;
             let start = i;
@@ -87,7 +84,6 @@ pub fn tokenize(input: &str) -> (Vec<Token>, Option<String>) {
             continue;
         }
 
-        // Dashes become FreeText("-") so the parser can detect "- 05" patterns.
         if is_dash(c) {
             tokens.push(Token {
                 kind: TokenKind::FreeText,
@@ -95,14 +91,12 @@ pub fn tokenize(input: &str) -> (Vec<Token>, Option<String>) {
                 is_enclosed: false,
             });
             i += 1;
-            // Skip trailing soft delimiters after dash.
             while i < chars.len() && is_soft_delimiter(chars[i]) {
                 i += 1;
             }
             continue;
         }
 
-        // Soft delimiters (space, underscore, dot, ideographic space).
         if is_soft_delimiter(c) {
             while i < chars.len() && is_soft_delimiter(chars[i]) {
                 i += 1;
@@ -115,12 +109,9 @@ pub fn tokenize(input: &str) -> (Vec<Token>, Option<String>) {
             continue;
         }
 
-        // Free text: everything else until a delimiter or bracket.
-        // A dot between digits (e.g., "07.5", "H.264") is kept as part of the token.
         let start = i;
         while i < chars.len() && !is_dash(chars[i]) && opening_bracket(chars[i]).is_none() {
             if is_soft_delimiter(chars[i]) {
-                // Keep dots between digits as part of the token.
                 if chars[i] == '.'
                     && i > start
                     && i + 1 < chars.len()
@@ -161,7 +152,6 @@ fn strip_extension(input: &str) -> (&str, Option<&str>) {
         if let Some(stripped) = input.strip_suffix(ext) {
             return (stripped, Some(&ext[1..]));
         }
-        // Case-insensitive check — guard against multibyte chars near the boundary.
         let split_pos = input.len().wrapping_sub(ext.len());
         if split_pos < input.len() && input.is_char_boundary(split_pos) {
             let suffix = &input[split_pos..];
@@ -184,10 +174,8 @@ mod tests {
         assert_eq!(tokens[0].kind, TokenKind::Bracketed);
         assert_eq!(tokens[0].text, "SubGroup");
         assert!(tokens[0].is_enclosed);
-        // After bracket there's a space → delimiter
         assert_eq!(tokens[1].kind, TokenKind::Delimiter);
         assert!(!tokens[1].is_enclosed);
-        // "Anime" is free text
         assert_eq!(tokens[2].kind, TokenKind::FreeText);
         assert_eq!(tokens[2].text, "Anime");
     }

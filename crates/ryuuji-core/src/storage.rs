@@ -16,7 +16,6 @@ use crate::repository::{
 use crate::torrent::filter::{FilterAction, MatchMode, TorrentFilter};
 use crate::torrent::models::TorrentFeed;
 
-// Re-export port contract types so existing `use storage::X` paths still work.
 pub use crate::repository::{
     HistoryRow, LibraryRow, LibraryStatistics, TokenRecord, WatchHistoryRow,
 };
@@ -48,8 +47,6 @@ impl Storage {
         run_migrations(&conn)?;
         Ok(Self { conn })
     }
-
-    // ── Anime CRUD ──────────────────────────────────────────────
 
     /// Insert a new anime, returning its auto-generated ID.
     pub fn insert_anime(&self, anime: &Anime) -> Result<i64, RyuujiError> {
@@ -338,8 +335,6 @@ impl Storage {
         }
     }
 
-    // ── Library Entry CRUD ──────────────────────────────────────
-
     /// Insert or update a library entry.
     pub fn upsert_library_entry(&self, entry: &LibraryEntry) -> Result<i64, RyuujiError> {
         debug!(anime_id = entry.anime_id, status = %entry.status, episodes = entry.watched_episodes, "Upserting library entry");
@@ -539,8 +534,6 @@ impl Storage {
         Ok(())
     }
 
-    // ── Watch History ───────────────────────────────────────────
-
     /// Record an episode watch.
     pub fn record_watch(&self, anime_id: i64, episode: u32) -> Result<(), RyuujiError> {
         debug!(anime_id, episode, "Recording watch");
@@ -599,8 +592,6 @@ impl Storage {
         Ok(rows)
     }
 
-    // ── Auth Tokens ─────────────────────────────────────────────
-
     /// Store an auth token for a service.
     pub fn save_token(
         &self,
@@ -641,8 +632,6 @@ impl Storage {
             .optional()
             .map_err(Into::into)
     }
-
-    // ── Torrent Feeds ────────────────────────────────────────────
 
     /// Get all torrent feed sources.
     pub fn get_torrent_feeds(&self) -> Result<Vec<TorrentFeed>, RyuujiError> {
@@ -701,8 +690,6 @@ impl Storage {
             .execute("DELETE FROM torrent_feed WHERE id = ?1", params![id])?;
         Ok(())
     }
-
-    // ── Torrent Filters ──────────────────────────────────────────
 
     /// Get all torrent filters.
     pub fn get_torrent_filters(&self) -> Result<Vec<TorrentFilter>, RyuujiError> {
@@ -789,8 +776,6 @@ impl Storage {
         Ok(())
     }
 
-    // ── Torrent Archive ──────────────────────────────────────────
-
     /// Check if a torrent GUID is in the archive.
     pub fn is_torrent_archived(&self, guid: &str) -> Result<bool, RyuujiError> {
         let count: i32 = self
@@ -824,8 +809,6 @@ impl Storage {
         self.conn.execute("DELETE FROM torrent_archive", [])?;
         Ok(())
     }
-
-    // ── Available Episodes (folder scanner) ─────────────────────
 
     /// Upsert an available episode record from a scanned file.
     pub fn upsert_available_episode(&self, ep: &AvailableEpisode) -> Result<(), RyuujiError> {
@@ -898,8 +881,6 @@ impl Storage {
         Ok(())
     }
 
-    // ── Statistics ──────────────────────────────────────────────
-
     /// Get aggregate library statistics in a single query.
     pub fn get_library_statistics(&self) -> Result<LibraryStatistics, RyuujiError> {
         let total_entries: usize = self
@@ -939,7 +920,6 @@ impl Storage {
             )
             .unwrap_or(0);
 
-        // Average 24 minutes per episode
         let total_watch_time_minutes =
             (total_episodes_watched as u64 + total_rewatch_episodes as u64) * 24;
 
@@ -970,7 +950,6 @@ impl Storage {
             score_distribution.extend(rows);
         }
 
-        // Genre distribution from anime table's genres JSON column
         let mut genre_counts: std::collections::HashMap<String, usize> =
             std::collections::HashMap::new();
         {
@@ -1006,8 +985,6 @@ impl Storage {
         })
     }
 }
-
-// ── Trait implementations ───────────────────────────────────────
 
 impl AnimeRepository for Storage {
     fn get_anime(&self, id: i64) -> Result<Option<Anime>, RyuujiError> {
@@ -1171,8 +1148,6 @@ impl EpisodeFileRepository for Storage {
     }
 }
 
-// ── Migrations ──────────────────────────────────────────────────
-
 /// Run schema migrations using `PRAGMA user_version` for version tracking.
 fn run_migrations(conn: &Connection) -> Result<(), RyuujiError> {
     let version: i32 = conn
@@ -1180,7 +1155,6 @@ fn run_migrations(conn: &Connection) -> Result<(), RyuujiError> {
         .unwrap_or(0);
 
     if version < 1 {
-        // Detect if V1 was already applied (old code didn't set user_version).
         let table_exists: bool = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='anime'",
@@ -1213,22 +1187,16 @@ fn run_migrations(conn: &Connection) -> Result<(), RyuujiError> {
     Ok(())
 }
 
-// ── Helpers ─────────────────────────────────────────────────────
-
 /// Parse a datetime string from SQLite (either RFC 3339 or SQLite's `datetime('now')` format).
 fn parse_datetime(s: &str) -> DateTime<Utc> {
-    // Try RFC 3339 first (what we write via `.to_rfc3339()`).
     if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
         return dt.with_timezone(&Utc);
     }
-    // SQLite's datetime('now') produces "YYYY-MM-DD HH:MM:SS".
     if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
         return naive.and_utc();
     }
     DateTime::default()
 }
-
-// ── Row mapping helpers ─────────────────────────────────────────
 
 fn row_to_anime(row: &rusqlite::Row<'_>) -> Anime {
     row_to_anime_at(row, 0)
@@ -1387,7 +1355,6 @@ mod tests {
         assert_eq!(rows[0].entry.watched_episodes, 5);
         assert_eq!(rows[0].anime.title.preferred(), "Sousou no Frieren");
 
-        // Update episode count.
         db.update_episode_count(anime_id, 10).unwrap();
         let updated = db.get_library_entry_for_anime(anime_id).unwrap().unwrap();
         assert_eq!(updated.watched_episodes, 10);
@@ -1414,7 +1381,6 @@ mod tests {
         let token = db.get_token("anilist").unwrap();
         assert_eq!(token.as_deref(), Some("abc123"));
 
-        // Overwrite.
         db.save_token("anilist", "xyz789", Some("refresh_tok"), None)
             .unwrap();
         let token = db.get_token("anilist").unwrap();

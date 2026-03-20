@@ -80,14 +80,12 @@ fn actor_loop(rx: mpsc::Receiver<DiscordCommand>) {
                 episode,
                 service,
             } => {
-                // Lazy-connect on first update.
                 if client.is_none() {
                     client = Some(DiscordIpcClient::new(APP_ID));
                 }
 
                 let ipc = client.as_mut().unwrap();
 
-                // Connect if not connected.
                 if !connected {
                     match ipc.connect() {
                         Ok(()) => {
@@ -101,7 +99,6 @@ fn actor_loop(rx: mpsc::Receiver<DiscordCommand>) {
                     }
                 }
 
-                // Build the activity.
                 let details = match episode {
                     Some(ep) => format!("Episode {ep}"),
                     None => "Watching".into(),
@@ -129,7 +126,6 @@ fn actor_loop(rx: mpsc::Receiver<DiscordCommand>) {
 
                 if let Err(e) = ipc.set_activity(payload) {
                     tracing::debug!(error = %e, "Failed to set Discord activity");
-                    // Connection probably died — reset state for reconnect.
                     connected = false;
                     client = None;
                 }

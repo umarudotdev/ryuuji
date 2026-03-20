@@ -32,7 +32,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     on_episode_input: impl Fn(String) -> Message + 'a,
     on_episode_submit: Message,
     covers: &'a CoverCache,
-    // ── Extended fields (dates, notes, rewatch) ────────────────
     start_date_text: &str,
     on_start_date_input: impl Fn(String) -> Message + 'a,
     on_start_date_submit: Message,
@@ -51,7 +50,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
     let anime = &lib_row.anime;
     let entry = &lib_row.entry;
 
-    // ── Cover image (rounded) ────────────────────────────────────
     let cover = widgets::rounded_cover(
         cs,
         covers,
@@ -61,7 +59,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         style::RADIUS_LG,
     );
 
-    // ── Title section ────────────────────────────────────────────
     let mut title_section = column![text(anime.title.preferred())
         .size(style::TEXT_XL)
         .font(style::FONT_HEADING)
@@ -79,7 +76,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         }
     }
 
-    // Meta line: media type + season/year
     let mut meta_parts: Vec<String> = Vec::new();
     if let Some(mt) = &anime.media_type {
         meta_parts.push(format::media_type(mt));
@@ -99,7 +95,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         );
     }
 
-    // Genre badges (wrapping)
     if !anime.genres.is_empty() {
         let badges: Vec<Element<'_, Message>> = anime
             .genres
@@ -123,7 +118,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         title_section = title_section.push(wrap);
     }
 
-    // Community score
     if let Some(score) = anime.mean_score {
         title_section = title_section.push(
             text(format!("\u{2605} {score:.2}"))
@@ -133,7 +127,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         );
     }
 
-    // ── Close button ──────────────────────────────────────────────
     let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
     let close_btn = button(
         container(
@@ -152,7 +145,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
 
     let top_bar = row![container("").width(Length::Fill), close_btn].align_y(Alignment::Center);
 
-    // ── Synopsis snippet ─────────────────────────────────────────
     let mut detail_content = column![
         top_bar,
         row![cover, title_section]
@@ -192,7 +184,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
         }
     }
 
-    // ── Status & Score card ──────────────────────────────────────
     let score_val = entry.score.unwrap_or(0.0);
 
     let score_dec = if score_val > 0.0 {
@@ -252,7 +243,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
 
     detail_content = detail_content.push(status_card);
 
-    // ── Episode Progress card ────────────────────────────────────
     let ep_text = match anime.episodes {
         Some(total) => format!("Episode {} / {}", entry.watched_episodes, total),
         None => format!("Episode {}", entry.watched_episodes),
@@ -320,7 +310,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
 
     detail_content = detail_content.push(progress_card);
 
-    // ── Dates & Rewatch card ──────────────────────────────────
     let rewatch_count = entry.rewatch_count;
     let rc_dec = if rewatch_count > 0 {
         Some(on_rewatch_count_changed.clone()(rewatch_count - 1))
@@ -390,7 +379,6 @@ pub fn detail_panel<'a, Message: Clone + 'static>(
 
     detail_content = detail_content.push(dates_card);
 
-    // ── Notes card ────────────────────────────────────────────
     let notes_card = container(
         column![
             text("Notes")
@@ -428,7 +416,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
     covers: &'a CoverCache,
     cover_key: i64,
 ) -> Element<'a, Message> {
-    // Cover image
     let cover = widgets::rounded_cover(
         cs,
         covers,
@@ -438,7 +425,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
         style::RADIUS_LG,
     );
 
-    // Title section
     let mut title_section = column![text(result.title.as_str())
         .size(style::TEXT_XL)
         .font(style::FONT_HEADING)
@@ -456,7 +442,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
         }
     }
 
-    // Meta line
     let mut meta_parts: Vec<String> = Vec::new();
     if let Some(mt) = &result.media_type {
         meta_parts.push(format::media_type(mt));
@@ -479,7 +464,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
         );
     }
 
-    // Genre badges
     if !result.genres.is_empty() {
         let badges: Vec<Element<'_, Message>> = result
             .genres
@@ -503,7 +487,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
         title_section = title_section.push(wrap);
     }
 
-    // Community score
     if let Some(score) = result.mean_score {
         title_section = title_section.push(
             text(format!("\u{2605} {score:.2}"))
@@ -513,7 +496,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
         );
     }
 
-    // Close button
     let close_size = style::TEXT_SM + style::SPACE_XS * 2.0;
     let close_btn = button(
         container(
@@ -541,7 +523,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
     .spacing(style::SPACE_LG)
     .padding(style::SPACE_LG);
 
-    // Synopsis
     if let Some(synopsis) = &result.synopsis {
         if !synopsis.is_empty() {
             let synopsis_card = container(
@@ -566,7 +547,6 @@ pub fn online_detail_panel<'a, Message: Clone + 'static>(
         }
     }
 
-    // "Add to Library" button
     let add_btn = button(
         row![
             lucide_icons::iced::icon_plus()
